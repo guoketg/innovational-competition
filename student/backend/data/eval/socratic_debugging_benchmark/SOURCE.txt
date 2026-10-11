@@ -1,0 +1,10 @@
+Socratic Debugging Benchmark（公开数据集）
+来源: https://github.com/taisazero/socratic-debugging-benchmark
+子集: socratic_debugging_benchmark/v2_sigcse/evaluation_dataset（150 个文件）
+许可: 论文声明 "The code and datasets are made freely available for research"
+引用:
+  - Al-Hossami et al., "Socratic Questioning of Novice Debuggers: A Benchmark
+    Dataset and Preliminary Evaluations", BEA@ACL 2023.
+  - Al-Hossami et al., "Can Language Models Employ the Socratic Method?
+    Experiments with Code Debugging", SIGCSE 2024.
+用途: 本项目"导师模型直接改代码次数"量化评测（evaluate_direct_code_rate.py）。

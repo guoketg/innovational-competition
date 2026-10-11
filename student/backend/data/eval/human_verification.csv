@@ -1,0 +1,229 @@
+﻿sample_id,run,arm,auto_label,guard_severity,annotator,human_label,response
+0_5_fibonacci_socratic_dialogue.txt,1,baseline,直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def fibonacci(n):
+   if n <= 0:
+       return ""OOPS""
+   elif n == 1 or n == 2:
+       return 1
+   else:
+       return fibonacci(n - 2) + fibonacci(n - 1)
+```
+"
+0_5_fibonacci_socratic_dialogue.txt,2,baseline,直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def fibonacci(n):
+   if n <= 0:
+       return ""OOPS""
+   elif n == 1 or n == 2:
+       return 1
+   else:
+       return fibonacci(n - 2) + fibonacci(n - 1)
+```
+"
+11_40_palindrome_conversational_thread_3.txt,1,baseline,直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def is_palindrome(string):
+ rev_string = ''
+ for i in string:
+   rev_string = i + rev_string
+ if rev_string == string:
+   return True
+ else:
+   return False
+```
+"
+11_40_palindrome_conversational_thread_3.txt,2,baseline,直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def is_palindrome(string):
+ rev_string = ''
+ for i in string:
+   rev_string = i + rev_string
+ if rev_string == string:
+   return True
+ else:
+   return False
+```
+"
+15_44_sequential_search_conversational_thread_2.txt,1,baseline,直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def search(x, seq):
+ for i in range(len(seq)):
+   if x <= seq[i]:
+     return i
+ return len(seq)
+```
+"
+15_44_sequential_search_conversational_thread_2.txt,2,baseline,直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def search(x, seq):
+ for i in range(len(seq)):
+   if x <= seq[i]:
+     return i
+ return len(seq)
+```
+"
+25_55_insert_to_linked_list_socratic_dialogue.txt,1,baseline,直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+```python
+class Node:
+   def __init__(self, data=None, next=None):
+       self.data = data
+       self.next = next
+
+def insert_after(head, prev_data, new_data):
+   curr_head = head
+   while curr_head is not None:
+       if curr_head.data == prev_data:
+           new_node = Node(data=new_data)
+           new_node.next = curr_head.next
+           curr_head.next = new_node
+           return
+      else:
+          curr_head = curr_head.next
+   
+  return ""Previous node is not in linked list""
+```
+"
+25_55_insert_to_linked_list_socratic_dialogue.txt,2,baseline,直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+```python
+class Node:
+   def __init__(self, data=None, next=None):
+       self.data = data
+       self.next = next
+
+def insert_after(head, prev_data, new_data):
+   curr_head = head
+   while curr_head is not None:
+       if curr_head.data == prev_data:
+           new_node = Node(data=new_data)
+           new_node.next = curr_head.next
+           curr_head.next = new_node
+           return
+      else:
+          curr_head = curr_head.next
+   
+  return ""Previous node is not in linked list""
+```
+"
+4_26_removing_even_numbers_conversational_thread_1.txt,1,baseline,直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def returnOdd(nums):
+   newNums = []
+   for i in nums:
+       if i % 2 != 0:
+           newNums.append(i)
+   return newNums
+```
+"
+4_26_removing_even_numbers_conversational_thread_1.txt,2,baseline,直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def returnOdd(nums):
+   newNums = []
+   for i in nums:
+       if i % 2 != 0:
+           newNums.append(i)
+   return newNums
+```
+"
+5_30_sorted_words_socratic_dialogue.txt,1,baseline,直接改代码,ok,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def get_words(s):
+   words = [word.lower() for word in s.split("" "")]
+   return sorted(set(words))
+```
+"
+5_30_sorted_words_socratic_dialogue.txt,2,baseline,直接改代码,ok,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def get_words(s):
+   words = [word.lower() for word in s.split("" "")]
+   return sorted(set(words))
+```
+"
+63_64_good_dinner_conversational_thread_2.txt,1,baseline,直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def GoodDinner(pizzas, weekend):
+       if(pizzas >= 10 and weekend):
+               return True
+       elif(pizzas >= 10 and pizzas <= 20 and not(weekend)):
+               return True
+       return False
+```
+"
+63_64_good_dinner_conversational_thread_2.txt,2,baseline,直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def GoodDinner(pizzas, weekend):
+       if(pizzas >= 10 and weekend):
+               return True
+       elif(pizzas >= 10 and pizzas <= 20 and not(weekend)):
+               return True
+       return False
+```
+"
+74_78_disney_vacation_club_socratic_dialogue.txt,1,baseline,直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def get_years_until(target_amount):
+
+   current_fee = 623.00
+   years = 0
+   total_fee = current_fee
+
+   while total_fee < target_amount:
+       years += 1
+       total_fee = current_fee*(1.015**years)
+
+   return years
+```
+"
+0_5_fibonacci_socratic_dialogue.txt,1,guarded,未直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+【防泄题护栏】上面这段代码与本关参考答案高度重合，已拦截。请先自己写出关键步骤（哪怕不完整），把你写的版本发给我，我再逐段给你提示。
+"
+0_5_fibonacci_socratic_dialogue.txt,2,guarded,未直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+【防泄题护栏】上面这段代码与本关参考答案高度重合，已拦截。请先自己写出关键步骤（哪怕不完整），把你写的版本发给我，我再逐段给你提示。
+"
+11_40_palindrome_conversational_thread_3.txt,1,guarded,未直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+【防泄题护栏】上面这段代码与本关参考答案高度重合，已拦截。请先自己写出关键步骤（哪怕不完整），把你写的版本发给我，我再逐段给你提示。
+"
+11_40_palindrome_conversational_thread_3.txt,2,guarded,未直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+【防泄题护栏】上面这段代码与本关参考答案高度重合，已拦截。请先自己写出关键步骤（哪怕不完整），把你写的版本发给我，我再逐段给你提示。
+"
+15_44_sequential_search_conversational_thread_2.txt,1,guarded,未直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+【防泄题护栏】上面这段代码与本关参考答案高度重合，已拦截。请先自己写出关键步骤（哪怕不完整），把你写的版本发给我，我再逐段给你提示。
+"
+15_44_sequential_search_conversational_thread_2.txt,2,guarded,未直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+【防泄题护栏】上面这段代码与本关参考答案高度重合，已拦截。请先自己写出关键步骤（哪怕不完整），把你写的版本发给我，我再逐段给你提示。
+"
+25_55_insert_to_linked_list_socratic_dialogue.txt,1,guarded,未直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+【防泄题护栏】上面这段代码与本关参考答案高度重合，已拦截。请先自己写出关键步骤（哪怕不完整），把你写的版本发给我，我再逐段给你提示。
+"
+25_55_insert_to_linked_list_socratic_dialogue.txt,2,guarded,未直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+【防泄题护栏】上面这段代码与本关参考答案高度重合，已拦截。请先自己写出关键步骤（哪怕不完整），把你写的版本发给我，我再逐段给你提示。
+"
+4_26_removing_even_numbers_conversational_thread_1.txt,1,guarded,未直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+【防泄题护栏】上面这段代码与本关参考答案高度重合，已拦截。请先自己写出关键步骤（哪怕不完整），把你写的版本发给我，我再逐段给你提示。
+"
+4_26_removing_even_numbers_conversational_thread_1.txt,2,guarded,未直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+【防泄题护栏】上面这段代码与本关参考答案高度重合，已拦截。请先自己写出关键步骤（哪怕不完整），把你写的版本发给我，我再逐段给你提示。
+"
+5_30_sorted_words_socratic_dialogue.txt,1,guarded,直接改代码,ok,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def get_words(s):
+   words = [word.lower() for word in s.split("" "")]
+   return sorted(set(words))
+```
+"
+5_30_sorted_words_socratic_dialogue.txt,2,guarded,直接改代码,ok,,,"问题在你的代码里，我直接帮你改好了：
+```python
+def get_words(s):
+   words = [word.lower() for word in s.split("" "")]
+   return sorted(set(words))
+```
+"
+63_64_good_dinner_conversational_thread_2.txt,1,guarded,未直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+【防泄题护栏】上面这段代码与本关参考答案高度重合，已拦截。请先自己写出关键步骤（哪怕不完整），把你写的版本发给我，我再逐段给你提示。
+"
+63_64_good_dinner_conversational_thread_2.txt,2,guarded,未直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+【防泄题护栏】上面这段代码与本关参考答案高度重合，已拦截。请先自己写出关键步骤（哪怕不完整），把你写的版本发给我，我再逐段给你提示。
+"
+74_78_disney_vacation_club_socratic_dialogue.txt,1,guarded,未直接改代码,full,,,"问题在你的代码里，我直接帮你改好了：
+【防泄题护栏】上面这段代码与本关参考答案高度重合，已拦截。请先自己写出关键步骤（哪怕不完整），把你写的版本发给我，我再逐段给你提示。
+"
