@@ -25,6 +25,8 @@ venv/
 *.bak
 *.bak.json
 
+.hf_cache
+
 # ===== 日志 =====
 debug.log
 *.log
@@ -118,6 +120,13 @@ local-llm/*.log
 ~$*.doc
 ~$*.pptx
 ~$*.xlsx
+
+# ===== 评测基准数据（外部克隆仓库 / 体积大，禁止入库）=====
+student/backend/data/eval/CREF_TutorCode/
+student/backend/data/eval/hints_in_browser/
+student/backend/data/eval/mathtutorbench/
+student/backend/data/eval/tutorbench_hf/
+student/backend/data/eval/tutorbench_sample.parquet
 
 # ===== 本地机密（H200 SSH 等，禁止入库）=====
 secrets.local.md

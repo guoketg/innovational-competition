@@ -30,6 +30,14 @@ docker compose up -d --build
   4. 检查浏览器控制台是否有 JavaScript 错误
   5. 报告测试结果（通过/失败/控制台错误）
 
+## Python 运行环境约束（必须遵守）
+- **禁止使用全局 Python 环境**（系统 PATH 里的 `python`）运行本项目的任何脚本、测试或数据处理命令。
+- 一律使用**项目级虚拟环境**或 Docker：
+  - 项目 venv（当前默认）：`F:\code\MyPython\computer-cross-education\tiaozhanbei\venv\Scripts\python.exe`（或 `backend/.venv/`，按脚本所属模块选择已装好依赖的那个）
+  - 形式示例：`& "F:\code\MyPython\computer-cross-education\tiaozhanbei\venv\Scripts\python.exe" script.py`
+  - 服务类（后端/FastAPI）：优先 `docker compose up -d --build`
+- 暂时先统一用项目的虚拟环境；后续引入 Docker 跑脚本时再切换。
+
 ## 启动方式（必须优先使用 Docker）
 
 ### 方式一：Docker 一键启动（推荐，始终优先使用）
@@ -146,6 +154,10 @@ python backend/rag_builder.py --provider siliconflow --api-key <你的SiliconFlo
   ```
 - `docker compose down` 不会影响远程 PostgreSQL 数据
 - 本地 volume `backend_data` 仅用于临时缓存文件
+
+## 讲解请求的可视化约束
+- 用户提出**讲解/解释类请求**时，默认**不要**加载可视化模块（dynamic-ui / Inline Visuals / PureShowWidget），直接以文字 + 代码引用作答。
+- 如 agent 认为可视化确实更有助于理解，可**先询问**用户："可视化更容易理解，你需要补充吗？"，经用户同意后再渲染，禁止默认直接启动可视化。
 
 ## 重要注意事项
 - `backend/docker-entrypoint.sh` 必须是 **LF** 行尾符（不是 CRLF），否则容器启动报 `Illegal option -`
