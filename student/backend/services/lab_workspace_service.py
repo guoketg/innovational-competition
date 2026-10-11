@@ -1916,21 +1916,6 @@ def check_stage(
     return result
 
 
-def _teaching_move(question: str, history: list[dict]) -> str:
-    text = question.lower()
-    if any(term in text for term in ("自测", "考考我", "提问我", "检查理解")):
-        return "socratic_question"
-    if any(term in text for term in ("为什么", "作用", "原理")):
-        return "concept_link"
-    if any(term in text for term in ("提示", "卡住", "不会", "下一步")):
-        return "progressive_hint"
-    if any(term in text for term in ("报错", "错误", "失败", "不通过", "异常")):
-        return "diagnose"
-    if history and history[-1]["role"] == "assistant" and "？" in history[-1]["content"]:
-        return "evaluate_response"
-    return "guided_next_step"
-
-
 def _stage_observation(stage_result: dict) -> tuple[str, list[dict]]:
     checks = stage_result.get("checks", [])
     failed = [item for item in checks if not item.get("passed")]
@@ -2000,11 +1985,14 @@ async def ask_assistant(
                 "status": "completed" if sample_passed else "attention",
                 "detail": verdict,
             })
-    teaching_move = _teaching_move(question, history)
+    from services.teaching_policy_service import classify_move, diagnosis_focus, log_decision
+    decision = await classify_move(user_id, question, history)
+    teaching_move = decision["move"]
     hint_level = 0
     if teaching_move == "progressive_hint":
         levels = state.setdefault("tutor_hint_levels", {})
         hint_level = min(int(levels.get(current_stage["id"], 0)) + 1, 3)
+    focus_note = diagnosis_focus(state)
     role_hint = (
         "你处于 Chat 问答模式：直接解释学生的问题，不规划或声称执行项目操作。"
         if mode == "chat" else
@@ -2017,7 +2005,7 @@ async def ask_assistant(
 当前阶段：{current_stage['title']}（{current_stage['id']}）
 教学动作：{teaching_move}
 提示级别：{hint_level or '不适用'}
-
+{focus_note}
 工具观察：
 {stage_context}
 
@@ -2069,8 +2057,12 @@ async def ask_assistant(
         )
         if answer.startswith("LLM调用异常:"):
             raise ValueError(answer)
+        from services.answer_guard_service import apply_guard, load_reference_solution, log_guard_event
+        answer, guard = apply_guard(answer, load_reference_solution(exercise_id))
+        log_guard_event(guard, {"channel": "assistant", "exercise": exercise_id, "user": user_id})
         if hint_level:
             state.setdefault("tutor_hint_levels", {})[current_stage["id"]] = hint_level
+        log_decision(state, decision, question, current_stage["id"])
         _append_tutor_turn(state, question, answer)
         _write_state(root, state)
         return {
@@ -2081,6 +2073,8 @@ async def ask_assistant(
             "notice": f"已观察项目与“{current_stage['title']}”阶段",
             "pedagogical_move": teaching_move,
             "hint_level": hint_level,
+            "decision_confidence": decision.get("confidence"),
+            "guard": guard.to_dict(),
             "observations": observations,
             "learning_context": public_learning_context(learning_context),
         }
@@ -2420,11 +2414,14 @@ async def ask_assistant_streaming(
         _next_course_stage(course, state.get("completed_stages", [])),
     )
     completed = state.get("completed_stages", [])
-    teaching_move = _teaching_move(question, history)
+    from services.teaching_policy_service import classify_move, diagnosis_focus, log_decision
+    decision = await classify_move(user_id, question, history)
+    teaching_move = decision["move"]
     hint_level = 0
     if teaching_move == "progressive_hint":
         levels = state.setdefault("tutor_hint_levels", {})
         hint_level = min(int(levels.get(current_stage["id"], 0)) + 1, 3)
+    focus_note = diagnosis_focus(state)
 
     # Runtime check
     runtime = _assistant_runtime(user_id)
@@ -2450,6 +2447,7 @@ async def ask_assistant_streaming(
 【学生问题】{question}
 【当前打开文件】{active_file or '无'}
 {hints_instruction}
+{focus_note}
 
 【可用工具】使用工具按需查看代码和项目状态，不要猜测：
 - read_project_file(path): 读取项目中的代码文件
@@ -2507,6 +2505,19 @@ async def ask_assistant_streaming(
     observations = []
     collected_answer = ""
 
+    from services.answer_guard_service import (
+        GuardedStreamFilter, apply_guard, load_reference_solution, log_guard_event,
+    )
+    guard_filter = GuardedStreamFilter(load_reference_solution(exercise_id))
+
+    def _guarded_events(parts):
+        """过滤器产物 → SSE 行序列（text 原样下发，guard 事件单独下发）。"""
+        for kind, payload in parts:
+            if kind == "event":
+                yield _json.dumps(payload, ensure_ascii=False) + "\n"
+            else:
+                yield _json.dumps({"type": "text", "content": payload}, ensure_ascii=False) + "\n"
+
     try:
         # Disable DeepSeek thinking mode — prevents reasoning_content which
         # requires round-trip preservation across all messages in conversation.
@@ -2534,7 +2545,8 @@ async def ask_assistant_streaming(
                     chunk_content = chunk.content if hasattr(chunk, 'content') and chunk.content else ""
                     if chunk_content:
                         full_content += chunk_content
-                        yield _json.dumps({"type": "text", "content": chunk_content}, ensure_ascii=False) + "\n"
+                        for guard_line in _guarded_events(guard_filter.feed(chunk_content)):
+                            yield guard_line
 
                     # Reasoning content (DeepSeek thinking mode) — must preserve for API
                     try:
@@ -2547,8 +2559,13 @@ async def ask_assistant_streaming(
 
                 if merged_chunk is not None:
                     tool_calls_buffer = _normalized_lab_tool_calls(merged_chunk)
+                # 轮次边界：结算未闭合围栏，防止跨轮错位
+                for guard_line in _guarded_events(guard_filter.end_round()):
+                    yield guard_line
             except Exception as stream_err:
                 logger.warning("Lab tutor stream error in round %s: %s", _round, stream_err)
+                for guard_line in _guarded_events(guard_filter.end_round()):
+                    yield guard_line
                 if merged_chunk is not None:
                     tool_calls_buffer = _normalized_lab_tool_calls(merged_chunk)
                 # If we have tool calls accumulated, try to execute them and continue
@@ -2646,7 +2663,10 @@ async def ask_assistant_streaming(
                     summary = await llm_with_tools.ainvoke(llm_messages)
                     collected_answer = summary.content or ""
                     if collected_answer:
-                        yield _json.dumps({"type": "text", "content": collected_answer}, ensure_ascii=False) + "\n"
+                        for guard_line in _guarded_events(guard_filter.feed(collected_answer)):
+                            yield guard_line
+                        for guard_line in _guarded_events(guard_filter.end_round()):
+                            yield guard_line
                 except Exception:
                     collected_answer = "（工具调用完成，请根据结果继续提问）"
 
@@ -2662,14 +2682,24 @@ async def ask_assistant_streaming(
         }, ensure_ascii=False) + "\n"
         return
 
-    # Persist conversation
+    # Persist conversation（持久化前兜底过一遍护栏，防止泄漏答案进入对话历史）
+    final_guard = None
     if collected_answer:
+        collected_answer, final_guard = apply_guard(
+            collected_answer, load_reference_solution(exercise_id)
+        )
+        if final_guard.blocked and not guard_filter.blocked_count:
+            log_guard_event(final_guard, {"channel": "assistant_stream", "exercise": exercise_id, "user": user_id})
         if hint_level:
             state.setdefault("tutor_hint_levels", {})[current_stage["id"]] = hint_level
+        log_decision(state, decision, question, current_stage["id"])
         _append_tutor_turn(state, question, collected_answer)
         _write_state(root, state)
 
-    yield _json.dumps({
+    for guard_line in _guarded_events(guard_filter.close()):
+        yield guard_line
+
+    done_payload = {
         "type": "done",
         "status": "ready",
         "available": True,
@@ -2677,5 +2707,12 @@ async def ask_assistant_streaming(
         "notice": f"已观察项目与“{current_stage['title']}”阶段",
         "pedagogical_move": teaching_move,
         "hint_level": hint_level,
+        "decision_confidence": decision.get("confidence"),
         "observations": observations,
-    }, ensure_ascii=False) + "\n"
+    }
+    if final_guard is not None:
+        done_payload["guard"] = {
+            **final_guard.to_dict(),
+            "blocked_blocks": guard_filter.blocked_count,
+        }
+    yield _json.dumps(done_payload, ensure_ascii=False) + "\n"

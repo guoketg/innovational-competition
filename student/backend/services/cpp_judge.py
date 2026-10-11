@@ -734,8 +734,10 @@ def run_cpp_judge(code: str, spec: dict, expected_total: int, timeout: int) -> d
                 )
             if compile_proc.returncode != 0:
                 return _fail(_first_compiler_error(compile_proc.stderr or compile_proc.stdout))
+            # Windows 上没有 "./prog" 这种写法（产物是 prog.exe），用绝对路径两边通用
+            prog_path = Path(temp_dir) / ("prog.exe" if os.name == "nt" else "prog")
             run_proc = subprocess.run(
-                ["./prog"],
+                [str(prog_path)],
                 cwd=temp_dir, capture_output=True, text=True,
                 encoding="utf-8", errors="replace", timeout=timeout,
                 preexec_fn=_run_limits if os.name == "posix" else None,
