@@ -1,0 +1,124 @@
+# ===== 依赖 =====
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.playwright-mcp
+
+# ===== 构建产物 =====
+dist/
+.vite/
+*.zip
+
+# ===== 数据库 =====
+*.db
+*.sqlite
+*.sqlite3
+
+# ===== Python =====
+.venv/
+venv/
+*.egg-info/
+.eggs/
+
+# ===== 备份文件 =====
+*.bak
+*.bak.json
+
+# ===== 日志 =====
+debug.log
+*.log
+
+# ===== 临时文件 =====
+tmp_*.json
+*.tmp
+tmp/
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== 环境变量（保留 .env.example 模板）=====
+.env
+.env.*
+!.env.example
+.env.local
+.env.*.local
+
+# ===== 知识库（含索引入口密钥，体积大，可重建）=====
+**/knowledge_base/
+
+# ===== 浏览器配置目录（Playwright/Edge 运行产物）=====
+.edge-fresh/
+
+# ===== Claude =====
+.claude/settings.local.json
+
+# ===== 大文件/数据文件 =====
+*.pdf
+*.bin
+*.safetensors
+*.gguf
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.h5
+*.tflite
+*.pickle
+**/chroma_db/
+**/dataset/backup/
+**/hub/
+/models/
+/weights/
+/checkpoints/
+local-llm/models/
+local-llm/weights/
+local-llm/checkpoints/
+
+# ===== Docker =====
+docker-compose.override.yml
+.venv-local-llm/
+local-llm/*.log
+**/.llm-key-secret
+**/.student-key-secret
+
+# ===== 演示/抓取截图（根目录散落的演示产物）=====
+/shot-*.png
+/cap-loop-*.png
+/lab-1-1*.png
+/stage-check.png
+/portal-home.png
+/qa-rag-sources.png
+/live-learning-docs-44.png
+/live-resources.png
+
+# ===== 抓取/分析工作目录（临时脚本、node_modules、线上副本、可能含密钥）=====
+/.ppt-capture/
+/nginx-analysis/
+/.superpowers/
+
+# ===== 根目录临时文件 =====
+/_1-1_meta.txt
+/_wf_result.json
+
+# ===== 文档临时文件 =====
+/docs/_outlook.json
+
+# ===== Office 锁文件 =====
+~$*.docx
+~$*.doc
+~$*.pptx
+~$*.xlsx
+
+# ===== 本地机密（H200 SSH 等，禁止入库）=====
+secrets.local.md
+*.secret.txt
+*.secret.md

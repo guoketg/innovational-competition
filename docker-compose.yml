@@ -1,0 +1,71 @@
+# ─── AI智能体学科学习平台 — 根目录一键启动 ─────────────────
+#   docker compose up -d
+#
+# 大前端 → http://localhost:9000
+# 学生端 → http://localhost:80
+
+services:
+  # ============================================================
+  #  大前端 — 统一入口页面
+  # ============================================================
+  portal:
+    image: nginx:alpine
+    container_name: edu-platform-portal
+    ports:
+      - "9000:80"
+    volumes:
+      - ./portal/index.html:/usr/share/nginx/html/index.html:ro
+      - ./portal/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped
+
+  # ============================================================
+  #  学生端服务
+  # ============================================================
+  student-backend:
+    build: ./student/backend
+    container_name: ai-learning-backend
+    ports:
+      - "8001:8000"
+    volumes:
+      - student_backend_data:/app/data
+      - ./student/backend/data:/app/seed-data:ro
+      - ./student/learning_materials:/learning_materials:ro
+      - ./student/pdf:/pdf:ro
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-}
+      # 生产环境必须通过 .env 显式设置强随机 JWT_SECRET_KEY；默认值仅供本地演示互通。
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-local-dev-jwt-secret-32}
+      - CORS_ORIGIN=${CORS_ORIGIN:-}
+      - LAB_RUNTIME_EXECUTION_ENABLED=${LAB_RUNTIME_EXECUTION_ENABLED:-false}
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+      - EMBEDDING_RUNTIME_MODE=siliconflow
+      - SILICONFLOW_API_KEY=${SILICONFLOW_API_KEY:-}
+      - SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
+      - EMBEDDING_MEMORY_CACHE_SIZE=256
+      - LOCAL_GPU_MODEL_AUTO=${LOCAL_GPU_MODEL_AUTO:-0}
+      - LOCAL_GPU_MODEL_BASE_URL=http://host.docker.internal:8010/v1
+      - LOCAL_GPU_MODEL_NAME=edu-ta-qwen3-1.7b-local
+    command: ["sh", "/app/docker-entrypoint.sh"]
+    restart: unless-stopped
+    networks:
+      - student-net
+
+  student-frontend:
+    build: ./student/frontend
+    container_name: ai-learning-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - student-backend
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - student-net
+
+networks:
+  student-net:
+    driver: bridge
+
+volumes:
+  student_backend_data:
