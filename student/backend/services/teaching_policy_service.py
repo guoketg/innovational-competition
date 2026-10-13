@@ -155,6 +155,14 @@ def diagnosis_focus(state: dict) -> str:
 
 
 # ── 掌握度驱动的提示级别 ──
+# 掌握度分档阈值的唯一定义（#21 口径统一）：
+# - mastery_hint_level 的“掌握度高/中/低”三档；
+# - answer_guard_service.RELEASE_MIN_MASTERY 的释放阀；
+# 两处都引用这里，保证“掌握度高”在提示与释放是同一参数框架。
+
+MASTERY_HIGH = 0.7   # ≥：掌握度高 → 提示保守（上限 2 级）/ 护栏放行
+MASTERY_LOW = 0.4    # ≥：中档（1→2→3 阶梯）；<：低档（起点即 2 级）
+
 
 def stage_mastery(state: dict, stage_id: str) -> float:
     """当前阶段掌握度估计，0..1。
@@ -181,6 +189,19 @@ def stage_mastery(state: dict, stage_id: str) -> float:
     return round(score / weight, 3)
 
 
+def hint_tiers(mastery: float) -> tuple[int, int]:
+    """掌握度 → 渐进提示的 (起点级别, 上限级别)。
+
+    实验导师（mastery_hint_level）与 QA 主通道（qa_move_directive）
+    共用的阶梯分档，是全平台提示阶梯的主口径（#27 答辩口径）。
+    """
+    if mastery >= MASTERY_HIGH:
+        return 1, 2
+    if mastery >= MASTERY_LOW:
+        return 1, 3
+    return 2, 3
+
+
 def mastery_hint_level(state: dict, stage_id: str, prev_level: int) -> int:
     """掌握度驱动的渐进提示级别（替代固定「上次+1」）。
 
@@ -188,11 +209,37 @@ def mastery_hint_level(state: dict, stage_id: str, prev_level: int) -> int:
     - 掌握度中（0.4~0.7）：常规 1→2→3 阶梯；
     - 掌握度低（<0.4）：跳过纯方向提示，起点即 2 级（结构），阶梯到 3。
     """
-    mastery = stage_mastery(state, stage_id)
-    if mastery >= 0.7:
-        start, cap = 1, 2
-    elif mastery >= 0.4:
-        start, cap = 1, 3
-    else:
-        start, cap = 2, 3
+    start, cap = hint_tiers(stage_mastery(state, stage_id))
     return min(max(int(prev_level) + 1, start), cap)
+
+
+async def qa_move_directive(
+    user_id: int, question: str, history: list | None, mastery: float
+) -> str:
+    """QA 主通道的苏格拉底教学动作注入（#22）。
+
+    classify_move 判定本轮教学动作，hint_tiers 按掌握度给渐进提示阶梯
+    （与实验导师同一分档），拼成注入 prompt 的指令段。任何异常返回空串，
+    绝不阻塞答疑主流程。
+    """
+    try:
+        decision = await classify_move(user_id, question, history or [])
+    except Exception:
+        return ""
+    move = str(decision.get("move") or "")
+    if not move:
+        return ""
+    start, cap = hint_tiers(mastery)
+    return (
+        "\n\n【教学动作决策】"
+        f"move={move}（{decision.get('source')}，置信度{decision.get('confidence')}）；"
+        f"掌握度 {mastery:.2f} → 渐进提示阶梯：起点 {start} 级、上限 {cap} 级"
+        "（与实验导师同一分档参数）。\n"
+        "执行要求：\n"
+        "- socratic_question：只提一个能检验理解的问题就停下，等学生回答，不直接给答案。\n"
+        f"- progressive_hint：按阶梯给提示——先给 {start} 级"
+        "（1=只提方向，2=定位结构，3=给局部示例），本题最高不超过 "
+        f"{cap} 级，任何情况下不贴完整实现。\n"
+        "- evaluate_response：先评价学生上一轮的回答，再补充纠正。\n"
+        "- diagnose / guided_next_step / concept_link：先给判断依据，再一次只推进一个学习目标。"
+    )

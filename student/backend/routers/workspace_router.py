@@ -148,7 +148,13 @@ async def run_samples(exercise_id: str, current_user: dict = Depends(get_current
 async def judge(exercise_id: str, current_user: dict = Depends(get_current_user)):
     """PTA 式提交评测：跑本关全部测试点，含不下发的隐藏用例。"""
     try:
-        return APIResponse(data=lab_workspace_service.submit_judge(current_user["id"], exercise_id))
+        data = lab_workspace_service.submit_judge(current_user["id"], exercise_id)
+        # 未通过时补一次 LLM 个性化讲解；讲解失败不阻塞判题结果返回。
+        if not data.get("passed"):
+            data["ai_explanation"] = await lab_workspace_service.explain_judge_failure(
+                current_user["id"], exercise_id, data
+            )
+        return APIResponse(data=data)
     except Exception as exc:
         _fail(exc)
 

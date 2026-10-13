@@ -171,7 +171,8 @@ def _rewrite_question(question: str) -> str:
 
 
 async def answer_question(user_id: int, question: str, question_type: str = "text",
-                          explanation_level: str = "standard", context: str = "") -> dict:
+                          explanation_level: str = "standard", context: str = "",
+                          history: list[dict] | None = None) -> dict:
     """AI答疑"""
     learning_context = build_learning_context(user_id, question)
     # 自动检测代码输入
@@ -212,6 +213,18 @@ async def answer_question(user_id: int, question: str, question_type: str = "tex
             question_type=question_type,
             context=context or "无额外上下文"
         )
+
+        # #22 苏格拉底阶梯：接入 classify_move + 掌握度分档（与实验导师同一参数）
+        try:
+            from services.teaching_policy_service import qa_move_directive
+            from services.personalization_service import get_overall_mastery
+            directive = await qa_move_directive(
+                user_id, question, history, get_overall_mastery(user_id)
+            )
+            if directive:
+                prompt += directive
+        except Exception:
+            pass  # 教学动作注入失败不影响答疑主流程
 
         # 构建system prompt
         system_prompt = """你是"AI智能体学科学习平台"的AI导师。你的学生正在学习人工智能和AI Agent相关知识。

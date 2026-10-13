@@ -357,6 +357,11 @@ class ReleaseValveTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(evaluate_mastery("", "1-1"), 0.0)
         self.assertEqual(evaluate_mastery("u", ""), 0.0)
 
+    def test_release_min_mastery_shares_hint_threshold_constant(self):
+        # #21 口径统一：释放阀与 mastery_hint_level 的“掌握度高”档共用同一常量
+        from services.teaching_policy_service import MASTERY_HIGH
+        self.assertEqual(RELEASE_MIN_MASTERY, MASTERY_HIGH)
+
     def test_apply_guard_release_passes_full_answer_through(self):
         guarded, verdict = apply_guard(LEAK_ANSWER, REF, release=True)
         self.assertEqual(guarded, LEAK_ANSWER)      # 完整参考实现原样保留

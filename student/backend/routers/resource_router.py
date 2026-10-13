@@ -247,11 +247,8 @@ async def batch_delete_pdfs(req: BatchDeletePdfRequest, current_user: dict = Dep
 
 # ===== 编程习题 =====
 
-import re as _re
-import glob as _glob
-
-EXERCISES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "exercises")
-EXERCISES_PROCESSED = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "exercises_processed.json")
+# 50 道非旗舰旧题已彻底下线（2026-10 决策：旧比赛题库不再维护），
+# 题库对外只发布经过私有业务场景验证的 13 关旗舰题。
 FLAGSHIP_EXERCISES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "flagship_exercises.json")
 
 
@@ -262,68 +259,9 @@ def _load_flagship_exercises():
     except Exception:
         return []
 
-def _parse_exercise(text):
-    lines = text.strip().split("\n")
-    info = {"id": "", "module": "", "title": "", "description": "", "input_output": "", "starter_code": "", "eval_code": ""}
-    section = None
-    buf = []
-    for line in lines:
-        if line.startswith("关卡 ") and "：" in line:
-            info["id"] = line.split("：")[0].replace("关卡 ", "").strip()
-            info["title"] = line.split("：", 1)[1].strip() if "：" in line else ""
-        elif line.startswith("所属模块："):
-            info["module"] = line.replace("所属模块：", "").strip()
-        elif line.startswith("【任务描述】"):
-            if section == "desc": info["description"] = "\n".join(buf).strip()
-            buf = []; section = "desc"
-        elif line.startswith("【输入输出说明】"):
-            if section == "desc": info["description"] = "\n".join(buf).strip()
-            buf = []; section = "io"
-        elif line.startswith("【初始代码】"):
-            if section == "io": info["input_output"] = "\n".join(buf).strip()
-            buf = []; section = "starter"
-        elif line.startswith("【评测代码】"):
-            if section == "starter":
-                raw = "\n".join(buf)
-                m = _re.search(r'```python\s*\n(.*?)```', raw, _re.DOTALL)
-                info["starter_code"] = m.group(1).strip() if m else raw.strip()
-            buf = []; section = "eval"
-        elif line.startswith("---") or line.startswith("==="):
-            continue
-        else:
-            buf.append(line)
-    if section == "eval":
-        raw = "\n".join(buf)
-        m = _re.search(r'```python\s*\n(.*?)```', raw, _re.DOTALL)
-        info["eval_code"] = m.group(1).strip() if m else raw.strip()
-    return info if info["id"] else None
-
-
-def _load_all_exercises():
-    # 优先使用预处理后的习题（含骨架代码 + 测试代码 + 标记）
-    if os.path.exists(EXERCISES_PROCESSED):
-        try:
-            with open(EXERCISES_PROCESSED, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    # 降级: 从原始 .txt 文件加载
-    exercises = []
-    files = sorted(_glob.glob(os.path.join(EXERCISES_DIR, "module_*.txt")))
-    for fpath in files:
-        content = open(fpath, "r", encoding="utf-8").read()
-        parts = _re.split(r'\n(?=关卡 \d+-\d+：)', content)
-        for part in parts:
-            ex = _parse_exercise(part.strip())
-            if ex and ex["id"]:
-                exercises.append(ex)
-    return exercises
-
 
 @router.get("/exercises", response_model=APIResponse)
 async def list_exercises(module: str = None):
-    # 主入口只发布经过私有业务场景验证的旗舰题。旧题仍可按 ID 访问，
-    # 但不再用数量制造“课程很深”的错觉。
     all_ex = _load_flagship_exercises()
     if module:
         all_ex = [e for e in all_ex if module in e.get("module", "")]
@@ -334,8 +272,8 @@ async def list_exercises(module: str = None):
 
 @router.get("/exercises/{exercise_id}", response_model=APIResponse)
 async def get_exercise(exercise_id: str):
-    all_ex = _load_flagship_exercises() + _load_all_exercises()
-    for e in all_ex:
+    # 仅旗舰关卡可访问，非旗舰旧题一律 404（已下线）。
+    for e in _load_flagship_exercises():
         if e["id"] == exercise_id:
             return APIResponse(data=e)
-    raise HTTPException(status_code=404, detail="习题不存在")
+    raise HTTPException(status_code=404, detail="习题不存在或已下线")

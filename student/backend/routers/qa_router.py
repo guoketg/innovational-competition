@@ -15,7 +15,6 @@ from services.agent_tool_service import plan_and_execute_tools
 from services.conversation_export_service import iter_conversation_jsonl
 from services.file_parser import parse_file
 from services.evolution_service import extract_pattern, find_similar_patterns, evolve
-from services.student_model import get_student_profile, record_qa_activity
 from services.personalization_service import (
     build_personalized_system_prompt,
     create_conversation,
@@ -24,7 +23,9 @@ from services.personalization_service import (
     get_or_create_current_conversation,
     get_conversation_history,
     get_knowledge_point_detail,
+    get_mastery_profile,
     get_memory_overview,
+    get_overall_mastery,
     create_memory_fact,
     update_memory_fact,
     delete_memory_fact,
@@ -35,6 +36,7 @@ from services.personalization_service import (
 )
 from database import get_db
 from services.guidance_context_service import build_learning_context, public_learning_context
+from services.teaching_policy_service import qa_move_directive
 from services.mind_map_service import get_mind_map
 from services.answer_guard_service import (
     GuardedStreamFilter, REGEN_FEEDBACK, apply_guard, detect_exercise,
@@ -101,7 +103,8 @@ async def ask_question(req: QARequest, current_user: dict = Depends(get_current_
         question=req.question,
         question_type=req.question_type,
         explanation_level=req.explanation_level,
-        context=req.context
+        context=req.context,
+        history=req.history or [],
     )
     return APIResponse(data=result)
 
@@ -507,10 +510,20 @@ async def ask_question_stream(req: QARequest, current_user: dict = Depends(get_c
                     pattern_text += f"模式{i}（相似度{p['score']:.2f}）：\n问：{p['question'][:300]}\n答：{p['answer'][:500]}\n\n"
                 prompt += pattern_text
 
-            profile = get_student_profile(current_user["id"])
+            profile = get_mastery_profile(current_user["id"])
             if profile["weaknesses"] or profile["strengths"]:
                 profile_text = f"\n\n【当前学生画像】强项：{', '.join(s['tag'] for s in profile['strengths'][:3]) or '暂无'}；薄弱：{', '.join(w['tag'] for w in profile['weaknesses'][:3]) or '暂无'}。请针对薄弱点重点讲解。"
                 prompt += profile_text
+
+            # #22 苏格拉底阶梯：classify_move + 掌握度分档注入（与实验导师同一参数）
+            directive = await qa_move_directive(
+                current_user["id"],
+                req.question,
+                persisted_history or (req.history or []),
+                get_overall_mastery(current_user["id"]),
+            )
+            if directive:
+                prompt += directive
         except Exception:
             pass  # 进化注入失败不影响主流程
 
@@ -857,12 +870,6 @@ async def save_qa(req: QASaveRequest, current_user: dict = Depends(get_current_u
         conn.close()
         if row:
             actual_conversation_id = row["session_id"]
-    # 【自进化】记录学习活动
-    try:
-        tags = qa_service.identify_knowledge_tags(req.question)
-        record_qa_activity(current_user["id"], tags)
-    except Exception:
-        pass
     return APIResponse(data={"id": qa_id, "conversation_id": actual_conversation_id, "message": "保存成功"})
 
 
@@ -903,11 +910,6 @@ async def save_assistant_msg(req: QASaveRequest, current_user: dict = Depends(ge
         learning_analysis=req.learning_analysis,
         memory_updates=req.memory_updates,
     )
-    # 【自进化】记录学习活动
-    try:
-        record_qa_activity(current_user["id"], tags)
-    except Exception:
-        pass
     return APIResponse(data={
         "message_id": result["message_id"],
         "conversation_id": req.conversation_id,

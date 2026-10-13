@@ -357,54 +357,12 @@ def _has_code_body(code: str) -> bool:
 
 
 def _load_exercise_by_id(exercise_id: str) -> dict | None:
-    """从习题文件中加载指定ID的习题数据"""
-    # 项目制实验优先，确保参考答案也使用当前课程契约。
+    """加载指定 ID 的旗舰习题数据（50 道非旗舰旧题已下线，不再提供）"""
     try:
         from services.judge_service import get_flagship_exercise
-        flagship = get_flagship_exercise(exercise_id)
-        if flagship:
-            return flagship
+        return get_flagship_exercise(exercise_id)
     except Exception:
-        pass
-
-    import os as _os, glob as _glob
-    exercises_dir = _os.path.join(
-        _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
-        "data", "exercises"
-    )
-    for fpath in sorted(_glob.glob(_os.path.join(exercises_dir, "module_*.txt"))):
-        content = open(fpath, "r", encoding="utf-8").read()
-        # 解析单个习题块
-        import re as _re
-        parts = _re.split(r'\n(?=关卡 \d+-\d+：)', content)
-        for part in parts:
-            m = _re.match(r'关卡\s*(\d+-\d+)', part.strip())
-            if not m or m.group(1) != exercise_id:
-                continue
-
-            ex = {"id": exercise_id}
-            # 标题
-            tm = _re.search(r'：(.+?)$', part.split('\n')[0])
-            if tm:
-                ex["title"] = tm.group(1).strip()
-            # 模块
-            mm = _re.search(r'所属模块[：:]\s*(.+?)$', part, _re.MULTILINE)
-            if mm:
-                ex["module"] = mm.group(1).strip()
-            # 描述
-            desc_m = _re.search(r'【任务描述】\s*\n(.*?)(?=【[输初评]|$)', part, _re.DOTALL)
-            if desc_m:
-                ex["description"] = desc_m.group(1).strip()
-            # starter code
-            sc_m = _re.search(r'```python\s*\n(.*?)```', part, _re.DOTALL)
-            if sc_m:
-                ex["starter_code"] = sc_m.group(1).strip()
-            # eval code (from the second code block)
-            all_code_blocks = list(_re.finditer(r'```python\s*\n(.*?)```', part, _re.DOTALL))
-            if len(all_code_blocks) >= 2:
-                ex["eval_code"] = all_code_blocks[1].group(1).strip()
-            return ex
-    return None
+        return None
 
 
 def _extract_eval_hints(eval_code: str) -> str:
@@ -454,19 +412,12 @@ async def _validate_code_in_sandbox(code: str, language: str = "python",
             except Exception as exc:
                 return False, f"服务端私有场景验证异常：{str(exc)[:240]}"
 
-        # 非旗舰关卡：只有 Python 有沙箱注入测试驱动的验证路径
+        # 非旗舰关卡（旧题已下线，此处仅剩通用运行校验）：只有 Python 有沙箱验证路径
         if language.lower() not in ("python", "py", "python3"):
             return True, ""  # 非 Python 暂不验证
 
-        # 如果代码没有 __main__ 测试入口，尝试注入测试驱动
         test_code = code
         has_test_driver = 'if __name__' in code or '__main__' in code
-
-        if not has_test_driver and exercise_id:
-            injected = _inject_test_driver(code, exercise_id)
-            if injected:
-                test_code = injected
-                has_test_driver = True
 
         with tempfile.TemporaryDirectory() as tmp:
             src = _os.path.join(tmp, "main.py")
@@ -527,6 +478,12 @@ async def get_code_answer_by_problem(req: CodeAnswerByProblemRequest, current_us
     4. 如果验证失败，用错误信息修复并重试（最多2次）
     """
     import subprocess, tempfile, os as _os, shutil
+
+    # 50 道非旗舰旧题已彻底下线：不再为旧题加载题面或生成参考答案
+    if req.exercise_id:
+        from services.judge_service import is_flagship_exercise
+        if not is_flagship_exercise(req.exercise_id):
+            return APIResponse(code=410, message="该旧题已下线，平台仅保留旗舰关卡训练", data=None)
 
     try:
         # ===== 0. 检查参考答案缓存 =====
@@ -713,7 +670,7 @@ async def evaluate_code_submission(req: CodeEvaluateRequest, current_user: dict 
         if not is_flagship_exercise(req.exercise_id):
             return APIResponse(
                 code=410,
-                message="该旧题已停止判题，待按真实业务场景和服务端私有测试标准重制",
+                message="该旧题已下线，平台仅保留旗舰关卡训练",
                 data=None,
             )
 
@@ -808,87 +765,6 @@ def _evaluate_with_embedded_tests(code: str) -> dict:
             'compile_error': f'评测异常: {str(e)}',
             'results': [], 'execution_time': round(_time.time() - start, 3)
         }
-
-
-def _inject_test_driver(user_code: str, exercise_id: str) -> str | None:
-    """当用户代码缺少 __main__ 测试入口时，从题库骨架代码中提取测试驱动并注入。
-
-    返回组合后的完整代码，如果找不到该题目的骨架代码则返回 None。
-    """
-    import json as _json, os as _os, re as _re
-
-    # 加载题库数据
-    processed_path = _os.path.join(
-        _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
-        "data", "exercises_processed.json"
-    )
-    if not _os.path.exists(processed_path):
-        return None
-
-    try:
-        with open(processed_path, 'r', encoding='utf-8') as f:
-            exercises = _json.load(f)
-    except Exception:
-        return None
-
-    # 查找目标题目的骨架代码
-    skeleton_code = ""
-    for ex in exercises:
-        if ex.get('id') == exercise_id:
-            skeleton_code = ex.get('skeleton_code', '')
-            break
-
-    if not skeleton_code:
-        return None
-
-    # 从骨架代码中提取 __main__ 测试块
-    main_idx = skeleton_code.find("if __name__")
-    if main_idx < 0:
-        # 尝试匹配 "if __name__" 的各种变体
-        import re as _re2
-        m = _re2.search(r'if\s+__name__\s*==\s*[\'"]__main__[\'"]', skeleton_code)
-        if m:
-            main_idx = m.start()
-
-    if main_idx < 0:
-        return None
-
-    test_block = skeleton_code[main_idx:]
-
-    # ----- 清洗用户代码 -----
-    cleaned = user_code
-
-    # 移除 CODE_START/CODE_END 标记及其外部框架代码，只保留用户编写部分
-    start_marker = "# ==========你的代码开始=========="
-    end_marker = "# ==========你的代码结束=========="
-
-    if start_marker in cleaned:
-        start_idx = cleaned.find(start_marker) + len(start_marker)
-        end_idx = cleaned.find(end_marker)
-        if end_idx > start_idx:
-            cleaned = cleaned[start_idx:end_idx].strip()
-        else:
-            # 结束标记缺失，取开始标记之后的所有内容
-            cleaned = cleaned[start_idx:].strip()
-
-    # 如果用户代码中已有 __main__ 块，移除它（避免重复定义）
-    # 使用同样的检测逻辑
-    existing_main_idx = cleaned.find("if __name__")
-    if existing_main_idx < 0:
-        import re as _re3
-        m = _re3.search(r'if\s+__name__\s*==\s*[\'"]__main__[\'"]', cleaned)
-        if m:
-            existing_main_idx = m.start()
-
-    if existing_main_idx >= 0:
-        # 确保 __main__ 不在字符串或注释中（简单检测：前面没有未闭合的引号）
-        before = cleaned[:existing_main_idx]
-        if before.count("'''") % 2 == 0 and before.count('"""') % 2 == 0:
-            cleaned = cleaned[:existing_main_idx].strip()
-
-    # 组合：用户代码 + 测试驱动
-    combined = cleaned + "\n\n" + test_block
-    return combined
 
 
 def _load_exercise_test_meta(exercise_id: str) -> dict | None:

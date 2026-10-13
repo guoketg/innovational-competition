@@ -31,6 +31,8 @@ import time
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
+from services.teaching_policy_service import MASTERY_HIGH
+
 # 围栏代码块：```lang\n ... ```
 _FENCE_RE = re.compile(r"```([^\n`]*)\n(.*?)```", re.DOTALL)
 
@@ -54,9 +56,9 @@ _BLOCK_MESSAGE = (
 # ── 时机释放阀：释放条件与放行话术 ──
 RELEASE_MIN_STUDENT_CODE_LINES = 3   # 学生本轮贴出的有效代码行数达到该值 → 释放
 RELEASE_MIN_BLOCKED_ROUNDS = 2       # 同用户同关卡累计被拦次数达到该值 → 释放
-RELEASE_MIN_MASTERY = 0.7            # 该关卡掌握度估计达到该值 → 释放（0.7 档与
+RELEASE_MIN_MASTERY = MASTERY_HIGH   # 该关卡掌握度估计达到该值 → 释放（与
                                      # teaching_policy_service.mastery_hint_level 的
-                                     # “掌握度高→提示保守”阈值一致，同一参数框架）
+                                     # “掌握度高→提示保守”阈值共用同一常量）
 
 _RELEASE_NOTE = {
     "student_attempt": (

@@ -105,6 +105,32 @@ class PersonalizationServiceTests(unittest.TestCase):
         self.assertIn("专注于PDF文件处理与RAG开发", summary)
         self.assertIn("当前处于RAG初学者", summary)
 
+    def test_get_mastery_profile_bands_from_primary_store(self):
+        # #21 口径统一：导师 prompt 画像只读主口径 knowledge_mastery，
+        # 分档与 teaching_policy_service 提示分档同源（≥0.7 强项 / ≤0.4 薄弱）
+        conn = database.get_db()
+        for tag, score in (("列表推导", 0.9), ("装饰器", 0.2), ("生成器", 0.5)):
+            conn.execute(
+                """INSERT INTO knowledge_mastery
+                   (user_id, knowledge_tag, mastery_score, source_exercise_id)
+                   VALUES (?, ?, ?, '1-1')""",
+                (self.user_id, tag, score),
+            )
+        conn.commit()
+        conn.close()
+
+        profile = service.get_mastery_profile(self.user_id)
+        self.assertEqual([item["tag"] for item in profile["strengths"]], ["列表推导"])
+        self.assertEqual([item["tag"] for item in profile["weaknesses"]], ["装饰器"])
+        self.assertEqual(profile["total_tags_tracked"], 3)
+        # 中间档（0.4 < score < 0.7）既不算强项也不算薄弱项
+        middle = [i["tag"] for i in profile["strengths"] + profile["weaknesses"]]
+        self.assertNotIn("生成器", middle)
+
+        empty = service.get_mastery_profile(self.user_id + 999)
+        self.assertEqual(empty["strengths"], [])
+        self.assertEqual(empty["weaknesses"], [])
+
     def test_three_dimension_mastery_creates_next_day_review(self):
         service.record_mastery_evidence(
             self.user_id, "LangGraph条件路由", "3-2", basic_score=100, passed=True,

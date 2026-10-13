@@ -71,12 +71,13 @@ def test_exercise_list():
     data = resp.json()
     assert data["code"] == 200
     exercises = data["data"]
-    assert len(exercises) >= 60, f"Expected >=60 exercises, got {len(exercises)}"
+    # 50 道非旗舰旧题已下线，题库只发布 13 关旗舰题
+    assert len(exercises) >= 13, f"Expected >=13 flagship exercises, got {len(exercises)}"
     print(f"      Total exercises: {len(exercises)}")
 
 def test_exercise_detail():
     """验证单个习题详情加载（CodeLab 左窗口数据源）"""
-    test_exercises = ["1-1", "2-1", "3-1", "4-1", "5-1", "6-1"]
+    test_exercises = ["1-1", "2-1", "3-1", "4-1", "4-3"]
     for ex_id in test_exercises:
         resp = requests.get(f"{BASE}/api/resources/exercises/{ex_id}", headers={
             "Authorization": f"Bearer {TOKEN}"
@@ -90,6 +91,14 @@ def test_exercise_detail():
         # 验证关键字段
         assert len(ex.get("description", "")) > 20, f"Exercise {ex_id} description too short: {ex.get('description','')[:50]}"
         print(f"      {ex_id}: {ex['title'][:40]}... (desc: {len(ex['description'])} chars)")
+
+    # 非旗舰旧题（如 5-1/6-1）已彻底下线，应返回 404
+    for ex_id in ["5-1", "6-1"]:
+        resp = requests.get(f"{BASE}/api/resources/exercises/{ex_id}", headers={
+            "Authorization": f"Bearer {TOKEN}"
+        })
+        assert resp.status_code == 404, f"Retired exercise {ex_id} should 404, got HTTP {resp.status_code}"
+        print(f"      {ex_id}: retired -> 404 OK")
 
 def test_resources_list():
     """验证学习资源列表"""

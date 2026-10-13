@@ -1731,6 +1731,71 @@ def submit_judge(user_id: int, exercise_id: str) -> dict:
     return outcome
 
 
+async def explain_judge_failure(user_id: int, exercise_id: str, outcome: dict) -> str | None:
+    """判题未通过时，结合学生代码与失败用例生成一次个性化讲解（#20）。
+
+    固定规则的「考点归类 + 下一步」继续兜底；这里补的是「你的代码为什么错」
+    这层个性化解释。LLM 不可用（未配 Key、超时、返回异常）时返回 None，
+    判题结果原样返回，前端只展示规则反馈——讲解是增强，不是阻塞项。
+    """
+    from services.ai_service import call_llm
+
+    try:
+        exercise = get_flagship_exercise(exercise_id) or {}
+        root = _root(user_id, exercise_id)
+        path = root / _course_solution_file(_course(exercise_id))
+        if not path.is_file():
+            return None
+        code = redact_secrets(path.read_text(encoding="utf-8"))[:4000]
+
+        failed = [c for c in (outcome.get("cases") or []) if not c.get("passed")][:4]
+        if outcome.get("compile_error"):
+            failure_lines = [f"代码无法运行：{str(outcome['compile_error'])[:400]}"]
+        elif failed:
+            failure_lines = [
+                "测试点「{desc}」未通过｜输入 {inp}｜期望 {exp}｜实际 {act}｜报错：{detail}｜规则归类：{cat}".format(
+                    desc=item.get("description", ""),
+                    inp=item.get("input", ""),
+                    exp=item.get("expected", ""),
+                    act=item.get("actual", ""),
+                    detail=item.get("detail", "") or "无",
+                    cat=item.get("category", "") or "无",
+                )
+                for item in failed
+            ]
+        else:
+            return None
+
+        system = (
+            "你是 Python 实训平台的判题讲解助手。学生提交的代码未通过服务端私有测试，"
+            "请生成一段个性化中文讲解。要求："
+            "1. 结合学生代码指出最可能导致失败的具体位置（引用行号或函数名，不要整段复制代码）；"
+            "2. 用学生能懂的语言解释期望与实际的差距为什么会发生；"
+            "3. 给出修改方向和一个可自查的最小示例，但不要直接给出完整答案代码；"
+            "4. 250 字以内，纯文本，可用「-」分点，不要 markdown 标题，不要开场白。"
+        )
+        user = (
+            f"题目：{exercise.get('title', exercise_id)}\n"
+            f"题面要求：{str(exercise.get('description', ''))[:600]}\n"
+            f"失败情况：\n- " + "\n- ".join(failure_lines) + "\n"
+            f"学生代码（疑似密钥已脱敏）：\n```\n{code}\n```"
+        )
+        text = await call_llm(
+            user_id,
+            [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            temperature=0.3,
+            max_tokens=600,
+            request_timeout=(10.0, 30.0),
+        )
+        text = (text or "").strip()
+        if not text or text.startswith("LLM调用异常"):
+            return None
+        return text
+    except Exception as exc:
+        logger.warning("判题失败讲解生成失败 exercise=%s: %s", exercise_id, exc)
+        return None
+
+
 def check_stage(
     user_id: int,
     exercise_id: str,

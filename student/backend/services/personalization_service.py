@@ -1066,6 +1066,56 @@ def get_due_review_recommendations(user_id: int, limit: int = 5) -> list[dict]:
     return [dict(row) for row in rows]
 
 
+def get_mastery_profile(user_id: int, limit: int = 5) -> dict:
+    """导师 prompt 注入用的学生强弱项画像（#21 口径统一后取代 student_model 占位）。
+
+    只读主口径 knowledge_mastery 表（record_mastery_evidence 三维加权写入），
+    分档与 teaching_policy_service 的提示分档共用 MASTERY_HIGH/MASTERY_LOW：
+    ≥ MASTERY_HIGH 计强项、≤ MASTERY_LOW 计薄弱项，各取最高/最低 limit 个。
+    无证据时两者都为空列表（调用方按“暂无”处理）。
+    """
+    from services.teaching_policy_service import MASTERY_HIGH, MASTERY_LOW
+
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT knowledge_tag, mastery_score FROM knowledge_mastery
+           WHERE user_id = ? ORDER BY mastery_score DESC""",
+        (user_id,),
+    ).fetchall()
+    conn.close()
+
+    strengths = [
+        {"tag": r["knowledge_tag"], "mastery": round(r["mastery_score"], 2)}
+        for r in rows if r["mastery_score"] >= MASTERY_HIGH
+    ]
+    weaknesses = [
+        {"tag": r["knowledge_tag"], "mastery": round(r["mastery_score"], 2)}
+        for r in reversed(rows) if r["mastery_score"] <= MASTERY_LOW
+    ]
+    return {
+        "strengths": strengths[:limit],
+        "weaknesses": weaknesses[:limit],
+        "total_tags_tracked": len(rows),
+    }
+
+
+def get_overall_mastery(user_id: int) -> float:
+    """该用户的全局掌握度估计（0..1），QA 主通道的提示阶梯输入（#22）。
+
+    主口径 knowledge_mastery 表全部标签的平均分；无证据返回中性值 0.5
+    （与 stage_mastery 无证据时的约定一致）。
+    """
+    conn = get_db()
+    row = conn.execute(
+        "SELECT AVG(mastery_score) AS avg_mastery FROM knowledge_mastery WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+    conn.close()
+    if row is None or row["avg_mastery"] is None:
+        return 0.5
+    return round(float(row["avg_mastery"]), 3)
+
+
 def get_memory_overview(user_id: int) -> dict:
     expired_events = cleanup_stale_memories(user_id)
     conn = get_db()

@@ -334,6 +334,10 @@
                 <b>代码无法运行</b>
                 <pre>{{ judgeCompileError }}</pre>
               </div>
+              <div v-if="judgeAiExplain" class="judge-ai-explain">
+                <b>🤖 AI 讲解 · 为什么没通过</b>
+                <pre>{{ judgeAiExplain }}</pre>
+              </div>
             </div>
 
             <div v-else class="judge-log">
@@ -830,6 +834,8 @@ const judgeModeLabel = computed(() => (
 ))
 const judgeElapsed = computed(() => Math.round((activeJudge.value?.execution_time || 0) * 1000))
 const judgeCompileError = computed(() => activeJudge.value?.compile_error || '')
+// 提交评测未通过时后端附带的 LLM 个性化讲解（自测不生成，故只看 judgeResult）
+const judgeAiExplain = computed(() => judgeResult.value?.ai_explanation || '')
 // 文件名由后端按关卡语言下发（C++ 关卡是 solution.cpp），前端不再猜扩展名。
 const solutionFile = computed(() => course.value?.solution_file || 'solution.py')
 const repairTargetFile = computed(() => course.value?.repair_target_file || 'repair_target.py')
@@ -2286,6 +2292,9 @@ button { font:inherit; }
 .judge-error{margin-top:10px;padding:9px 11px;border-radius:6px;background:#2b1920}
 .judge-error b{display:block;margin-bottom:5px;color:#ff8797;font-size:11px}
 .judge-error pre{margin:0;color:#ffb3bd;font:11px/1.6 'Cascadia Code',Consolas,monospace;white-space:pre-wrap}
+.judge-ai-explain{margin-top:10px;padding:9px 11px;border-radius:6px;background:#1d2333;border:1px solid #2e3852}
+.judge-ai-explain b{display:block;margin-bottom:5px;color:#a99fff;font-size:11px}
+.judge-ai-explain pre{margin:0;color:#d5dcf0;font:11px/1.7 inherit;white-space:pre-wrap;word-break:break-word}
 .judge-log{display:flex;flex-direction:column;height:100%}
 .judge-log-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;color:#68768c;font-size:10px}
 .judge-log-toolbar button{display:flex;align-items:center;gap:4px;border:0;background:transparent;color:#8b99ae;font-size:10px;cursor:pointer}
