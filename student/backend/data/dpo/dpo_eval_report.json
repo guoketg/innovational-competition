@@ -1,45 +1,16 @@
 {
   "dry_run": false,
   "model": "deepseek-chat",
-  "total_pairs": 230,
+  "total_pairs": 276,
   "layer_stats": {
-    "P": {
-      "candidates": 16,
-      "passed": 14,
-      "dropped": 2,
-      "reasons": {
-        "round2 chosen 缺讲解": 2
-      }
-    },
     "C": {
-      "candidates": 9,
-      "passed": 5,
-      "dropped": 4,
+      "candidates": 117,
+      "passed": 51,
+      "dropped": 66,
       "reasons": {
-        "C chosen 缺讲解": 3,
-        "C rejected 非过度引导": 1
-      }
-    },
-    "A": {
-      "candidates": 200,
-      "passed": 168,
-      "dropped": 32,
-      "reasons": {
-        "round2 chosen 缺讲解": 19,
-        "round2 chosen 代码不足": 2,
-        "concept rejected 非过度引导": 1,
-        "round1 rejected 未泄题": 6,
-        "round1 chosen 未以问句结尾": 2,
-        "round2 rejected 非过度引导": 2
-      }
-    },
-    "X": {
-      "candidates": 50,
-      "passed": 43,
-      "dropped": 7,
-      "reasons": {
-        "X chosen 命中 R1": 1,
-        "X rejected 未泄题": 6
+        "C chosen 缺讲解": 45,
+        "C rejected 非过度引导": 20,
+        "C chosen 代码不足": 1
       }
     }
   },
@@ -115,9 +86,9 @@
   ],
   "length_stats": {
     "boundary": {
-      "n": 5,
-      "chosen_avg_len": 2439.4,
-      "rejected_avg_len": 498.0,
+      "n": 51,
+      "chosen_avg_len": 1256.4,
+      "rejected_avg_len": 134.5,
       "chosen_longer_ratio": 1.0
     },
     "codelab": {
@@ -140,20 +111,20 @@
     }
   },
   "round_hascode_cross": {
+    "C-round2": {
+      "with_code": 50,
+      "no_code": 0
+    },
+    "C-round1": {
+      "with_code": 1,
+      "no_code": 0
+    },
     "A-round1": {
       "with_code": 30,
       "no_code": 111
     },
     "A-round2": {
       "with_code": 27,
-      "no_code": 0
-    },
-    "C-round2": {
-      "with_code": 4,
-      "no_code": 0
-    },
-    "C-round1": {
-      "with_code": 1,
       "no_code": 0
     },
     "P-round1": {
@@ -170,14 +141,14 @@
     }
   },
   "explanation_stats": {
+    "boundary": {
+      "n": 50,
+      "with_explanation": 50,
+      "explanation_pass_rate": 1.0
+    },
     "socratic": {
       "n": 27,
       "with_explanation": 27,
-      "explanation_pass_rate": 1.0
-    },
-    "boundary": {
-      "n": 4,
-      "with_explanation": 4,
       "explanation_pass_rate": 1.0
     },
     "codelab": {
@@ -186,5 +157,5 @@
       "explanation_pass_rate": 1.0
     }
   },
-  "output": "data\\dpo\\dpo_eval_pairs.jsonl"
+  "output": "data/dpo/dpo_eval_pairs.jsonl"
 }

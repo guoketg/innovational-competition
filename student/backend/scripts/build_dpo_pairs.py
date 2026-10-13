@@ -603,6 +603,29 @@ X_ASK_FORMS = [
 ]
 
 
+# C 层 attempt（Socratic 侧）：学生已自行修完并验证，索要完整定稿（该给码就给码）
+C_SOCRATIC_ATTEMPT_OPENERS_ZH = [
+    "这个 bug 我最后自己修好了，跑通了所有用例。能把这份的完整定稿代码贴出来吗？我想和我的版本对一遍。",
+    "问题解决了，多谢之前的思路！方便把正确的完整代码发一份吗？我想核对我改的细节对不对。",
+    "我自己折腾半天终于改对了，测试全过。能把标准的完整实现给我看看吗？对比一下我的写法。",
+    "搞定！最终我改成了一份能跑通的版本。能把你的完整参考实现发我吗？我想查漏补缺。",
+    "按你给的思路我自己修完了，都验证过了。完整的正确代码能再发一次吗？我存档用。",
+    "已经修好跑通了。能把这个题的完整解答代码贴一下吗？我想留一份标准版做对照。",
+    "我改完通过了，但不确定是不是最优写法。能把完整代码给我一份吗？我想对比学习一下。",
+    "问题已经解决啦。最后能把完整正确的代码发我一份吗？我整理到笔记里。",
+]
+C_SOCRATIC_ATTEMPT_OPENERS_EN = [
+    "I finally fixed it myself and all the tests pass now. Could you paste the complete final version of the code? I want to compare it with mine.",
+    "Solved it — thanks for the hints! Would you mind sending the full correct code? I'd like to double-check my implementation details.",
+    "I worked through it and my version now runs fine. Can you share the complete reference implementation so I can compare approaches?",
+    "Done! I ended up with a working version. Could you post the full correct code? I want to check for anything I missed.",
+    "I've fixed it and verified everything passes. Could you send the complete final code again for my records?",
+    "It works now. Could you paste the full solution code? I'd like to keep a clean copy for reference.",
+    "I think I got it right, but I'm not sure it's the best style. Can you share the complete code so I can compare?",
+    "Fixed and verified. Could you send me the complete correct code one last time? I'm compiling my study notes.",
+]
+
+
 def build_codelab_drafts(levels: list[str], limit: int, zh_ratio: float, rng: random.Random) -> list[PairDraft]:
     """P 层：CodeLab 关卡，素材链 SPECS + REFERENCE_SOLUTIONS + FAULT_PROFILES + 变异。"""
     from services.agent_lab_faults import FAULT_PROFILES, curated_mutation_candidates
@@ -671,6 +694,18 @@ def build_codelab_drafts(levels: list[str], limit: int, zh_ratio: float, rng: ra
                 lang="zh", subtype="attempt", ref=ref,
                 user_prompt=(
                     c_open.format(level=level, func=func, focus=focus)
+                    + f"\n\n我改后的代码：\n```{lang}\n{attempt}\n```"
+                ),
+                chosen_kind="round2_chosen", rejected_kind="round2_reject",
+                meta=dict(common),
+            ))
+            # C 层 attempt 变体 2（不同 opener，防模板过拟合）
+            c_open2 = C_ATTEMPT_OPENERS[(n_r1 + idx + 4) % len(C_ATTEMPT_OPENERS)]
+            drafts.append(PairDraft(
+                layer="C", source="boundary", family=f"codelab_{level}", round=2,
+                lang="zh", subtype="attempt", ref=ref,
+                user_prompt=(
+                    c_open2.format(level=level, func=func, focus=focus)
                     + f"\n\n我改后的代码：\n```{lang}\n{attempt}\n```"
                 ),
                 chosen_kind="round2_chosen", rejected_kind="round2_reject",
@@ -758,6 +793,20 @@ def build_socratic_drafts(cases: list[ProblemCase], limit: int, zh_ratio: float,
                 chosen_kind="concept_answer", rejected_kind="concept_reject",
                 ref=case.final_code, meta=dict(meta),
             ))
+        # C 层 attempt：学生已自行改完，索要完整定稿（防拒答，方向与 round1 相反）
+        c_pool = (C_SOCRATIC_ATTEMPT_OPENERS_ZH if lang == "zh"
+                  else C_SOCRATIC_ATTEMPT_OPENERS_EN)
+        for v in range(2):
+            if not (limit and len(drafts) >= limit):
+                c_open = c_pool[(base_idx + v) % len(c_pool)]
+                c_code = "我最终改完的代码" if lang == "zh" else "My final code"
+                drafts.append(PairDraft(
+                    layer="C", source="boundary", family=family, round=2, lang=lang,
+                    subtype="attempt", ref=case.final_code,
+                    user_prompt=f"{c_open}\n\n{c_code}:\n```python\n{case.final_code}\n```",
+                    chosen_kind="round2_chosen", rejected_kind="round2_reject",
+                    meta=dict(meta),
+                ))
     return drafts
 
 
@@ -996,6 +1045,8 @@ def main() -> int:
     parser.add_argument("--zh-ratio", type=float, default=0.5, help="A 层中文化比例")
     parser.add_argument("--general-pairs", type=int, default=400, help="G 层目标条数")
     parser.add_argument("--skip-general", action="store_true", help="跳过 G 层")
+    parser.add_argument("--only-layers", default="",
+                        help="只重新生成指定层（逗号分隔，如 C），其余层从现有 out 文件保留")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--split", choices=["train", "held"], default="train",
                         help="train=训练侧（9关+训练族）；held=测试侧（4关+held族），两者物理隔离")
@@ -1042,6 +1093,10 @@ def main() -> int:
     drafts += build_socratic_drafts(sel_cases, args.limit, args.zh_ratio, rng, train_only=False)
     drafts += build_redteam_drafts(sel_cases, max(args.limit, 80) if args.limit else 0, train_only=False)
 
+    only_layers = {s for s in args.only_layers.split(",") if s}
+    if only_layers:
+        drafts = [d for d in drafts if d.layer in only_layers]
+        args.skip_general = True
     print(f"素材[{split_desc}]：{len(drafts)} 个 draft（关卡 {len(sel_levels)} / 族 {len(sel_cases)}）")
 
     rows, layer_stats = asyncio.run(generate_pairs(drafts, vars(args), args.dry_run))
@@ -1071,6 +1126,21 @@ def main() -> int:
             rows += kept_g
             general_report = {"status": "preserved", "reason": "复用现有 G 层",
                               "pairs": len(kept_g)}
+
+    if only_layers:
+        # 只重生成指定层：其余层从现有 out 文件整层保留（G 层已由 skip-general 分支整层保留，避免重复）
+        kept_g_layers = {"G"} if general_report.get("status") == "preserved" else set()
+        existing = Path(args.out)
+        if existing.exists():
+            for line in existing.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                row = json.loads(line)
+                lay = row.get("layer")
+                if lay in only_layers or lay in kept_g_layers:
+                    continue
+                rows.append(row)
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)

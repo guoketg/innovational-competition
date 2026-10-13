@@ -1,44 +1,18 @@
 {
   "dry_run": false,
   "model": "deepseek-chat",
-  "total_pairs": 871,
+  "total_pairs": 513,
   "layer_stats": {
-    "P": {
-      "candidates": 38,
-      "passed": 26,
-      "dropped": 12,
-      "reasons": {
-        "round2 chosen 缺讲解": 6,
-        "round2 rejected 非过度引导": 6
-      }
-    },
     "C": {
-      "candidates": 26,
-      "passed": 19,
-      "dropped": 7,
+      "candidates": 235,
+      "passed": 118,
+      "dropped": 117,
       "reasons": {
-        "C rejected 非过度引导": 1,
-        "C chosen 缺讲解": 5,
-        "concept rejected 非过度引导": 1
+        "C chosen 缺讲解": 98,
+        "C rejected 非过度引导": 16,
+        "concept rejected 非过度引导": 1,
+        "C chosen 代码不足": 2
       }
-    },
-    "A": {
-      "candidates": 388,
-      "passed": 337,
-      "dropped": 51,
-      "reasons": {
-        "round1 chosen 未以问句结尾": 6,
-        "round2 chosen 缺讲解": 35,
-        "round1 rejected 未泄题": 2,
-        "round2 rejected 非过度引导": 3,
-        "concept rejected 非过度引导": 5
-      }
-    },
-    "X": {
-      "candidates": 97,
-      "passed": 97,
-      "dropped": 0,
-      "reasons": {}
     }
   },
   "general": {
@@ -114,16 +88,16 @@
   ],
   "length_stats": {
     "boundary": {
-      "n": 19,
-      "chosen_avg_len": 2148.8,
-      "rejected_avg_len": 328.9,
+      "n": 118,
+      "chosen_avg_len": 1188.8,
+      "rejected_avg_len": 191.2,
       "chosen_longer_ratio": 1.0
     },
     "codelab": {
-      "n": 26,
-      "chosen_avg_len": 634.0,
-      "rejected_avg_len": 880.8,
-      "chosen_longer_ratio": 0.269
+      "n": 1,
+      "chosen_avg_len": 105.0,
+      "rejected_avg_len": 370.0,
+      "chosen_longer_ratio": 0.0
     },
     "general": {
       "n": 392,
@@ -132,68 +106,50 @@
       "chosen_longer_ratio": 1.0
     },
     "redteam": {
-      "n": 97,
-      "chosen_avg_len": 257.9,
-      "rejected_avg_len": 258.9,
-      "chosen_longer_ratio": 0.536
+      "n": 1,
+      "chosen_avg_len": 356.0,
+      "rejected_avg_len": 270.0,
+      "chosen_longer_ratio": 1.0
     },
     "socratic": {
-      "n": 337,
-      "chosen_avg_len": 684.1,
-      "rejected_avg_len": 262.1,
-      "chosen_longer_ratio": 0.451
+      "n": 1,
+      "chosen_avg_len": 86.0,
+      "rejected_avg_len": 270.0,
+      "chosen_longer_ratio": 0.0
     }
   },
   "round_hascode_cross": {
-    "A-round1": {
-      "with_code": 63,
-      "no_code": 215
-    },
-    "A-round2": {
-      "with_code": 59,
-      "no_code": 0
-    },
     "C-round2": {
-      "with_code": 13,
+      "with_code": 116,
       "no_code": 0
     },
     "C-round1": {
-      "with_code": 4,
-      "no_code": 2
-    },
-    "P-round1": {
-      "with_code": 0,
-      "no_code": 19
-    },
-    "P-round2": {
-      "with_code": 7,
+      "with_code": 2,
       "no_code": 0
-    },
-    "X-round1": {
-      "with_code": 0,
-      "no_code": 97
     },
     "G-round0": {
       "with_code": 101,
       "no_code": 291
+    },
+    "A-round1": {
+      "with_code": 0,
+      "no_code": 1
+    },
+    "P-round1": {
+      "with_code": 0,
+      "no_code": 1
+    },
+    "X-round1": {
+      "with_code": 0,
+      "no_code": 1
     }
   },
   "explanation_stats": {
-    "socratic": {
-      "n": 59,
-      "with_explanation": 59,
-      "explanation_pass_rate": 1.0
-    },
     "boundary": {
-      "n": 13,
-      "with_explanation": 13,
-      "explanation_pass_rate": 1.0
-    },
-    "codelab": {
-      "n": 7,
-      "with_explanation": 7,
+      "n": 116,
+      "with_explanation": 116,
       "explanation_pass_rate": 1.0
     }
   },
-  "output": "F:\\code\\MyPython\\computer-cross-education\\tiaozhanbei\\student\\backend\\data\\dpo\\dpo_pairs.jsonl"
+  "output": "data/dpo/dpo_pairs.jsonl"
 }

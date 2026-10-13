@@ -1,6 +1,6 @@
 {
   "pairs_file": "dpo_pairs.jsonl",
-  "n_pairs": 871,
+  "n_pairs": 970,
   "dry_run": false,
   "definitions": {
     "leak_rate": "round1 引导类 chosen（排除概念直答）命中线上护栏 R1 的比例；chosen 侧不应泄漏",
@@ -15,9 +15,9 @@
   "violation_fails": 0,
   "violation_examples": [],
   "explanation_pass_rate": 1.0,
-  "explanation_checked": 79,
+  "explanation_checked": 182,
   "hint_distribution": {
-    "0": 666,
+    "0": 765,
     "1": 191,
     "2": 5,
     "3": 5,
