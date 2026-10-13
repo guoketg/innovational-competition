@@ -32,6 +32,9 @@ debug.log
 *.log
 *.jsonl
 
+# 放行 DPO 数据（云端 IPO 重训必需，体积小）
+!student/backend/data/dpo/*.jsonl
+
 # ===== 临时文件 =====
 tmp_*.json
 *.tmp
