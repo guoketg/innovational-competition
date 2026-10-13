@@ -440,7 +440,8 @@ async def submit_quiz(session_id: int, user_id: int, answers: list) -> dict:
                     "knowledge_tag": question.get("knowledge_tag", ""),
                     "analysis": question.get("analysis", ""),
                     "difficulty": question.get("difficulty", ""),
-                    "option_analysis": question.get("option_analysis", {})
+                    "option_analysis": question.get("option_analysis", {}),
+                    "code": question.get("code", "")
                 })
 
     # 将未作答的题目也加入错题本
@@ -459,7 +460,8 @@ async def submit_quiz(session_id: int, user_id: int, answers: list) -> dict:
                 "knowledge_tag": question.get("knowledge_tag", ""),
                 "analysis": question.get("analysis", ""),
                 "difficulty": question.get("difficulty", ""),
-                "option_analysis": question.get("option_analysis", {})
+                "option_analysis": question.get("option_analysis", {}),
+                "code": question.get("code", "")
             })
             answer_details.append({
                 "question_id": qid,
@@ -492,6 +494,18 @@ async def submit_quiz(session_id: int, user_id: int, answers: list) -> dict:
         (json.dumps(answer_details, ensure_ascii=False), score, total, json.dumps(report, ensure_ascii=False), datetime.now().isoformat(), session_id)
     )
 
+    # 错题重测闭环：本次答对的错题回写"已复习"(reviewed=1)
+    correct_qids = {ad["question_id"] for ad in answer_details if ad.get("is_correct")}
+    reviewed_ids = [
+        q.get("source_error_id") for q in questions
+        if q.get("source_error_id") is not None and q.get("question_id") in correct_qids
+    ]
+    for eid in reviewed_ids:
+        conn.execute(
+            "UPDATE error_questions SET reviewed = 1 WHERE id = ? AND user_id = ?",
+            (eid, user_id)
+        )
+
     # 记录学习行为
     for ad in answer_details:
         conn.execute(
@@ -500,7 +514,7 @@ async def submit_quiz(session_id: int, user_id: int, answers: list) -> dict:
         )
 
     # 根据题型估算学习时长（分钟）
-    type_time_map = {"单选": 0.5, "填空": 1, "简答": 2, "判断": 0.5, "代码实操": 3, "多选": 0.5}
+    type_time_map = {"单选": 0.5, "填空": 1, "简答": 2, "判断": 0.5, "代码实操": 3, "多选": 0.5, "读代码": 1.5}
     estimated_duration = sum(type_time_map.get(q.get("question_type", "简答"), 2) for q in questions)
 
     # 更新每日学习统计
@@ -719,8 +733,8 @@ def _compare_answers(user_answer: str, correct_answer: str, question_type: str) 
             return True
         return False
 
-    # 对于选择题/判断题，只要答案核心内容匹配即可
-    if question_type in ["单选", "多选", "判断"]:
+    # 对于选择题/判断题/读代码题，只要答案核心内容匹配即可
+    if question_type in ["单选", "多选", "判断", "读代码"]:
         import re
         ua_clean = re.sub(r'\s+', '', ua)
         ca_clean = re.sub(r'\s+', '', ca)
@@ -756,7 +770,7 @@ def classify_error_type(user_answer: str, correct_answer: str, question_type: st
         if len(user_answer) < len(correct_answer) * 0.3:
             return "知识点遗漏"
         return "概念认知偏差"
-    if question_type in ["单选", "多选", "判断"]:
+    if question_type in ["单选", "多选", "判断", "读代码"]:
         return "概念认知偏差"
     return "审题理解偏差"
 

@@ -137,6 +137,33 @@ def _stage_hints(stage_id: str, exercise: dict, targets: list[str], track: dict,
     ]
 
 
+def _failure_hint_text(outcome: dict) -> str:
+    """把最近一次判题结果压成一句「针对你上次报错」的提示（#28）。
+
+    静态提示阶梯按 stage 写死，与学生的具体报错无关；这里用真实失败用例补一条
+    最深一级提示。全部通过或数据缺失时返回空串，调用方据此决定是否追加。
+    """
+    if not isinstance(outcome, dict):
+        return ""
+    if outcome.get("compile_error"):
+        return f"上次代码无法运行：{str(outcome['compile_error'])[:160]}。先修掉这个编译/语法错误，再看业务逻辑。"
+    failed = [c for c in (outcome.get("cases") or []) if not c.get("passed")]
+    if not failed:
+        return ""
+    first = failed[0]
+    parts = [f"上次「{first.get('description', '')}」未通过"]
+    if first.get("input"):
+        parts.append(f"输入 {first['input']}")
+    if first.get("expected") not in (None, ""):
+        parts.append(f"期望 {first['expected']}")
+    if first.get("actual") not in (None, ""):
+        parts.append(f"实际 {first['actual']}")
+    detail = str(first.get("detail") or "").strip()
+    if detail:
+        parts.append(f"报错 {detail[:120]}")
+    return "，".join(parts) + "。先拿这组数据手动跑一遍，定位差在哪一步。"
+
+
 def _safe_part(value: str) -> str:
     value = re.sub(r"[^a-zA-Z0-9_-]", "-", str(value or ""))
     if not value:
@@ -1305,6 +1332,21 @@ def get_workspace(user_id: int, exercise_id: str, reset: bool = False) -> dict:
         if solution.is_file() and not state.get("passed_solution_code"):
             state["passed_solution_code"] = solution.read_text(encoding="utf-8")
         _write_state(root, state)
+    # #28：静态提示阶梯按 stage 写死，把最近一次真实报错压成最深一级提示追加到
+    # implementation 阶段末尾，让学生卡住时能看到"针对你上次的报错"的具体指引。
+    failure_text = str(state.get("last_failure_text") or "").strip()
+    if failure_text:
+        target_stage = next(
+            (s for s in course.get("stages", []) if s.get("id") == "implementation"),
+            None,
+        )
+        if target_stage is not None:
+            hints = target_stage.setdefault("hints", [])
+            hints.append({
+                "level": len(hints) + 1,
+                "title": "针对你上次的报错",
+                "content": failure_text,
+            })
     runtime = _assistant_runtime(user_id)
     completed_stages = _completed_stages(state, course)
     next_stage = _next_course_stage(course, completed_stages)
@@ -1705,6 +1747,8 @@ def run_samples(user_id: int, exercise_id: str) -> dict:
     state = _read_state(root)
     state["sample_run_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
     state["sample_run_passed"] = bool(outcome.get("passed"))
+    state["last_failure_text"] = "" if outcome.get("passed") else _failure_hint_text(outcome)
+    state["last_failure_at"] = state["sample_run_at"]
     _write_state(root, state)
     return outcome
 
@@ -1727,6 +1771,9 @@ def submit_judge(user_id: int, exercise_id: str) -> dict:
     state = _read_state(root)
     state["last_judge_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
     state["last_judge_passed"] = bool(outcome.get("passed"))
+    if not outcome.get("passed"):
+        state["last_failure_text"] = _failure_hint_text(outcome)
+        state["last_failure_at"] = state["last_judge_at"]
     _write_state(root, state)
     return outcome
 

@@ -1,6 +1,6 @@
 """题库服务 — 从6个分模块题库文件中加载题目并提供抽题功能
 
-题库来源：module_01 ~ module_06，每个模块80题，共480题。
+题库来源：module_01 ~ module_06，每个模块100题，共600题。
 包含所有题型（单选/填空/简答等）并经过质量过滤。"""
 import json
 import os
@@ -56,6 +56,7 @@ TYPE_MAP = {
     "multiple_choice": "单选",
     "true_false": "判断",
     "fill_in_blank": "填空",
+    "read_code": "读代码",
 }
 
 # 知识点分类（section → category 映射关键词）
@@ -121,7 +122,12 @@ _question_bank_cache: Optional[list] = None
 _distractor_pool_cache: Optional[dict] = None  # 用于选择题干扰项
 
 
-def _is_bad_answer(answer: str, question: str = "") -> bool:
+def _qkey(q: dict):
+    """题目去重键：题干 + 代码块。读代码题共用题干，靠代码区分。"""
+    return ((q.get("question", "") or "").strip(), (q.get("code", "") or "").strip())
+
+
+def _is_bad_answer(answer: str, question: str = "", qtype: str = "") -> bool:
     """判断答案是否质量过低（目录、过长、已清理等）"""
     if not answer or len(answer.strip()) < 1:
         return True
@@ -144,8 +150,8 @@ def _is_bad_answer(answer: str, question: str = "") -> bool:
     # 答案太长（大概率是目录或大段文本）
     if len(answer_stripped) > 500:
         return True
-    # 答案全是页码和点的组合
-    if re.match(r'^[\d\s\.\|IVXLCDM\-—…]+$', answer_stripped):
+    # 答案全是页码和点的组合（读代码题答案可能是单个数字，需放行）
+    if qtype != "read_code" and re.match(r'^[\d\s\.\|IVXLCDM\-—…]+$', answer_stripped):
         return True
     # 问题不完整/截断
     if question and len(question.strip()) < 5:
@@ -180,9 +186,9 @@ def load_question_bank() -> list:
         for q in pairs:
             answer = q.get("answer", "")
             question = q.get("question", "")
-            if _is_bad_answer(answer, question):
+            if _is_bad_answer(answer, question, q.get("type", "")):
                 continue
-            key = question.strip()
+            key = _qkey(q)
             if key not in seen_questions:
                 # 统一设置 module（覆盖可能缺失或不一致的字段）
                 q["module"] = module_name
@@ -526,7 +532,7 @@ def select_questions(
     # 按难度+题型同时分组（只保留题库中实际存在的题型）
     by_diff_type = {"easy": {}, "medium": {}, "hard": {}}
     # 题库中可能存在的映射后题型
-    _all_qtypes = {"单选", "判断", "填空", "简答"}
+    _all_qtypes = {"单选", "判断", "填空", "简答", "读代码"}
     for diff in by_diff_type:
         by_diff_type[diff] = {qt: [] for qt in _all_qtypes}
 
@@ -543,7 +549,7 @@ def select_questions(
             if pool:
                 available_types.add(qt)
 
-    # === 第三步：题型配比（选择题+判断题，各约50%）===
+    # === 第三步：题型配比（按题库中实际存在的题型均分）===
     if available_types:
         ratio_per_type = 1.0 / len(available_types)
         type_ratio = {qt: ratio_per_type for qt in available_types}
@@ -559,16 +565,16 @@ def select_questions(
             needed = max(1, int(type_needed * diff_ratio))
             pool = by_diff_type[diff].get(qtype, [])
             if pool:
-                used_q = {q.get("question", "") for q in selected}
-                pool = [q for q in pool if q.get("question", "") not in used_q]
+                used_q = {_qkey(q) for q in selected}
+                pool = [q for q in pool if _qkey(q) not in used_q]
                 if pool:
                     n = min(needed, len(pool))
                     selected.extend(random.sample(pool, n))
 
     # === 第五步：不足时随机补题 ===
     if len(selected) < count:
-        used = {q.get("question", "") for q in selected}
-        remaining = [q for q in bank if q.get("question", "") not in used]
+        used = {_qkey(q) for q in selected}
+        remaining = [q for q in bank if _qkey(q) not in used]
         if remaining:
             additional = random.sample(remaining, min(count - len(selected), len(remaining)))
             selected.extend(additional)
@@ -590,7 +596,7 @@ def select_questions(
 
         # 优先使用题库JSON中预定义的精选选项，否则自动生成干扰项
         pre_defined_options = q.get("options", [])
-        if pre_defined_options and question_type == "单选":
+        if pre_defined_options and question_type in ("单选", "读代码"):
             # 确保正确答案在选项中，且选项顺序随机
             raw_options = list(pre_defined_options)
             if answer.strip() not in [o.strip() for o in raw_options]:
@@ -602,7 +608,7 @@ def select_questions(
 
         # 为选择题生成逐选项解析
         option_analysis = {}
-        if question_type == "单选" and final_options:
+        if question_type in ("单选", "读代码") and final_options:
             option_analysis = _generate_option_analysis(
                 clean_question, final_options, answer.strip(), knowledge_category, section
             )
@@ -626,7 +632,8 @@ def select_questions(
             "difficulty": difficulty_label,
             "module": q.get("module", ""),
             "knowledge_point": q.get("knowledge_point", ""),
-            "original_type": original_type
+            "original_type": original_type,
+            "code": q.get("code", ""),
         }
         formatted.append(item)
 

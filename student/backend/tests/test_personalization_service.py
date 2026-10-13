@@ -131,6 +131,21 @@ class PersonalizationServiceTests(unittest.TestCase):
         self.assertEqual(empty["strengths"], [])
         self.assertEqual(empty["weaknesses"], [])
 
+    def test_get_overall_mastery_average_and_neutral_default(self):
+        # #22：QA 主通道的掌握度输入 = 主口径全标签平均分；无证据中性 0.5
+        self.assertEqual(service.get_overall_mastery(self.user_id), 0.5)
+        conn = database.get_db()
+        for tag, score in (("列表推导", 0.9), ("装饰器", 0.3)):
+            conn.execute(
+                """INSERT INTO knowledge_mastery
+                   (user_id, knowledge_tag, mastery_score, source_exercise_id)
+                   VALUES (?, ?, ?, '1-1')""",
+                (self.user_id, tag, score),
+            )
+        conn.commit()
+        conn.close()
+        self.assertAlmostEqual(service.get_overall_mastery(self.user_id), 0.6, places=3)
+
     def test_three_dimension_mastery_creates_next_day_review(self):
         service.record_mastery_evidence(
             self.user_id, "LangGraph条件路由", "3-2", basic_score=100, passed=True,

@@ -12,6 +12,9 @@
         <el-tag effect="plain">{{ sessions.length }} 次测评</el-tag>
       </template>
       <template #actions>
+        <el-button v-if="totalErrors > 0" type="warning" :loading="generatingRetest" @click="startReviewQuiz">
+          <el-icon><Refresh /></el-icon> 错题重测
+        </el-button>
         <el-button type="primary" @click="$router.push('/diagnosis')">开始新测评</el-button>
       </template>
     </PageHero>
@@ -106,6 +109,9 @@
               标记整组已复习 ({{ reviewedInSession }}/{{ sessionErrors.total }})
             </el-button>
             <el-tag v-else-if="sessionErrors.total > 0" type="success" size="large">全部已复习</el-tag>
+            <el-button v-if="sessionErrors.total > 0" type="warning" plain @click="startReviewQuiz(currentSession?.session_id)" :loading="generatingRetest">
+              <el-icon><Refresh /></el-icon> 本组重测
+            </el-button>
             <el-button type="danger" plain @click="handleDeleteSession(currentSession)" :loading="deleting === deleteKey(currentSession)">
               <el-icon><Delete /></el-icon> 删除本组全部错题
             </el-button>
@@ -134,6 +140,7 @@
               <el-tag size="small" effect="dark" type="primary">{{ getQuestionType(error) }}</el-tag>
             </div>
             <div class="q-text">{{ getQuestionText(error) }}</div>
+            <pre v-if="getQuestionCode(error)" class="q-code"><code>{{ getQuestionCode(error) }}</code></pre>
             <div v-if="getOptions(error).length > 0" class="q-options">
               <div v-for="(opt, oi) in getOptions(error)" :key="oi" class="q-option"
                    :class="{ 'is-correct': isCorrectOption(opt, error.correct_answer), 'is-user-pick': isUserPick(opt, error.user_answer) }">
@@ -189,19 +196,24 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useLearningStore } from '../stores/learning'
-import { deleteSessionErrors, deleteOrphanErrors, recordStudyVisit } from '../api/learning'
+import { useDiagnosisStore } from '../stores/diagnosis'
+import { deleteSessionErrors, deleteOrphanErrors, recordStudyVisit, generateReviewQuiz } from '../api/learning'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { marked } from 'marked'
 import PageHero from '../components/PageHero.vue'
 
 const store = useLearningStore()
+const diagnosisStore = useDiagnosisStore()
+const router = useRouter()
 const loading = ref(false)
 const loadingDetail = ref(false)
 const activeSession = ref(undefined)
 const detailPage = ref(1)
 const deleting = ref(null)
 const reviewingAll = ref(false)
+const generatingRetest = ref(false)
 const reviewedInSession = computed(() =>
   sessionErrors.value.items?.filter(e => e.reviewed).length || 0
 )
@@ -373,6 +385,25 @@ async function handleReviewAll() {
   }
 }
 
+async function startReviewQuiz(sessionId = null) {
+  generatingRetest.value = true
+  try {
+    const data = await generateReviewQuiz({ session_id: sessionId, count: 10 })
+    if (data && data.session_id) {
+      diagnosisStore.currentQuiz = data
+      diagnosisStore.currentReport = null
+      ElMessage.success(`已生成 ${data.total} 道错题重测卷`)
+      router.push(`/task-quiz/${data.session_id}`)
+    } else {
+      ElMessage.warning(data?.error || '暂无可重测的错题')
+    }
+  } catch(e) {
+    ElMessage.error('生成重测卷失败')
+  } finally {
+    generatingRetest.value = false
+  }
+}
+
 function getQuestionData(error) {
   if (error.question_data && typeof error.question_data === 'object') return error.question_data
   if (typeof error.question_data === 'string') {
@@ -399,6 +430,11 @@ function getDifficulty(error) {
 function getOptions(error) {
   const qd = getQuestionData(error)
   return qd.options || []
+}
+
+function getQuestionCode(error) {
+  const qd = getQuestionData(error)
+  return qd.code || ''
 }
 
 function isCorrectOption(opt, correctAnswer) {
@@ -463,6 +499,7 @@ function getErrorTypeColor(type) {
 .q-type-tag { margin-bottom: 8px; }
 .q-text { font-size: 15px; color: #1a1a2e; line-height: 1.7; font-weight: 500; }
 .q-options { margin-top: 10px; }
+.q-code { background: #1e1e2e; color: #d4d4d4; padding: 12px 14px; border-radius: 6px; font-size: 13px; line-height: 1.6; overflow-x: auto; margin-top: 10px; font-family: 'Consolas', 'Monaco', monospace; white-space: pre; }
 .q-option { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; margin: 6px 0; border-radius: 6px; background: #f5f7fa; border: 1px solid #e4e7ed; }
 .q-option.is-correct { background: #f0f9eb; border-color: #b3e19d; }
 .q-option.is-user-pick { background: #fef0f0; border-color: #fab6b6; }

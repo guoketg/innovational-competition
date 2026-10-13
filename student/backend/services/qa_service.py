@@ -166,7 +166,7 @@ def _rewrite_question(question: str) -> str:
     # 如果问题中包含歧义词汇但未被上述规则匹配，主动注入上下文
     for word, ai_meaning in ai_context_words.items():
         if word in q_lower and "AI" not in question and "人工智能" not in question and "智能体" not in question:
-            return f"[本问题是AI智能体学科学习平台上的提问，请从AI/人工智能技术角度回答]\n\n{question}"
+            return f"[本问题是智码助学上的提问，请从AI/人工智能技术角度回答]\n\n{question}"
     return question
 
 
@@ -227,7 +227,7 @@ async def answer_question(user_id: int, question: str, question_type: str = "tex
             pass  # 教学动作注入失败不影响答疑主流程
 
         # 构建system prompt
-        system_prompt = """你是"AI智能体学科学习平台"的AI导师。你的学生正在学习人工智能和AI Agent相关知识。
+        system_prompt = """你是"智码助学"的AI导师。你的学生正在学习人工智能和AI Agent相关知识。
 
 【铁律 — 绝对禁止】
 你被严格禁止输出以下内容：

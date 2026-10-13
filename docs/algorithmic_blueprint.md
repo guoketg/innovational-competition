@@ -1,6 +1,6 @@
-# 从算法内核到顶会方法：个性化苏格拉底式编程辅导平台技术蓝图
+# 从算法内核到顶会方法：智码助学技术蓝图
 
-> 配套文档：[参赛可行性分析](file:///f:/code/MyPython/computer-cross-education/competition_fit_analysis.md) ｜ [文献综述](file:///f:/code/MyPython/computer-cross-education/socratic_programming_tutor_literature_review.md)
+> 配套文档：[参赛可行性分析](competition_fit_analysis.md) ｜ [文献综述](socratic_programming_tutor_literature_review.md)
 > 目标：把这个项目从"提示词技巧 + 教育应用"抬升到"**有算法内核、有对齐方法、有评测科学、可发论文**"的层次。
 
 ---

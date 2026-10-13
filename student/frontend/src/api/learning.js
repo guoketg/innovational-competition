@@ -20,6 +20,8 @@ export const getOrphanErrors = (page = 1) => request.get('/learning/error-book/o
 export const deleteSessionErrors = (sessionId) => request.delete(`/learning/error-book/session/${sessionId}`)
 export const deleteOrphanErrors = () => request.delete('/learning/error-book/orphan')
 export const batchDeleteErrors = (ids) => request.post('/learning/error-book/batch-delete', { ids })
+/** 错题重测：把错题组装成一份可提交的重测卷 */
+export const generateReviewQuiz = (data) => request.post('/learning/error-book/retest', data)
 
 export const generateTaskQuiz = (data) => request.post('/learning/task-quiz', data)
 export const getLearningResource = (knowledge) => request.get('/learning/resource', { params: { knowledge } })

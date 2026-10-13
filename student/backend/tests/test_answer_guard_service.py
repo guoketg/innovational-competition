@@ -26,7 +26,12 @@ from services.answer_guard_service import (
     regenerate_and_recheck,
 )
 from services.teaching_policy_service import (
-    classify_by_rule, diagnosis_focus, mastery_hint_level, stage_mastery,
+    classify_by_rule,
+    diagnosis_focus,
+    hint_tiers,
+    mastery_hint_level,
+    qa_move_directive,
+    stage_mastery,
 )
 
 REF = load_reference_solution("1-1")          # 正课参考解（array_insert）
@@ -256,6 +261,46 @@ class TeachingPolicyTests(unittest.TestCase):
         self.assertEqual(mastery_hint_level(low, "s", 0), 2)
         self.assertEqual(mastery_hint_level(low, "s", 1), 2)
         self.assertEqual(mastery_hint_level(low, "s", 2), 3)
+
+    def test_hint_tiers_single_source_of_bands(self):
+        # #22：提示阶梯分档唯一定义，实验导师与 QA 共用
+        self.assertEqual(hint_tiers(0.9), (1, 2))
+        self.assertEqual(hint_tiers(0.5), (1, 3))
+        self.assertEqual(hint_tiers(0.2), (2, 3))
+        # 边界值按「≥」归档
+        self.assertEqual(hint_tiers(0.7), (1, 2))
+        self.assertEqual(hint_tiers(0.4), (1, 3))
+
+    def test_qa_move_directive_injects_move_and_ladder(self):
+        # #22：QA 主通道注入 classify_move 动作 + 按掌握度定阶梯
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        with patch(
+            "services.teaching_policy_service.classify_move",
+            new=AsyncMock(return_value={
+                "move": "progressive_hint", "confidence": 0.92, "source": "rule",
+            }),
+        ):
+            low = asyncio.run(qa_move_directive(1, "这关的循环怎么写", [], 0.2))
+            high = asyncio.run(qa_move_directive(1, "这关的循环怎么写", None, 0.9))
+
+        self.assertIn("progressive_hint", low)
+        self.assertIn("起点 2 级", low)      # 低掌握：跳过纯方向提示
+        self.assertIn("上限 3 级", low)
+        self.assertIn("起点 1 级", high)     # 高掌握：只给方向，保守
+        self.assertIn("上限 2 级", high)
+
+    def test_qa_move_directive_never_raises(self):
+        # classify_move 异常 → 返回空串，绝不阻塞答疑主流程
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        with patch(
+            "services.teaching_policy_service.classify_move",
+            new=AsyncMock(side_effect=RuntimeError("boom")),
+        ):
+            self.assertEqual(asyncio.run(qa_move_directive(1, "q", [], 0.5)), "")
 
 
 class ReleaseValveTests(unittest.IsolatedAsyncioTestCase):

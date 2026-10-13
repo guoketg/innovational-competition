@@ -1366,3 +1366,92 @@ async def review_session_errors(user_id: int, session_id: int) -> dict:
         conn.close()
 
     return {"reviewed_count": updated, "session_id": session_id}
+
+
+async def generate_review_quiz(user_id: int, session_id: int = None, count: int = 10) -> dict:
+    """错题重测：把错题本中的错题组装成一份可提交的重测卷，闭环回写
+
+    - session_id 为空时取全部错题；否则只取指定测评会话的错题
+    - 优先选未复习(reviewed=0)的错题，不足时用已复习的补齐
+    - 每题保留 source_error_id，提交重测卷后由 submit_quiz 回写"已攻克"
+    """
+    import uuid as _uuid
+    conn = get_db()
+    if session_id is not None:
+        rows = conn.execute(
+            "SELECT * FROM error_questions WHERE user_id = ? AND session_id = ? "
+            "ORDER BY reviewed ASC, created_at DESC",
+            (user_id, session_id)
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM error_questions WHERE user_id = ? "
+            "ORDER BY reviewed ASC, created_at DESC",
+            (user_id,)
+        ).fetchall()
+    conn.close()
+
+    if not rows:
+        return {"error": "错题本暂无错题，无法生成重测卷"}
+
+    questions = []
+    for r in rows[:count]:
+        d = dict(r)
+        qd = d.get("question_data", "{}")
+        if isinstance(qd, str):
+            try:
+                qd = json_load(qd)
+            except (json.JSONDecodeError, TypeError):
+                qd = {}
+        if not isinstance(qd, dict):
+            qd = {}
+        if not qd.get("question"):
+            continue
+        questions.append({
+            "question_id": f"rq_{_uuid.uuid4().hex[:8]}",
+            "question": qd.get("question", ""),
+            "options": qd.get("options", []),
+            "question_type": qd.get("question_type", ""),
+            "answer": qd.get("correct_answer", d.get("correct_answer", "")),
+            "analysis": qd.get("analysis", ""),
+            "option_analysis": qd.get("option_analysis", {}),
+            "knowledge_tag": qd.get("knowledge_tag", d.get("knowledge_tag", "")),
+            "knowledge_point": qd.get("knowledge_point", ""),
+            "difficulty": qd.get("difficulty", ""),
+            "code": qd.get("code", ""),
+            "source_error_id": d.get("id"),
+        })
+
+    if not questions:
+        return {"error": "错题数据不完整，无法生成重测卷"}
+
+    # 保存重测会话（stage 标记为"错题重测"，供提交时识别并回写）
+    conn = get_db()
+    cursor = conn.execute(
+        "INSERT INTO quiz_sessions (user_id, stage, questions_json, status) VALUES (?, ?, ?, 'pending')",
+        (user_id, "错题重测", json.dumps(questions, ensure_ascii=False))
+    )
+    sid = cursor.lastrowid
+    conn.execute(
+        "INSERT INTO learning_records (user_id, knowledge_tag, action_type, result_json) VALUES (?, ?, 'review_quiz_start', ?)",
+        (user_id, "错题重测", json.dumps(
+            {"session_id": sid, "count": len(questions), "source_session_id": session_id},
+            ensure_ascii=False
+        ))
+    )
+    conn.commit()
+    conn.close()
+
+    return {
+        "session_id": sid,
+        "questions": questions,
+        "total": len(questions),
+        "stage": "错题重测",
+        "task_context": {
+            "topic": "错题重测",
+            "knowledge": "错题巩固",
+            "day": None,
+        },
+        "use_timer": False,
+        "timer_minutes": 0,
+    }

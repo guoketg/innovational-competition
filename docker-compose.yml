@@ -1,26 +1,9 @@
-# ─── AI智能体学科学习平台 — 根目录一键启动 ─────────────────
+# ─── 智码助学 — 根目录一键启动 ─────────────────
 #   docker compose up -d
 #
-# 大前端 → http://localhost:9000
 # 学生端 → http://localhost:80
 
 services:
-  # ============================================================
-  #  大前端 — 统一入口页面
-  # ============================================================
-  portal:
-    image: nginx:alpine
-    container_name: edu-platform-portal
-    ports:
-      - "9000:80"
-    volumes:
-      - ./portal/index.html:/usr/share/nginx/html/index.html:ro
-      - ./portal/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    restart: unless-stopped
-    # 5GB 资源红线：容器级限额，防止 OOM 波及 VM（测试报告 §5.3 口径）
-    mem_limit: 256m
-    mem_reservation: 64m
-
   # ============================================================
   #  学生端服务
   # ============================================================

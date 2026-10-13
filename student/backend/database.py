@@ -15,8 +15,11 @@ def _run_migration(conn, table, column_sql, label):
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column_sql}")
         conn.commit()
         print(f"[OK] {label}")
-    except Exception:
-        pass  # 列已存在，忽略
+    except Exception as e:
+        # 列已存在属正常，静默跳过；其他异常留痕，避免迁移失败被无声吞掉
+        msg = str(e).lower()
+        if "duplicate column" not in msg and "already exists" not in msg:
+            print(f"[WARN] 迁移未执行（{label}）: {e}")
 
 def init_db():
     """初始化数据库，创建所有表

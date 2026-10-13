@@ -6,63 +6,48 @@
         <mxCell id="1" parent="0" />
 
         <!-- ═══════ Docker 容器边界 ═══════ -->
-        <mxCell id="docker" value="Docker Compose 一键编排 — 5 个服务 · 双网络隔离 · named volumes 持久化" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;strokeColor=#90A4AE;fillColor=#F5F7FA;verticalAlign=top;align=center;fontColor=#546E7A;fontStyle=1;fontSize=12;spacingTop=8;" vertex="1" parent="1">
+        <mxCell id="docker" value="Docker Compose 一键编排 — 2 个服务 · 单网络 student-net · named volume 持久化" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;strokeColor=#90A4AE;fillColor=#F5F7FA;verticalAlign=top;align=center;fontColor=#546E7A;fontStyle=1;fontSize=12;spacingTop=8;" vertex="1" parent="1">
           <mxGeometry x="40" y="60" width="1320" height="640" as="geometry" />
         </mxCell>
 
-        <!-- ═══════ Portal（默认网络） ═══════ -->
-        <mxCell id="portal" value="Portal（nginx:alpine）&#xa;宿主机 :9000 → 容器 80 · 挂载 ./portal/index.html:ro" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#F57C00;fontStyle=1;fontSize=12;" vertex="1" parent="1">
-          <mxGeometry x="580" y="95" width="260" height="52" as="geometry" />
-        </mxCell>
-
-        <!-- ═══════ 网络 1：student-net ═══════ -->
+        <!-- ═══════ 网络：student-net ═══════ -->
         <mxCell id="net1" value="student-net（bridge）" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;strokeColor=#43A047;fillColor=#E8F5E9;verticalAlign=top;align=center;fontColor=#2E7D32;fontStyle=1;fontSize=12;spacingTop=6;" vertex="1" parent="1">
-          <mxGeometry x="60" y="175" width="620" height="380" as="geometry" />
-        </mxCell>
-        <mxCell id="stu-fe" value="student-frontend（Nginx :80）&#xa;Vue3 构建产物 · SPA 路由" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#43A047;fontSize=12;" vertex="1" parent="1">
-          <mxGeometry x="100" y="225" width="250" height="55" as="geometry" />
-        </mxCell>
-        <mxCell id="stu-be" value="student-backend（FastAPI :8001→8000）&#xa;编程实验室 · 能力验证 · RAG · 导师 SSE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1976D2;fontSize=12;" vertex="1" parent="1">
-          <mxGeometry x="100" y="330" width="250" height="55" as="geometry" />
-        </mxCell>
-        <mxCell id="stu-vol" value="卷：student_backend_data → /app/data&#xa;种子只读：./backend/data → /app/seed-data:ro" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#F9A825;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="100" y="440" width="250" height="48" as="geometry" />
+          <mxGeometry x="180" y="115" width="1040" height="540" as="geometry" />
         </mxCell>
 
-        <!-- ═══════ 网络 2：edu-ta-network ═══════ -->
-        <mxCell id="net2" value="edu-ta-network（bridge）· teacher-backend 网络别名 backend" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;strokeColor=#1976D2;fillColor=#E3F2FD;verticalAlign=top;align=center;fontColor=#1565C0;fontStyle=1;fontSize=12;spacingTop=6;" vertex="1" parent="1">
-          <mxGeometry x="720" y="175" width="620" height="380" as="geometry" />
+        <!-- ═══════ 前端容器 ═══════ -->
+        <mxCell id="stu-fe" value="student-frontend（Nginx :80）&#xa;容器名 ai-learning-frontend · mem_limit 256m&#xa;Vue3 + Element Plus 构建产物 · SPA 路由" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#43A047;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="240" y="180" width="360" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="tea-fe" value="teacher-frontend（Nginx :8080）&#xa;React 构建产物 · 上传 200M · gzip" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#43A047;fontSize=12;" vertex="1" parent="1">
-          <mxGeometry x="760" y="225" width="250" height="55" as="geometry" />
+
+        <!-- ═══════ 后端容器 ═══════ -->
+        <mxCell id="stu-be" value="student-backend（FastAPI :8001→8000）&#xa;容器名 ai-learning-backend · mem_limit 1536m&#xa;编程实验室 · 能力验证 · RAG · 导师 SSE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1976D2;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="240" y="320" width="360" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="tea-be" value="teacher-backend（FastAPI :8002→8000）&#xa;作业持久化 · AI 批改 · 通信 SSE · 知识库" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1976D2;fontSize=12;" vertex="1" parent="1">
-          <mxGeometry x="760" y="330" width="250" height="55" as="geometry" />
+
+        <!-- ═══════ 卷 ═══════ -->
+        <mxCell id="stu-vol" value="卷：student_backend_data → /app/data&#xa;种子只读：./student/backend/data → /app/seed-data:ro&#xa;只读素材：learning_materials → /learning_materials · pdf → /pdf" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#F9A825;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="240" y="460" width="360" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="tea-vol" value="卷：edu-ta-data / edu-ta-vector-store / edu-ta-textbooks / edu-ta-materials" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#F9A825;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="760" y="440" width="250" height="48" as="geometry" />
+
+        <!-- ═══════ 宿主机 / 外部 ═══════ -->
+        <mxCell id="host" value="宿主机&#xa;前端 http://localhost:80&#xa;后端 API http://localhost:8001&#xa;可选本地模型（edu-ta-qwen3-1.7b-local）:8010" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#8E24AA;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="840" y="240" width="320" height="120" as="geometry" />
         </mxCell>
 
         <!-- ═══════ 关键机制标注 ═══════ -->
-        <mxCell id="note-health" value="healthcheck：teacher-backend 健康后 teacher-frontend 才启动（service_healthy）" style="text;html=1;align=left;fontSize=10;fontStyle=2;fontColor=#D81B60;" vertex="1" parent="1">
-          <mxGeometry x="760" y="505" width="420" height="18" as="geometry" />
-        </mxCell>
-        <mxCell id="note-cross" value="跨网络转发经宿主机：host.docker.internal:8001 / :8002（师生数据共享）" style="text;html=1;align=left;fontSize=10;fontStyle=2;fontColor=#D81B60;" vertex="1" parent="1">
-          <mxGeometry x="420" y="520" width="480" height="18" as="geometry" />
+        <mxCell id="note-order" value="启动顺序：student-frontend depends_on student-backend" style="text;html=1;align=left;fontSize=10;fontStyle=2;fontColor=#D81B60;" vertex="1" parent="1">
+          <mxGeometry x="240" y="560" width="420" height="18" as="geometry" />
         </mxCell>
         <mxCell id="note-config" value="配置注入：环境变量 + 用户个人中心自配 API Key · 密钥不落代码" style="text;html=1;align=left;fontSize=10;fontColor=#607D8B;" vertex="1" parent="1">
-          <mxGeometry x="60" y="580" width="420" height="18" as="geometry" />
+          <mxGeometry x="240" y="585" width="520" height="18" as="geometry" />
         </mxCell>
 
         <!-- ═══════ 连线 ═══════ -->
         <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#90A4AE;" edge="1" parent="1" source="stu-fe" target="stu-be"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#90A4AE;" edge="1" parent="1" source="tea-fe" target="tea-be"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e2" value="depends_on" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#43A047;dashed=1;" edge="1" parent="1" source="stu-fe" target="stu-be"><mxGeometry relative="1" as="geometry" /></mxCell>
         <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#90A4AE;" edge="1" parent="1" source="stu-be" target="stu-vol"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#90A4AE;" edge="1" parent="1" source="tea-be" target="tea-vol"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e5" value="depends_on" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#43A047;dashed=1;" edge="1" parent="1" source="stu-fe" target="stu-be"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e6" value="depends_on(healthy)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#43A047;dashed=1;" edge="1" parent="1" source="tea-fe" target="tea-be"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e7" value="跨网络：作业/进度/消息 → host.docker.internal:8002" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#D81B60;dashed=1;fontSize=10;" edge="1" parent="1" source="stu-fe" target="tea-be"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e8" value="跨网络：讨论区 → host.docker.internal:8001" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#D81B60;dashed=1;fontSize=10;" edge="1" parent="1" source="tea-fe" target="stu-be"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e4" value="端口映射 80 / 8001" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8E24AA;dashed=1;fontSize=10;" edge="1" parent="1" source="stu-fe" target="host"><mxGeometry relative="1" as="geometry" /></mxCell>
       </root>
     </mxGraphModel>
   </diagram>

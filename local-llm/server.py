@@ -105,7 +105,7 @@ if non_cuda_parameters or non_cuda_buffers:
         f"非 CUDA 缓冲区: {non_cuda_buffers[:5]}"
     )
 
-app = FastAPI(title="Edu-TA 本地微调模型", docs_url=None, redoc_url=None)
+app = FastAPI(title="智码助学 本地微调模型", docs_url=None, redoc_url=None)
 generation_lock = Lock()
 
 

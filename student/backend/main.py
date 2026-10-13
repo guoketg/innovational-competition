@@ -23,8 +23,8 @@ class SafeJSONResponse(JSONResponse):
 
 # 创建应用
 app = FastAPI(
-    title="AI智能体学科学习平台",
-    description="个性化、伴随式、智能化的AI智能体学科学习平台API",
+    title="智码助学",
+    description="面向高校计算机学科实训的个性化、伴随式 AI 教学软件 API",
     version="1.0.0",
     default_response_class=SafeJSONResponse
 )
@@ -96,7 +96,7 @@ app.include_router(workspace_router.router, prefix="/api/workspaces", tags=["项
 
 @app.get("/")
 def root():
-    return {"message": "AI智能体学科学习平台 API", "version": "1.0.0", "status": "running"}
+    return {"message": "智码助学 API", "version": "1.0.0", "status": "running"}
 
 @app.get("/api/health")
 def health_check():

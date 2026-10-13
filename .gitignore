@@ -95,13 +95,13 @@ docker-compose.override.yml
 local-llm/*.log
 **/.llm-key-secret
 **/.student-key-secret
+**/.jwt-secret
 
 # ===== 演示/抓取截图（根目录散落的演示产物）=====
 /shot-*.png
 /cap-loop-*.png
 /lab-1-1*.png
 /stage-check.png
-/portal-home.png
 /qa-rag-sources.png
 /live-learning-docs-44.png
 /live-resources.png

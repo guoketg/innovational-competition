@@ -73,8 +73,9 @@
             <span style="margin-left:8px;color:#909399;font-size:13px">{{ q.question_type }}</span>
           </div>
           <div class="q-title">{{ idx + 1 }}. {{ q.question }}</div>
+          <pre v-if="q.code" class="q-code"><code>{{ q.code }}</code></pre>
           <div v-if="q.options && q.options.length" class="q-options">
-            <el-radio-group v-if="q.question_type === '单选'" v-model="answers[q.question_id]" class="option-group">
+            <el-radio-group v-if="q.question_type === '单选' || q.question_type === '读代码'" v-model="answers[q.question_id]" class="option-group">
               <el-radio v-for="(opt, oi) in q.options" :key="oi" :value="opt" class="option-item">{{ opt }}</el-radio>
             </el-radio-group>
             <el-checkbox-group v-else-if="q.question_type === '多选'" v-model="multiAnswers[q.question_id]" class="option-group">
@@ -253,6 +254,7 @@ function resetQuiz() {
 .q-header { margin-bottom: 10px; }
 .q-title { font-size: 15px; font-weight: 500; color: #303133; margin-bottom: 12px; line-height: 1.6; }
 .q-options { margin-left: 8px; }
+.q-code { background: #1e1e2e; color: #d4d4d4; padding: 12px 14px; border-radius: 6px; font-size: 13px; line-height: 1.6; overflow-x: auto; margin-bottom: 12px; font-family: 'Consolas', 'Monaco', monospace; white-space: pre; }
 .option-group { display: flex; flex-direction: column; gap: 8px; }
 .option-item { padding: 8px 12px; border: 1px solid #e8e8e8; border-radius: 8px; margin-right: 0 !important; }
 .quiz-area { max-width: 900px; margin: 0 auto; }

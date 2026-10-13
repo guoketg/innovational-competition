@@ -1,4 +1,5 @@
 """伴随式学习路由"""
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from auth import get_current_user
@@ -1009,6 +1010,17 @@ async def batch_delete_errors(req: BatchDeleteRequest, current_user: dict = Depe
     return APIResponse(data=result)
 
 
+class ReviewQuizRequest(BaseModel):
+    session_id: Optional[int] = None
+    count: int = 10
+
+@router.post("/error-book/retest", response_model=APIResponse)
+async def generate_review_quiz(req: ReviewQuizRequest = ReviewQuizRequest(), current_user: dict = Depends(get_current_user)):
+    """错题重测：将错题本中的错题组装成一份可提交的重测卷"""
+    result = await learning_service.generate_review_quiz(current_user["id"], req.session_id, req.count)
+    return APIResponse(data=result)
+
+
 @router.get("/code-completions", response_model=APIResponse)
 async def get_code_completions(current_user: dict = Depends(get_current_user)):
     """获取用户已通过的编程习题ID列表（跨设备同步通关状态）"""
@@ -1170,9 +1182,19 @@ async def generate_tutorial(req: TutorialGenerateRequest, current_user: dict = D
 请直接输出完整的 Markdown 文档，不要有其他说明文字。"""
 
     try:
+        from services.personalization_service import build_personalized_system_prompt
+        base_system = "你是专业的AI智能体学科导师，擅长编写结构清晰的学习教程。只输出Markdown内容。"
+        # M26：教程接学习者画像——按掌握度/错题/偏好调整讲解深度与案例
+        system_prompt = build_personalized_system_prompt(
+            current_user["id"], f"{req.topic} {req.goal or ''}", base_system
+        )
+    except Exception:
+        system_prompt = "你是专业的AI智能体学科导师，擅长编写结构清晰的学习教程。只输出Markdown内容。"
+
+    try:
         response = await call_llm(
             current_user["id"],
-            [{"role": "system", "content": "你是专业的AI智能体学科导师，擅长编写结构清晰的学习教程。只输出Markdown内容。"},
+            [{"role": "system", "content": system_prompt},
              {"role": "user", "content": prompt}],
             temperature=0.6,
             max_tokens=4096

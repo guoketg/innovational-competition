@@ -170,7 +170,7 @@ if __name__ == "__main__":
     TOKEN = None
 
     print("\n" + "="*60)
-    print("AI智能体学科学习平台 — 冷部署数据完整性测试")
+    print("智码助学 — 冷部署数据完整性测试")
     print("="*60)
 
     print("\n[1] 认证测试")

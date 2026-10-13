@@ -1,4 +1,4 @@
-# AI智能体学科学习平台 — 数据库表结构文档
+# 智码助学 — 数据库表结构文档
 
 > 当前数据库：SQLite (`backend/data/learning_platform.db`)  
 > 生成日期：2026-07-23  

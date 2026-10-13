@@ -22,7 +22,7 @@ def add_mc(question, answer, options, section, difficulty="easy"):
         q_text = q_text.rstrip("（) ") + "（ ）"
     questions.append({
         "question": q_text, "answer": answer, "options": options,
-        "source": "AI智能体学科学习平台题库", "section": section,
+        "source": "智码助学题库", "section": section,
         "type": "multiple_choice", "difficulty": difficulty
     })
 
@@ -32,14 +32,14 @@ def add_fib(question, answer, section, difficulty="easy"):
         q_text = q_text.rstrip("（) ") + "（ ）"
     questions.append({
         "question": q_text, "answer": answer,
-        "source": "AI智能体学科学习平台题库", "section": section,
+        "source": "智码助学题库", "section": section,
         "type": "fill_in_blank", "difficulty": difficulty
     })
 
 def add_short(question, answer, section, difficulty="easy", qtype="definition"):
     questions.append({
         "question": question.strip(), "answer": answer,
-        "source": "AI智能体学科学习平台题库", "section": section,
+        "source": "智码助学题库", "section": section,
         "type": qtype, "difficulty": difficulty
     })
 
@@ -987,7 +987,7 @@ def generate():
             "total_qa": len(questions),
             "type_distribution": types,
             "difficulty_distribution": difficulties,
-            "source_distribution": {"AI智能体学科学习平台题库": len(questions)},
+            "source_distribution": {"智码助学题库": len(questions)},
             "original_total": len(questions), "removed_total": 0, "removal_reasons": {},
             "note": "v2改进版：所有选择题选项长度相近、同领域、都能通顺填入题干，消除明显非正确答案。"
         },

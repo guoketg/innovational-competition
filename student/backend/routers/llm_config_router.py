@@ -57,12 +57,31 @@ async def get_llm_config(current_user: dict = Depends(get_current_user)):
 
 @router.put("", response_model=APIResponse)
 async def save_llm_config(req: LLMConfigRequest, current_user: dict = Depends(get_current_user)):
-    """保存/更新用户的LLM配置"""
+    """保存/更新用户的LLM配置
+
+    传空的 Key 字段表示"保持原有密钥不变"：前端加载时密钥只展示脱敏值、
+    表单里置空，若后端无条件用空串覆盖，用户只改温度/模型再保存就会把已存
+    密钥清空。故此处只有传入非空字符串时才覆盖，否则沿用库中旧值。
+    """
     conn = get_db()
     existing = conn.execute(
-        "SELECT id FROM user_llm_config WHERE user_id = ?",
+        "SELECT api_key, image_api_key, embedding_api_key, search_api_key "
+        "FROM user_llm_config WHERE user_id = ?",
         (current_user["id"],)
     ).fetchone()
+
+    old = dict(existing) if existing else {}
+
+    def _keep_or_set(incoming: str, old_encrypted) -> str:
+        incoming = (incoming or "").strip()
+        if incoming:
+            return encrypt_secret(incoming)
+        return old_encrypted or ""
+
+    final_api_key = _keep_or_set(req.api_key, old.get("api_key"))
+    final_image_key = _keep_or_set(req.image_api_key, old.get("image_api_key"))
+    final_embedding_key = _keep_or_set(req.embedding_api_key, old.get("embedding_api_key"))
+    final_search_key = _keep_or_set(req.search_api_key, old.get("search_api_key"))
 
     now = datetime.now().isoformat()
     if existing:
@@ -73,11 +92,11 @@ async def save_llm_config(req: LLMConfigRequest, current_user: dict = Depends(ge
                    embedding_api_key=?, embedding_provider=?, embedding_model=?,
                    search_api_key=?, updated_at=?
                WHERE user_id=?""",
-            (req.provider, encrypt_secret(req.api_key), req.base_url, req.model_name,
-             req.temperature, req.max_tokens, encrypt_secret(req.image_api_key or ""),
-              encrypt_secret(req.embedding_api_key or ""), req.embedding_provider or "siliconflow",
+            (req.provider, final_api_key, req.base_url, req.model_name,
+             req.temperature, req.max_tokens, final_image_key,
+             final_embedding_key, req.embedding_provider or "siliconflow",
              req.embedding_model or "BAAI/bge-large-zh-v1.5",
-             encrypt_secret(req.search_api_key or ""), now, current_user["id"])
+             final_search_key, now, current_user["id"])
         )
     else:
         conn.execute(
@@ -85,11 +104,11 @@ async def save_llm_config(req: LLMConfigRequest, current_user: dict = Depends(ge
                (user_id, provider, api_key, base_url, model_name, temperature, max_tokens, image_api_key,
                 embedding_api_key, embedding_provider, embedding_model, search_api_key, updated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (current_user["id"], req.provider, encrypt_secret(req.api_key), req.base_url,
-             req.model_name, req.temperature, req.max_tokens, encrypt_secret(req.image_api_key or ""),
-              encrypt_secret(req.embedding_api_key or ""), req.embedding_provider or "siliconflow",
+            (current_user["id"], req.provider, final_api_key, req.base_url,
+             req.model_name, req.temperature, req.max_tokens, final_image_key,
+             final_embedding_key, req.embedding_provider or "siliconflow",
              req.embedding_model or "BAAI/bge-large-zh-v1.5",
-             encrypt_secret(req.search_api_key or ""), now)
+             final_search_key, now)
         )
     conn.commit()
     conn.close()
@@ -98,7 +117,7 @@ async def save_llm_config(req: LLMConfigRequest, current_user: dict = Depends(ge
         "message": "LLM配置已保存",
         "model_name": req.model_name,
         "base_url": req.base_url,
-        "is_configured": bool(req.api_key)
+        "is_configured": bool(final_api_key)
     })
 
 
