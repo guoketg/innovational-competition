@@ -287,5 +287,168 @@ class CppJudgeTest(unittest.TestCase):
         self.assertFalse(compile_cpp_only("int f() { return g(); }")["ok"])
 
 
+# ── fresh_result：换一套全新入参再调一次，两次都必须返回 expected ──────────────
+
+FRESH_SPEC = {
+    "language": "cpp",
+    "target": "next_value",
+    "cpp": {"signature": "int next_value(int seed)"},
+    "cases": [
+        {"description": "两次调用都要稳定", "args": [7], "expected": 7, "fresh_result": True},
+    ],
+}
+
+
+class CppFreshResultTest(unittest.TestCase):
+    def test_generated_main_declares_second_args_and_calls_twice(self):
+        """生成层契约：b 组参数在 try 外声明、actual_second 字段在第二次调用后写。"""
+        source = cpp_judge.build_main_cpp(FRESH_SPEC)
+        self.assertIn("int b0 = 7;", source)
+        self.assertIn("auto actual_second = next_value(b0);", source)
+        self.assertIn('\\"actual_second\\"', source)
+
+    def test_stable_solution_passes_the_fresh_result_case(self):
+        result = run_cpp_judge("int next_value(int seed) { return seed; }", FRESH_SPEC, 1, 6)
+        self.assertTrue(result["passed"], result)
+        self.assertEqual(result["passed_count"], 1)
+
+    def test_stateful_solution_fails_with_input_expected_and_actual(self):
+        """静态变量缓存正是 fresh_result 要抓的：第一次对、第二次串味。"""
+        code = (
+            "int next_value(int seed) {\n"
+            "  static int calls = 0;\n"
+            "  return seed + calls++;\n"
+            "}\n"
+        )
+        result = run_cpp_judge(code, FRESH_SPEC, 1, 6)
+        self.assertFalse(result["passed"])
+        first = result["results"][0]
+        self.assertFalse(first["passed"])
+        # 三段式沿用 runner 文案，评测面板「实际」列靠它取数
+        self.assertIn("返回结果不稳定", first["error"])
+        self.assertIn("输入: [7]", first["error"])
+        self.assertIn("期望: 7", first["error"])
+        self.assertIn("实际: 8", first["error"])
+
+    def test_missing_actual_second_is_a_case_failure_not_a_contract_error(self):
+        """第二次调用没跑完（或行被截断）→ 该用例判失败，而不是抛 CppContractError。
+
+        契约错是服务端配置问题的信号；观测层面分不清是学生侧还是伪造，
+        对外一律按「这条用例没通过」处理。
+        """
+        item = FRESH_SPEC["cases"][0]
+        outcome = cpp_judge._compare_case(item, {"i": 1, "actual": 7}, {})
+        self.assertFalse(outcome["passed"])
+        self.assertIn("actual_second", outcome["error"])
+
+
+# ── map / unordered_map 参数与序列化 ──────────────────────────────────────────
+
+class CppMapLiteralTest(unittest.TestCase):
+    def test_int_keys_are_converted_back_to_numeric_literals(self):
+        # JSON 对象的键恒为字符串（"1"），整型键要转回数字；序列化时 to_string
+        # 再变回 "1"，与 Python json 的键文本闭环一致。
+        literal = cpp_judge._cpp_literal({"1": 2, "3": 4}, "std::map<int, int>")
+        self.assertEqual(literal, "std::map<int, int>{{1, 2}, {3, 4}}")
+
+    def test_string_keys_and_vector_values_nest_recursively(self):
+        literal = cpp_judge._cpp_literal(
+            {"a": [1, 2], "b-c": []}, "std::unordered_map<std::string, std::vector<int>>"
+        )
+        self.assertEqual(
+            literal,
+            'std::unordered_map<std::string, std::vector<int>>{{"a", {1, 2}}, {"b-c", {}}}',
+        )
+
+    def test_bare_map_gets_the_std_prefix(self):
+        literal = cpp_judge._cpp_literal({"x": 1}, "map<std::string, int>")
+        self.assertEqual(literal, 'std::map<std::string, int>{{"x", 1}}')
+
+    def test_empty_object_is_an_empty_container(self):
+        self.assertEqual(
+            cpp_judge._cpp_literal({}, "std::map<int, int>"), "std::map<int, int>{}"
+        )
+
+    def test_dict_with_non_map_type_is_a_contract_error(self):
+        with self.assertRaises(CppContractError) as ctx:
+            cpp_judge._cpp_literal({"1": 2}, "int")
+        self.assertIn("map", str(ctx.exception))
+
+    def test_list_with_map_type_is_a_contract_error(self):
+        with self.assertRaises(CppContractError) as ctx:
+            cpp_judge._cpp_literal([1, 2], "std::map<int, int>")
+        self.assertIn("对象", str(ctx.exception))
+
+    def test_bool_and_float_keys_are_rejected(self):
+        # C++ to_string(true)=="1" vs Python json 键 "true"——两边文本分叉，
+        # 序列化永远对不上 expected，必须在生成期就报服务端错误。
+        for key_type in ("bool", "double"):
+            with self.subTest(key_type=key_type):
+                with self.assertRaises(CppContractError) as ctx:
+                    cpp_judge._cpp_literal({"1": 2}, f"std::map<{key_type}, int>")
+                self.assertIn("键", str(ctx.exception))
+
+    def test_non_numeric_key_for_int_map_is_a_contract_error(self):
+        with self.assertRaises(CppContractError) as ctx:
+            cpp_judge._cpp_literal({"abc": 2}, "std::map<int, int>")
+        self.assertIn("整数键", str(ctx.exception))
+
+    def test_map_type_must_declare_exactly_two_arguments(self):
+        with self.assertRaises(CppContractError):
+            cpp_judge._cpp_literal({"1": 2}, "std::map<int>")
+
+
+STRING_KEY_SPEC = {
+    "language": "cpp",
+    "target": "echo_map",
+    "cpp": {"signature": "std::map<std::string, int> echo_map(std::map<std::string, int> m)"},
+    "cases": [
+        {"description": "字符串键往返", "args": [{"a": 1, "b-c": 2}], "expected": {"a": 1, "b-c": 2}},
+        {"description": "空表", "args": [{}], "expected": {}},
+    ],
+}
+
+NESTED_MAP_SPEC = {
+    "language": "cpp",
+    "target": "regroup",
+    "cpp": {
+        "signature": "std::map<int, std::vector<int>> regroup(std::map<int, std::vector<int>> groups)"
+    },
+    "cases": [
+        {
+            "description": "整数键与 vector 值往返",
+            "args": [{"1": [1, 2], "3": [4]}],
+            "expected": {"1": [1, 2], "3": [4]},
+        },
+    ],
+}
+
+
+class CppMapJudgeTest(unittest.TestCase):
+    def test_string_keys_round_trip_through_json(self):
+        """端到端（真 g++）：键含特殊字符也要 json_escape 后原样回来。"""
+        code = (
+            "#include <map>\n#include <string>\n"
+            "std::map<std::string, int> echo_map(std::map<std::string, int> m) { return m; }\n"
+        )
+        result = run_cpp_judge(code, STRING_KEY_SPEC, 2, 6)
+        self.assertTrue(result["passed"], result)
+
+    def test_int_keyed_nested_map_serializes_to_python_expected(self):
+        """端到端：map<int, vector<int>> 同时压两条路径——
+
+        1. 整数键 to_string 后必须与 Python json 的字符串键 "1" 对齐；
+        2. vector 模板与 map 模板互相引用（定义点查找），顺序错了编译期就挂。
+        """
+        code = (
+            "#include <map>\n#include <vector>\n"
+            "std::map<int, std::vector<int>> regroup(std::map<int, std::vector<int>> groups) {\n"
+            "  return groups;\n"
+            "}\n"
+        )
+        result = run_cpp_judge(code, NESTED_MAP_SPEC, 1, 6)
+        self.assertTrue(result["passed"], result)
+
+
 if __name__ == "__main__":
     unittest.main()

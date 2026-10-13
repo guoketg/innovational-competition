@@ -529,6 +529,34 @@ def get_local_material(knowledge: str, allowed_hashes: set = None, user_id: int 
     return _fallback_material(knowledge)
 
 
+def find_existing_ai_tutorial(conn, user_id, knowledge_tag: str = "", title: str = "") -> dict | None:
+    """C5：AI 生成教程前先查库——同标签（或同标题）已有该用户的 AI 生成教程时直接复用，
+    不再重复调用大模型，也不再插入重复行。
+
+    只匹配 source_type='ai_generated'：种子文档与用户手改版本不算「AI 已生成」，
+    避免把系统预置内容误当成生成结果返回。
+    """
+    if knowledge_tag:
+        row = conn.execute(
+            "SELECT id, title, content FROM tutorial_documents"
+            " WHERE knowledge_tag = ? AND user_id = ? AND source_type = 'ai_generated'"
+            " ORDER BY id DESC LIMIT 1",
+            (knowledge_tag, user_id),
+        ).fetchone()
+    elif title:
+        row = conn.execute(
+            "SELECT id, title, content FROM tutorial_documents"
+            " WHERE title = ? AND user_id = ? AND source_type = 'ai_generated'"
+            " ORDER BY id DESC LIMIT 1",
+            (title, user_id),
+        ).fetchone()
+    else:
+        return None
+    if row:
+        return {"tutorial_id": row["id"], "title": row["title"], "content": row["content"]}
+    return None
+
+
 def _inject_cached_images(content: str, allowed_hashes: set = None) -> str:
     """注入已缓存 SVG 为 base64 图片。
 

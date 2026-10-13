@@ -1,0 +1,190 @@
+{
+  "dry_run": false,
+  "model": "deepseek-chat",
+  "total_pairs": 230,
+  "layer_stats": {
+    "P": {
+      "candidates": 16,
+      "passed": 14,
+      "dropped": 2,
+      "reasons": {
+        "round2 chosen 缺讲解": 2
+      }
+    },
+    "C": {
+      "candidates": 9,
+      "passed": 5,
+      "dropped": 4,
+      "reasons": {
+        "C chosen 缺讲解": 3,
+        "C rejected 非过度引导": 1
+      }
+    },
+    "A": {
+      "candidates": 200,
+      "passed": 168,
+      "dropped": 32,
+      "reasons": {
+        "round2 chosen 缺讲解": 19,
+        "round2 chosen 代码不足": 2,
+        "concept rejected 非过度引导": 1,
+        "round1 rejected 未泄题": 6,
+        "round1 chosen 未以问句结尾": 2,
+        "round2 rejected 非过度引导": 2
+      }
+    },
+    "X": {
+      "candidates": 50,
+      "passed": 43,
+      "dropped": 7,
+      "reasons": {
+        "X chosen 命中 R1": 1,
+        "X rejected 未泄题": 6
+      }
+    }
+  },
+  "general": {
+    "status": "skipped",
+    "reason": "held split 不含 G 层（防评测泄露）"
+  },
+  "held_out_levels": [
+    "2-1",
+    "2-4",
+    "3-3",
+    "4-3"
+  ],
+  "train_levels": [
+    "1-1",
+    "1-2",
+    "1-3",
+    "2-2",
+    "2-3",
+    "3-1",
+    "3-2",
+    "4-1",
+    "4-2"
+  ],
+  "held_out_families": [
+    "cookie_purchase",
+    "get_combinations",
+    "good_dinner",
+    "is_even",
+    "largest_number",
+    "last_index_of",
+    "plot_function",
+    "removing_even_numbers",
+    "sequential_search",
+    "spell_checker",
+    "splitting_cookies",
+    "topk"
+  ],
+  "train_families": [
+    "activity_selection_buggy",
+    "area_circle",
+    "bfs_shortest_buggy",
+    "binary_search_buggy",
+    "calculating_a_grade",
+    "calculating_determinant",
+    "count_ones",
+    "counting_down",
+    "disney_vacation_club",
+    "factorial",
+    "fahrenheit_to_celsius_converter",
+    "fibonacci",
+    "insert_to_linked_list",
+    "integer_grouping",
+    "knapsack_dp_buggy",
+    "largest_k_heap_buggy",
+    "limit",
+    "list_range",
+    "palindrome",
+    "parentheses_stack_buggy",
+    "password_validator",
+    "product",
+    "recent_counter_buggy",
+    "sliding_window_buggy",
+    "sorted_words",
+    "splitting_apples",
+    "subsets_backtracking_buggy",
+    "substring_length",
+    "summing_between_integers",
+    "turning_clockwise",
+    "used_twice",
+    "word_counter",
+    "xnglxsh"
+  ],
+  "length_stats": {
+    "boundary": {
+      "n": 5,
+      "chosen_avg_len": 2439.4,
+      "rejected_avg_len": 498.0,
+      "chosen_longer_ratio": 1.0
+    },
+    "codelab": {
+      "n": 14,
+      "chosen_avg_len": 1255.8,
+      "rejected_avg_len": 1090.1,
+      "chosen_longer_ratio": 0.429
+    },
+    "redteam": {
+      "n": 43,
+      "chosen_avg_len": 233.2,
+      "rejected_avg_len": 173.8,
+      "chosen_longer_ratio": 0.628
+    },
+    "socratic": {
+      "n": 168,
+      "chosen_avg_len": 623.0,
+      "rejected_avg_len": 183.6,
+      "chosen_longer_ratio": 0.458
+    }
+  },
+  "round_hascode_cross": {
+    "A-round1": {
+      "with_code": 30,
+      "no_code": 111
+    },
+    "A-round2": {
+      "with_code": 27,
+      "no_code": 0
+    },
+    "C-round2": {
+      "with_code": 4,
+      "no_code": 0
+    },
+    "C-round1": {
+      "with_code": 1,
+      "no_code": 0
+    },
+    "P-round1": {
+      "with_code": 0,
+      "no_code": 8
+    },
+    "P-round2": {
+      "with_code": 6,
+      "no_code": 0
+    },
+    "X-round1": {
+      "with_code": 0,
+      "no_code": 43
+    }
+  },
+  "explanation_stats": {
+    "socratic": {
+      "n": 27,
+      "with_explanation": 27,
+      "explanation_pass_rate": 1.0
+    },
+    "boundary": {
+      "n": 4,
+      "with_explanation": 4,
+      "explanation_pass_rate": 1.0
+    },
+    "codelab": {
+      "n": 6,
+      "with_explanation": 6,
+      "explanation_pass_rate": 1.0
+    }
+  },
+  "output": "data\\dpo\\dpo_eval_pairs.jsonl"
+}

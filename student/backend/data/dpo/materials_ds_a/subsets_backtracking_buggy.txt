@@ -1,0 +1,83 @@
+<problem>
+Write a function `subsets(nums: List[int]) -> List[List[int]]` that returns all subsets of `nums` in any order, using backtracking. The input contains distinct integers.
+
+## Example Cases:
+```
+subsets([1, 2]) => [[], [2], [1], [1, 2]]
+subsets([1]) => [[], [1]]
+subsets([]) => [[]]
+```
+</problem>
+<bug_code>
+1. def subsets(nums):
+2.  res = []
+3.  path = []
+4.  def dfs(i):
+5.    if i == len(nums):
+6.      res.append(path)
+7.      return
+8.    dfs(i + 1)
+9.    path.append(nums[i])
+10.    dfs(i + 1)
+11.    path.pop()
+12.  dfs(0)
+13.  return res
+</bug_code>
+<bug_desc>
+On line 6, `res.append(path)` stores a *reference* to the shared `path` list instead of a copy. Every entry in `res` points to the same list object, so after the backtracking pops finish, all subsets collapse into duplicates of the final (empty) path — `subsets([1,2])` returns `[[], [], [], []]` instead of four distinct subsets.
+</bug_desc>
+<bug_fixes>
+Replace `res.append(path)` with `res.append(path[:])` on line 6
+</bug_fixes>
+<unit_tests>
+assert sorted(subsets([1, 2]), key=len) == [[], [2], [1], [1, 2]]
+assert len(subsets([1])) == 2
+assert subsets([]) == [[]]
+assert len(subsets([1, 2, 3])) == 8
+</unit_tests>
+<stu_desc>
+
+</stu_desc>
+<dialogue>
+User: My backtracking subsets function returns the right *number* of results but they're all identical — `subsets([1,2])` gives `[[], [], [], []]`. What did I do wrong?
+	<code>
+1. def subsets(nums):
+2.  res = []
+3.  path = []
+4.  def dfs(i):
+5.    if i == len(nums):
+6.      res.append(path)
+7.      return
+8.    dfs(i + 1)
+9.    path.append(nums[i])
+10.    dfs(i + 1)
+11.    path.pop()
+12.  dfs(0)
+13.  return res
+
+	</code>
+Assistant: Line 6 appends `path` itself. In Python, what does `res.append(path)` store — the current contents of the list, or the list object?
+	<alt>After the recursion finishes, `path` gets popped back to `[]`. What do the four entries in `res` look like at that point?
+	<alt>How many distinct list objects are there in your `res` after `subsets([1,2])` returns?
+User: It stores the object, not a snapshot. There's only ONE path list — all four entries reference it, and when the pops finish it's empty, so all four show as []. I need to capture a copy at that moment.
+Assistant: Exactly. How do you make a shallow copy of `path` inline on line 6?
+	<alt>What slicing expression gives you a new list with the same elements?
+User: `res.append(path[:])` — or `list(path)`. I used `path[:]` and now `subsets([1,2])` returns four distinct subsets, and the 8-subset case works too. Thanks!
+	<code>
+1. def subsets(nums):
+2.  res = []
+3.  path = []
+4.  def dfs(i):
+5.    if i == len(nums):
+6.      res.append(path[:])
+7.      return
+8.    dfs(i + 1)
+9.    path.append(nums[i])
+10.    dfs(i + 1)
+11.    path.pop()
+12.  dfs(0)
+13.  return res
+
+	</code>
+Assistant: Well spotted — in backtracking, always snapshot the path before recording it.
+</dialogue>

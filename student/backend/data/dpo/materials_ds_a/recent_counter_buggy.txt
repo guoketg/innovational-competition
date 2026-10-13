@@ -1,0 +1,73 @@
+<problem>
+Implement a `RecentCounter` class that counts the number of requests in the last 3000 milliseconds.
+
+- `RecentCounter()` initializes the counter.
+- `ping(t: int) -> int` adds a request at millisecond `t` and returns the number of requests in the time interval `[t - 3000, t]`.
+
+## Example Cases:
+```
+c = RecentCounter(); c.ping(1) => 1
+c.ping(100) => 2
+c.ping(3001) => 2
+c.ping(3002) => 3
+```
+</problem>
+<bug_code>
+1. class RecentCounter:
+2.  def __init__(self):
+3.    self.q = []
+4.  def ping(self, t):
+5.    self.q.append(t)
+6.    while self.q and self.q[0] <= t - 3000:
+7.      self.q.pop()
+8.    return len(self.q)
+</bug_code>
+<bug_desc>
+On line 7, `list.pop()` with no argument removes the newest element from the right end of the list, but the expired requests are at the front. The stale entries at `q[0]` never leave, so the while loop empties the whole window (or never drains correctly) and the returned counts are wrong (e.g. it returns 0 instead of 2 at t=3001).
+</bug_desc>
+<bug_fixes>
+Replace `self.q.pop()` with `self.q.pop(0)` on line 7
+</bug_fixes>
+<unit_tests>
+c = RecentCounter()
+assert c.ping(1) == 1
+assert c.ping(100) == 2
+assert c.ping(3001) == 2
+assert c.ping(3002) == 3
+</unit_tests>
+<stu_desc>
+
+</stu_desc>
+<dialogue>
+User: I'm implementing a RecentCounter with a queue. At t=3001 my code returns 0, but the expected answer is 2 (the requests at 100 and 3001 are within 3000ms). Can you find the bug?
+	<code>
+1. class RecentCounter:
+2.  def __init__(self):
+3.    self.q = []
+4.  def ping(self, t):
+5.    self.q.append(t)
+6.    while self.q and self.q[0] <= t - 3000:
+7.      self.q.pop()
+8.    return len(self.q)
+
+	</code>
+Assistant: Your loop condition checks `self.q[0]` — which end of the list is that? And which end does `pop()` remove from?
+	<alt>Trace ping(3001): the queue is [1, 100, 3001]. What does the loop pop first, and does that fix the stale `q[0] = 1`?
+	<alt>Which element is actually expired, and where does it sit in the list?
+User: q[0] is the front, but pop() takes from the right, so it pops 3001 — the newest one! The expired `1` stays at the front, then it pops 100, then 1, and the queue ends up empty.
+Assistant: Exactly — you're draining the wrong end. The queue should evict expired entries from the front. What should line 7 call?
+	<alt>In Python, how do you remove the first element of a list?
+User: `self.q.pop(0)` — remove from the front. I changed it and now the counts are 1, 2, 2, 3. Fixed!
+	<code>
+1. class RecentCounter:
+2.  def __init__(self):
+3.    self.q = []
+4.  def ping(self, t):
+5.    self.q.append(t)
+6.    while self.q and self.q[0] <= t - 3000:
+7.      self.q.pop(0)
+8.    return len(self.q)
+
+	</code>
+Assistant: Perfect — a queue must dequeue from the same end it checks for expiry.
+</dialogue>

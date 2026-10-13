@@ -1985,13 +1985,17 @@ async def ask_assistant(
                 "status": "completed" if sample_passed else "attention",
                 "detail": verdict,
             })
-    from services.teaching_policy_service import classify_move, diagnosis_focus, log_decision
+    from services.teaching_policy_service import (
+        classify_move, diagnosis_focus, log_decision, mastery_hint_level,
+    )
     decision = await classify_move(user_id, question, history)
     teaching_move = decision["move"]
     hint_level = 0
     if teaching_move == "progressive_hint":
         levels = state.setdefault("tutor_hint_levels", {})
-        hint_level = min(int(levels.get(current_stage["id"], 0)) + 1, 3)
+        hint_level = mastery_hint_level(
+            state, current_stage["id"], int(levels.get(current_stage["id"], 0))
+        )
     focus_note = diagnosis_focus(state)
     role_hint = (
         "你处于 Chat 问答模式：直接解释学生的问题，不规划或声称执行项目操作。"
@@ -2057,9 +2061,33 @@ async def ask_assistant(
         )
         if answer.startswith("LLM调用异常:"):
             raise ValueError(answer)
-        from services.answer_guard_service import apply_guard, load_reference_solution, log_guard_event
-        answer, guard = apply_guard(answer, load_reference_solution(exercise_id))
-        log_guard_event(guard, {"channel": "assistant", "exercise": exercise_id, "user": user_id})
+        from services.answer_guard_service import (
+            evaluate_release, log_guard_event, regenerate_and_recheck,
+        )
+
+        async def _retry_after_guard(feedback: str) -> str:
+            retry_answer = await call_llm(
+                user_id,
+                [*llm_messages, {"role": "user", "content": feedback}],
+                temperature=0.2,
+                max_tokens=900,
+            )
+            if retry_answer.startswith("LLM调用异常:"):
+                raise ValueError(retry_answer)
+            return retry_answer
+
+        # 时机释放阀：学生贴了自己的代码 / 已被拦多轮 → 放行完整参考讲解
+        _release, _release_reason = evaluate_release(user_id, exercise_id, question)
+        answer, guard, _regen_attempts = await regenerate_and_recheck(
+            answer,
+            _retry_after_guard,
+            exercise_id,
+            log_context={"channel": "assistant", "exercise": exercise_id, "user": user_id},
+            release=_release, release_reason=_release_reason,
+        )
+        if guard.severity == "ok" and _regen_attempts == 0:
+            # 保持原口径：每轮都记一条判定（helper 只在 partial/blocked/重生成时记）
+            log_guard_event(guard, {"channel": "assistant", "exercise": exercise_id, "user": user_id})
         if hint_level:
             state.setdefault("tutor_hint_levels", {})[current_stage["id"]] = hint_level
         log_decision(state, decision, question, current_stage["id"])
@@ -2414,13 +2442,17 @@ async def ask_assistant_streaming(
         _next_course_stage(course, state.get("completed_stages", [])),
     )
     completed = state.get("completed_stages", [])
-    from services.teaching_policy_service import classify_move, diagnosis_focus, log_decision
+    from services.teaching_policy_service import (
+        classify_move, diagnosis_focus, log_decision, mastery_hint_level,
+    )
     decision = await classify_move(user_id, question, history)
     teaching_move = decision["move"]
     hint_level = 0
     if teaching_move == "progressive_hint":
         levels = state.setdefault("tutor_hint_levels", {})
-        hint_level = min(int(levels.get(current_stage["id"], 0)) + 1, 3)
+        hint_level = mastery_hint_level(
+            state, current_stage["id"], int(levels.get(current_stage["id"], 0))
+        )
     focus_note = diagnosis_focus(state)
 
     # Runtime check
@@ -2506,9 +2538,19 @@ async def ask_assistant_streaming(
     collected_answer = ""
 
     from services.answer_guard_service import (
-        GuardedStreamFilter, apply_guard, load_reference_solution, log_guard_event,
+        GuardedStreamFilter, REGEN_FEEDBACK, apply_guard, evaluate_release,
+        load_guard_references, log_guard_event,
     )
-    guard_filter = GuardedStreamFilter(load_reference_solution(exercise_id))
+    # 时机释放阀：学生贴了自己的代码 / 已被拦多轮 → 流式与持久化兜底都放行
+    _stream_release, _stream_release_reason = evaluate_release(
+        user_id, exercise_id, question,
+    )
+    guard_filter = GuardedStreamFilter(
+        load_guard_references(exercise_id),
+        release=_stream_release,
+        release_reason=_stream_release_reason,
+        log_context={"channel": "stream", "exercise": exercise_id, "user": user_id},
+    )
 
     def _guarded_events(parts):
         """过滤器产物 → SSE 行序列（text 原样下发，guard 事件单独下发）。"""
@@ -2684,12 +2726,52 @@ async def ask_assistant_streaming(
 
     # Persist conversation（持久化前兜底过一遍护栏，防止泄漏答案进入对话历史）
     final_guard = None
+    regen_status = None
     if collected_answer:
         collected_answer, final_guard = apply_guard(
-            collected_answer, load_reference_solution(exercise_id)
+            collected_answer, load_guard_references(exercise_id),
+            release=_stream_release,
         )
         if final_guard.blocked and not guard_filter.blocked_count:
             log_guard_event(final_guard, {"channel": "assistant_stream", "exercise": exercise_id, "user": user_id})
+        # 重生成再检：兜底复检仍被拦时，带纠正反馈重新生成一次并复检；
+        # 通过则用新答案替换（流式已下发的占位拦截文本不撤回，新答案追加下发）
+        if final_guard.blocked:
+            try:
+                retry_msg = await llm.ainvoke(
+                    [*llm_messages, HumanMessage(content=REGEN_FEEDBACK)]
+                )
+                retry_text = str(getattr(retry_msg, "content", "") or "")
+                retry_text, retry_verdict = apply_guard(
+                    retry_text, load_guard_references(exercise_id)
+                )
+                if not retry_verdict.blocked:
+                    collected_answer = retry_text
+                    final_guard = retry_verdict
+                    regen_status = "passed"
+                    log_guard_event(retry_verdict, {
+                        "channel": "assistant_stream_regen", "exercise": exercise_id,
+                        "user": user_id, "attempts": 1, "status": "passed",
+                    })
+                    yield _json.dumps({
+                        "type": "guard_regen", "status": "passed", "attempts": 1,
+                    }, ensure_ascii=False) + "\n"
+                    note = "\n\n---\n**【防泄题护栏·重新生成】** 上一版回答被拦截，以下是按引导重新生成并通过复检的回答：\n\n"
+                    yield _json.dumps({
+                        "type": "text", "content": note + retry_text,
+                    }, ensure_ascii=False) + "\n"
+                else:
+                    regen_status = "failed"
+                    log_guard_event(retry_verdict, {
+                        "channel": "assistant_stream_regen", "exercise": exercise_id,
+                        "user": user_id, "attempts": 1, "status": "failed",
+                    })
+                    yield _json.dumps({
+                        "type": "guard_regen", "status": "failed", "attempts": 1,
+                    }, ensure_ascii=False) + "\n"
+            except Exception as regen_err:
+                # 重生成失败不影响已完成的主回答与持久化
+                logger.warning("Lab tutor guard regen failed for user=%s exercise=%s: %s", user_id, exercise_id, regen_err)
         if hint_level:
             state.setdefault("tutor_hint_levels", {})[current_stage["id"]] = hint_level
         log_decision(state, decision, question, current_stage["id"])
@@ -2715,4 +2797,6 @@ async def ask_assistant_streaming(
             **final_guard.to_dict(),
             "blocked_blocks": guard_filter.blocked_count,
         }
+        if regen_status is not None:
+            done_payload["guard"]["regen_status"] = regen_status
     yield _json.dumps(done_payload, ensure_ascii=False) + "\n"

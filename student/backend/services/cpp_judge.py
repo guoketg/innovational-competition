@@ -86,6 +86,10 @@ _CPP_SUPPORT = r'''
 // 非模板重载必须写在模板之前：模板内部对 int / bool 这类内置类型的调用，只能
 // 靠定义点可见的普通查找解析（内置类型没有关联命名空间，ADL 帮不上忙），
 // 顺序颠倒会在编译期找不到匹配的重载。
+// 容器模板之间同理：vector<map> 的模板体里调用 to_json(map)，ADL 只在 std 里
+// 找（std::map 的关联命名空间只有 std），找不到判题器生成的全局重载，只能靠
+// 定义点可见的普通查找——而 map 模板体里同样要调用 vector 的 to_json，互相
+// 依赖、谁先定义谁就编译不过。解法是三个容器模板**先全部声明**，再逐个定义。
 static std::string json_escape(const std::string& s) {
   std::string out;
   for (char c : s) {
@@ -108,6 +112,14 @@ static void to_json(std::ostream& os, double v) { os << v; }
 static void to_json(std::ostream& os, bool v) { os << (v ? "true" : "false"); }
 static void to_json(std::ostream& os, const std::string& v) { os << '"' << json_escape(v) << '"'; }
 
+// 容器模板：先声明后定义（原因见文件头部的顺序说明）。
+template <typename T>
+static void to_json(std::ostream& os, const std::vector<T>& v);
+template <typename K, typename V, typename C, typename A>
+static void to_json(std::ostream& os, const std::map<K, V, C, A>& m);
+template <typename K, typename V, typename H, typename E, typename A>
+static void to_json(std::ostream& os, const std::unordered_map<K, V, H, E, A>& m);
+
 template <typename T>
 static void to_json(std::ostream& os, const std::vector<T>& v) {
   os << '[';
@@ -116,6 +128,45 @@ static void to_json(std::ostream& os, const std::vector<T>& v) {
     to_json(os, v[i]);
   }
   os << ']';
+}
+
+// JSON 对象的键必须是字符串。整型键 to_string 后与 Python json 的键文本一致
+// （对象键恒为字符串，int 键 1 对应 "1"）；bool / float 键两边文本会分叉
+// （C++ to_string(true)=="1" vs Python "true"），已在 _cpp_literal 生成字面量
+// 时就拒绝，这里不会被实例化出这两种键。
+template <typename K>
+static std::string to_json_key(const K& k) {
+  if constexpr (std::is_same_v<K, std::string>) {
+    return json_escape(k);
+  } else {
+    return std::to_string(k);
+  }
+}
+
+template <typename K, typename V, typename C, typename A>
+static void to_json(std::ostream& os, const std::map<K, V, C, A>& m) {
+  os << '{';
+  bool first = true;
+  for (const auto& kv : m) {
+    if (!first) os << ',';
+    first = false;
+    os << '"' << to_json_key(kv.first) << "\":";
+    to_json(os, kv.second);
+  }
+  os << '}';
+}
+
+template <typename K, typename V, typename H, typename E, typename A>
+static void to_json(std::ostream& os, const std::unordered_map<K, V, H, E, A>& m) {
+  os << '{';
+  bool first = true;
+  for (const auto& kv : m) {
+    if (!first) os << ',';
+    first = false;
+    os << '"' << to_json_key(kv.first) << "\":";
+    to_json(os, kv.second);
+  }
+  os << '}';
 }
 '''.strip()
 
@@ -279,6 +330,39 @@ def _struct_kind(type_name: str) -> str | None:
     return None
 
 
+def _split_template_args(text: str) -> list[str]:
+    """按最外层逗号切分模板实参列表，尊重 <> 嵌套（与 _cpp_param_types 同法）。"""
+    parts: list[str] = []
+    depth, current = 0, ""
+    for char in text:
+        if char == "<":
+            depth += 1
+        elif char == ">":
+            depth -= 1
+        if char == "," and depth == 0:
+            parts.append(current)
+            current = ""
+            continue
+        current += char
+    parts.append(current)
+    return [part.strip() for part in parts]
+
+
+def _cpp_map_type(type_name: str) -> tuple[str, str, str] | None:
+    """识别 map / unordered_map 类型。返回 (统一加 std:: 前缀的类型名, 键类型, 值类型)，
+    非 map 类型返回 None。键值实参不是两个时直接报服务端错误（签名写错了）。"""
+    text = _normalize_type(type_name)
+    match = re.fullmatch(r"((?:std::)?(?:unordered_)?map)\s*<\s*(.+?)\s*>", text)
+    if not match:
+        return None
+    args = _split_template_args(match.group(2))
+    if len(args) != 2:
+        raise CppContractError(f"map 类型必须恰好声明 <键, 值> 两个实参：{type_name!r}")
+    # 裸 map（无 std:: 前缀）统一补上：生成的字面量与声明都要用完整类型名。
+    canonical = text if match.group(1).startswith("std::") else f"std::{text}"
+    return canonical, args[0], args[1]
+
+
 def _cpp_literal(value, type_name: str) -> str:
     """把用例里的 JSON 参数写成 C++ 字面量。不需要任何 JSON 解析库。"""
     kind = _struct_kind(type_name)
@@ -306,6 +390,16 @@ def _cpp_literal(value, type_name: str) -> str:
         raise CppContractError(
             f"用例参数 {value!r} 与声明类型 {type_name!r} 不匹配：容器类型必须用列表表达"
         )
+    map_type = _cpp_map_type(type_name)
+    if map_type and not isinstance(value, dict):
+        raise CppContractError(
+            f"用例参数 {value!r} 与声明类型 {type_name!r} 不匹配：map 类型必须用对象（键值对）表达"
+        )
+    if isinstance(value, dict) and map_type is None:
+        raise CppContractError(
+            f"用例参数 {value!r} 与声明类型 {type_name!r} 不匹配："
+            "对象类型的参数必须声明为 map / unordered_map"
+        )
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, int):
@@ -320,6 +414,32 @@ def _cpp_literal(value, type_name: str) -> str:
     if isinstance(value, list):
         element = _cpp_element_type(type_name)
         return "{" + ", ".join(_cpp_literal(item, element) for item in value) + "}"
+    if isinstance(value, dict):
+        canonical, key_type, val_type = map_type  # 上面已保证非 None
+        key_norm = _normalize_type(key_type)
+        pairs: list[str] = []
+        for key, item in value.items():
+            if key_norm in ("std::string", "string"):
+                key_lit = _cpp_literal(str(key), "std::string")
+            elif re.fullmatch(r"(unsigned\s+)?(char|short|int|long|long long|size_t)", key_norm):
+                # JSON 对象的键恒为字符串（"1"），整型键要转回数字字面量；
+                # 序列化时 to_string(1) 又变回 "1"，与 Python json 的键文本一致。
+                try:
+                    key_lit = str(int(str(key)))
+                except ValueError:
+                    raise CppContractError(
+                        f"map 键类型 {key_type!r} 要求整数键，但用例给出了 {key!r}"
+                    ) from None
+            else:
+                # bool：C++ to_string(true)=="1" vs Python json 键 "true"；
+                # float：to_string(1.5)=="1.500000" vs Python "1.5"——两边文本分叉，
+                # 序列化结果永远对不上 Python 侧的 expected，直接在生成期拒绝。
+                raise CppContractError(
+                    f"map 键类型 {key_type!r} 暂不支持：JSON 对象键只支持整型与 "
+                    f"std::string（bool / float 键在 C++ 与 Python 两侧文本不一致）"
+                )
+            pairs.append(f"{{{key_lit}, {_cpp_literal(item, val_type)}}}")
+        return f"{canonical}{{{', '.join(pairs)}}}"
     raise CppContractError(
         f"C++ 关卡的用例暂不支持 {type(value).__name__} 类型的参数：{value!r}"
     )
@@ -349,9 +469,17 @@ def _cpp_case_block(
             # 指针按值传入，学生仍能改动 pointee，所以 immutable 用例要深拷贝一份
             # 快照，调用后再逐节点比较。
             lines.append(f"    auto a{position}_before = copy_{kind}(a{position});")
-        elif isinstance(value, list):
-            # 值语义（vector 等）：拷贝构造就是深拷贝，!= 就是逐元素比较。
+        elif isinstance(value, (list, dict)):
+            # 值语义（vector / map 等）：拷贝构造就是深拷贝，!= 就是逐元素比较。
             lines.append(f"    auto a{position}_before = a{position};")
+    # fresh_result：与 Python runner 同义——换一套全新的入参再调一次，两次都必须
+    # 返回 expected。参数 b 组在 try 外声明：第二次调用若抛异常，b 组不影响
+    # 已攒下的 JSON（actual 字段已写完），走 threw 分支报「不应该抛出异常」。
+    fresh = bool(item.get("fresh_result"))
+    if fresh:
+        for position, value in enumerate(args):
+            ptype = param_types[position]
+            lines.append(f"    {ptype} b{position} = {_cpp_literal(value, ptype)};")
     lines.append("    bool mutated = false;")
     # 逐用例计时：评测面板在用例行尾显示「{duration_ms}ms」，Python runner 也是
     # 逐条给的，这条路径不能只有 C++ 关卡缺这一列。
@@ -376,6 +504,14 @@ def _cpp_case_block(
     # 现在所有结论都在 Python 侧由 _compare_case 从 actual/threw 重新算出来。
     lines.append('      buf << ",\\"actual\\":";')
     lines.append("      to_json(buf, actual);")
+    if fresh:
+        # 二次调用放在 actual 序列化之后：若这次抛异常，buf 里已有完整的
+        # {"i":…,"actual":…}，JSON 不会残缺，_compare_case 走 threw 分支。
+        # actual_second 在此**之后**才写字段，缺字段即「第二次调用没跑完」。
+        bcall = ", ".join(f"b{position}" for position in range(len(args)))
+        lines.append(f"      auto actual_second = {target}({bcall});")
+        lines.append('      buf << ",\\"actual_second\\":";')
+        lines.append("      to_json(buf, actual_second);")
     for cpp_type in exception_types:
         lines.append(f"    }} catch (const {cpp_type}&) {{")
         lines.append(f'      buf << ",\\"threw\\":\\"{cpp_type}\\"";')
@@ -448,9 +584,12 @@ def build_main_cpp(spec: dict) -> str:
     # <chrono>/<cmath> 是判题脚手架自己要用的（逐用例计时），与关卡声明无关。
     # "_types.hpp" 是判题器生成的公共类型头（Node/TreeNode），main.cpp 与
     # solution.cpp 都要 include（solution.cpp 的 include 由 run_cpp_judge 前置）。
+    # <map>/<unordered_map>/<type_traits> 是判题支持代码自己要用的：容器 to_json
+    # 模板与 to_json_key 的 if constexpr（模板定义引用 std 名字必须在定义点可见）。
     includes = [
         "<iostream>", "<sstream>", "<string>", "<vector>", "<cstddef>",
-        "<exception>", "<chrono>", "<cmath>", '"_types.hpp"',
+        "<exception>", "<chrono>", "<cmath>", "<map>", "<unordered_map>",
+        "<type_traits>", '"_types.hpp"',
     ]
     for name in list(contract.get("includes") or []):
         if name not in includes:
@@ -606,7 +745,27 @@ def _compare_case(
             ),
         }
     if item.get("fresh_result"):
-        raise CppContractError("C++ 关卡暂不支持 fresh_result 用例（按身份比较无法直译）")
+        # 与 Python runner 对齐：换一套全新入参再调一次，两次都得等于 expected。
+        # 缺 actual_second 说明第二次调用没跑完（或结果行被截断/伪造），判失败
+        # 而不是抛契约错——契约错是服务端配置问题，这里观测不到是学生侧还是伪造。
+        if "actual_second" not in payload:
+            return {
+                "description": description,
+                "passed": False,
+                "error": "结果行缺少第二次调用的 actual_second 字段",
+            }
+        second = payload.get("actual_second")
+        if second != item.get("expected"):
+            return {
+                "description": description,
+                "passed": False,
+                "error": (
+                    "返回结果不稳定：两次调用的结果不一致或与预期不符\n"
+                    + "输入: " + _cpp_repr(item.get("args", [])) + "\n"
+                    + "期望: " + _cpp_repr(item.get("expected")) + "\n"
+                    + "实际: " + _cpp_repr(second)
+                ),
+            }
     if item.get("immutable") and payload.get("mutated"):
         return {
             "description": description,

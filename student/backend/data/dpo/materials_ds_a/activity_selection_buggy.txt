@@ -1,0 +1,70 @@
+<problem>
+Write a function `max_activities(start: List[int], finish: List[int]) -> int` that returns the maximum number of non-overlapping activities that can be scheduled. Activity `i` runs from `start[i]` to `finish[i]`; a new activity may start no earlier than the finish time of the previous one (`s >= last_finish`).
+
+## Example Cases:
+```
+max_activities([1, 2, 3], [2, 3, 4]) => 3
+max_activities([0, 1, 10], [10, 2, 20]) => 3
+max_activities([1, 1, 1], [2, 2, 2]) => 1
+```
+</problem>
+<bug_code>
+1. def max_activities(start, finish):
+2.  intervals = sorted(zip(start, finish), key=lambda x: x[0])
+3.  count = 0
+4.  last_finish = -1
+5.  for s, f in intervals:
+6.    if s >= last_finish:
+7.      count += 1
+8.      last_finish = f
+9.  return count
+</bug_code>
+<bug_desc>
+On line 2 the intervals are sorted by start time instead of finish time. The greedy strategy for maximum activity selection must always pick the activity that finishes earliest; sorting by start time makes the algorithm commit to a long early activity and block many short ones (e.g. it returns 2 instead of 3 for `[0,1,10] / [10,2,20]`).
+</bug_desc>
+<bug_fixes>
+Replace `key=lambda x: x[0]` with `key=lambda x: x[1]` on line 2
+</bug_fixes>
+<unit_tests>
+assert max_activities([1, 2, 3], [2, 3, 4]) == 3
+assert max_activities([0, 1, 10], [10, 2, 20]) == 3
+assert max_activities([1, 1, 1], [2, 2, 2]) == 1
+</unit_tests>
+<stu_desc>
+
+</stu_desc>
+<dialogue>
+User: My activity selection code returns 2 for `[0,1,10] / [10,2,20]`, but the correct answer is 3 — pick (1,2), (0,10)? no wait, pick (1,2) then (10,20) plus... anyway the optimal schedule has 3 activities. What am I doing wrong?
+	<code>
+1. def max_activities(start, finish):
+2.  intervals = sorted(zip(start, finish), key=lambda x: x[0])
+3.  count = 0
+4.  last_finish = -1
+5.  for s, f in intervals:
+6.    if s >= last_finish:
+7:      count += 1
+8.      last_finish = f
+9.  return count
+
+	</code>
+Assistant: First, what is the greedy principle behind maximum activity selection — which activity should you always try to take next?
+	<alt>Look at line 2: what order does `key=lambda x: x[0]` produce, and what order does the greedy choice require?
+	<alt>With inputs `[0,1,10] / [10,2,20]`, which activity does your sort place first, and what does that choice block?
+User: You should always take the activity that finishes earliest. My sort puts the first activity (0,10) first because it starts earliest, and taking it blocks activity (1,2), so I only get (0,10) then (10,20) = 2.
+Assistant: Exactly — sorting by start time defeats the greedy choice. What key should you sort by instead?
+	<alt>So the fix is on line 2. Which element of the tuple is the finish time?
+User: Sort by the finish time, `key=lambda x: x[1]`. I changed it and now all examples give 3, 3, 1. Got it!
+	<code>
+1. def max_activities(start, finish):
+2.  intervals = sorted(zip(start, finish), key=lambda x: x[1])
+3.  count = 0
+4.  last_finish = -1
+5.  for s, f in intervals:
+6.    if s >= last_finish:
+7.      count += 1
+8.      last_finish = f
+9.  return count
+
+	</code>
+Assistant: Perfect — earliest-finish-first is the greedy invariant that guarantees the optimal count.
+</dialogue>

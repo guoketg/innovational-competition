@@ -420,7 +420,8 @@ def select_questions(
     focus_knowledge: Optional[list] = None,
     avoid_topics: Optional[list] = None,
     knowledge_filter: str = "",
-    exclude_ids: set = None
+    exclude_ids: set = None,
+    question_type: str = None
 ) -> list:
     """
     从题库中选题
@@ -432,6 +433,7 @@ def select_questions(
         avoid_topics: 需要规避的section主题
         knowledge_filter: 知识点的关键词，用于在模块/分类过滤后再精确匹配题目
         exclude_ids: 需要排除的question_id集合（避免不同任务间题目重复）
+        question_type: 指定题型（单选/判断/填空/简答），为 None 时按题型配比混合出题
 
     Returns:
         格式化后的题目列表
@@ -439,6 +441,13 @@ def select_questions(
     bank = load_question_bank()
     if not bank:
         return []
+
+    # === 第零步：指定题型过滤（仅当该题型有题时生效，否则保持全量兜底）===
+    if question_type:
+        type_filtered = [q for q in bank
+                         if _map_question_type(q.get("type", "definition")) == question_type]
+        if type_filtered:
+            bank = type_filtered
 
     # === 第一步：规避主题（先排除不想要的，以免后续focus为空）===
     if avoid_topics:

@@ -1,0 +1,81 @@
+<problem>
+Write a function `shortest_path(graph: dict, start: int, end: int) -> int` that returns the number of edges in the shortest path from `start` to `end` in an unweighted directed graph, or `0` if `start == end`, or `-1` if `end` is unreachable. You must use breadth-first search.
+
+## Example Cases:
+```
+shortest_path({0: [1, 2], 1: [4], 2: [3], 3: [4], 4: []}, 0, 4) => 2
+shortest_path({0: [1, 2], 1: [4], 2: [3], 3: [4], 4: []}, 0, 3) => 2
+shortest_path({0: []}, 0, 0) => 0
+```
+</problem>
+<bug_code>
+1. from collections import deque
+2. 
+3. def shortest_path(graph, start, end):
+4.  queue = deque([start])
+5.  dist = {start: 0}
+6.  while queue:
+7.    u = queue.pop()
+8.    for v in graph.get(u, []):
+9.      if v not in dist:
+10.       dist[v] = dist[u] + 1
+11.       queue.append(v)
+12.  return dist.get(end, -1)
+</bug_code>
+<bug_desc>
+On line 7, `queue.pop()` removes from the right end, turning the BFS queue into a stack (depth-first order). Distances are then discovered along deep paths first — for `{0:[1,2], 1:[4], 2:[3], 3:[4]}` it records `dist[4] = 3` via 0→2→3→4 instead of the true shortest 0→1→4 (length 2).
+</bug_desc>
+<bug_fixes>
+Replace `queue.pop()` with `queue.popleft()` on line 7
+</bug_fixes>
+<unit_tests>
+g = {0: [1, 2], 1: [4], 2: [3], 3: [4], 4: []}
+assert shortest_path(g, 0, 4) == 2
+assert shortest_path(g, 0, 3) == 2
+assert shortest_path({0: []}, 0, 0) == 0
+assert shortest_path({0: [1], 1: []}, 0, 5) == -1
+</unit_tests>
+<stu_desc>
+
+</stu_desc>
+<dialogue>
+User: My BFS shortest path gives 3 for this graph when the answer should be 2:
+	<code>
+1. graph = {0: [1, 2], 1: [4], 2: [3], 3: [4], 4: []}
+2. 
+3. def shortest_path(graph, start, end):
+4.  queue = deque([start])
+5.  dist = {start: 0}
+6.  while queue:
+7.    u = queue.pop()
+8.    for v in graph.get(u, []):
+9.      if v not in dist:
+10.       dist[v] = dist[u] + 1
+11.       queue.append(v)
+12.  return dist.get(end, -1)
+
+	</code>
+Assistant: BFS must expand nodes in the order they were discovered. Which end of the deque does `append` write to, and which end does `pop()` read from?
+	<alt>Trace the loop: after processing 0, the queue holds [1, 2]. Which node does `pop()` take — 1 or 2? Which should BFS take?
+	<alt>If you take 2 first, how does node 4 get discovered, and is that path the shortest?
+User: pop() takes 2 (the right end), so I go 0 → 2 → 3 → 4 and record dist[4] = 3. But BFS should take 1 first and find 0 → 1 → 4 with dist 2. I'm doing DFS order!
+Assistant: Exactly — you've built a stack, not a queue. What should line 7 call so nodes leave in FIFO order?
+	<alt>Which method removes from the left end of a deque?
+User: `queue.popleft()`. I changed it and now dist[4] = 2, dist[3] = 2, all examples pass. Thanks!
+	<code>
+1. from collections import deque
+2. 
+3. def shortest_path(graph, start, end):
+4.  queue = deque([start])
+5.  dist = {start: 0}
+6.  while queue:
+7.    u = queue.popleft()
+8.    for v in graph.get(u, []):
+9.      if v not in dist:
+10.       dist[v] = dist[u] + 1
+11.       queue.append(v)
+12.  return dist.get(end, -1)
+
+	</code>
+Assistant: Correct — FIFO order is what gives BFS its level-by-level shortest-path guarantee.
+</dialogue>

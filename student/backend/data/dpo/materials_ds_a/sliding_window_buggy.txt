@@ -1,0 +1,75 @@
+<problem>
+Write a function `longest_unique(s: str) -> int` that returns the length of the longest substring of `s` without repeating characters.
+
+## Example Cases:
+```
+longest_unique("abcabcbb") => 3
+longest_unique("bbbbb") => 1
+longest_unique("abcbda") => 4
+longest_unique("") => 0
+```
+</problem>
+<bug_code>
+1. def longest_unique(s):
+2.  seen = {}
+3.  left = 0
+4.  best = 0
+5.  for right, ch in enumerate(s):
+6.    if ch in seen:
+7.      left = seen[ch] + 1
+8.    seen[ch] = right
+9.    best = max(best, right - left + 1)
+10.  return best
+</bug_code>
+<bug_desc>
+On line 7, `left` is assigned `seen[ch] + 1` unconditionally. If the previous occurrence of `ch` lies to the left of the current window, this moves `left` backwards and lets already-excluded characters re-enter the window, inflating the length (e.g. `longest_unique("abcbda")` returns 5 instead of 4).
+</bug_desc>
+<bug_fixes>
+Replace `left = seen[ch] + 1` with `left = max(left, seen[ch] + 1)` on line 7
+</bug_fixes>
+<unit_tests>
+assert longest_unique("abcabcbb") == 3
+assert longest_unique("bbbbb") == 1
+assert longest_unique("abcbda") == 4
+assert longest_unique("") == 0
+</unit_tests>
+<stu_desc>
+
+</stu_desc>
+<dialogue>
+User: My sliding window solution for the longest substring without repeating characters gives 5 for "abcbda", but there is no substring of length 5 without repeats. Which line is lying to me?
+	<code>
+1. def longest_unique(s):
+2.  seen = {}
+3.  left = 0
+4.  best = 0
+5.  for right, ch in enumerate(s):
+6.    if ch in seen:
+7.      left = seen[ch] + 1
+8.    seen[ch] = right
+9.    best = max(best, right - left + 1)
+10.  return best
+
+	</code>
+Assistant: Trace "abcbda" slowly. When `right` is 5 (the final `a`), where is the previous `a` stored, and what does line 7 do to `left`?
+	<alt>At that moment, what is the correct left edge of the window, and what value does your code assign instead?
+	<alt>Can `left` ever move backwards with your current assignment? What invariant should the left edge satisfy?
+User: The previous `a` is at index 0, so line 7 sets left = 1 — but left was already 4 after the 'd'! The window jumps backwards and includes a duplicate 'b' again.
+Assistant: Right — the left edge may only move forward. What single expression on line 7 keeps it monotonic?
+	<alt>How do you ensure `left` never decreases when you re-encounter a character?
+User: `left = max(left, seen[ch] + 1)`. I made the change and now "abcbda" gives 4 and everything else matches too. Thanks!
+	<code>
+1. def longest_unique(s):
+2.  seen = {}
+3.  left = 0
+4.  best = 0
+5.  for right, ch in enumerate(s):
+6.    if ch in seen:
+7.      left = max(left, seen[ch] + 1)
+8.    seen[ch] = right
+9.    best = max(best, right - left + 1)
+10.  return best
+
+	</code>
+Assistant: Exactly right — `max` enforces the monotonic-left invariant of the sliding window.
+</dialogue>

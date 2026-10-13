@@ -5,9 +5,13 @@ from playwright.async_api import async_playwright
 import subprocess
 import time
 import sys
+from pathlib import Path
 
 # 全局变量保存服务器进程
 server_process = None
+
+# 自起 uvicorn 使用 8000(与 docker 部署的 8001 错开, 避免端口冲突)
+BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 def start_server():
     """启动后端服务器"""
@@ -15,7 +19,7 @@ def start_server():
     print("启动后端服务器...")
     server_process = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"],
-        cwd=r"d:\助学demo\backend",
+        cwd=str(BACKEND_DIR),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE
     )

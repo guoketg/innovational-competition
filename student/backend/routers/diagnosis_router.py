@@ -16,7 +16,8 @@ async def generate_quiz(req: QuizGenerateRequest, current_user: dict = Depends(g
         count=req.count,
         focus_knowledge=req.focus_knowledge,
         use_timer=req.use_timer,
-        timer_minutes=req.timer_minutes
+        timer_minutes=req.timer_minutes,
+        question_type=req.question_type
     )
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])

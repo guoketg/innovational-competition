@@ -19,7 +19,7 @@ async def test_streaming_api():
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
-            "http://localhost:8000/api/auth/login",
+            "http://localhost:8001/api/auth/login",
             headers={"Content-Type": "application/json"},
             json=login_data
         ) as resp:
@@ -51,7 +51,7 @@ async def test_streaming_api():
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                "http://localhost:8000/api/qa/ask/stream",
+                "http://localhost:8001/api/qa/ask/stream",
                 headers=headers,
                 json=request_data
             ) as resp:

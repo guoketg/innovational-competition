@@ -1,0 +1,114 @@
+{
+  "source_report": "F:\\code\\MyPython\\computer-cross-education\\tiaozhanbei\\student\\backend\\data\\eval\\direct_code_rate_report.json",
+  "judge_model": "deepseek-chat",
+  "n": 60,
+  "summary": {
+    "by_arm": {
+      "baseline": {
+        "n": 30,
+        "judge_direct_fix": 28,
+        "judge_direct_fix_rate": 0.9333,
+        "judge_explained_rate": 1.0,
+        "judge_vs_rule_agreement": 0.8667
+      },
+      "guarded": {
+        "n": 30,
+        "judge_direct_fix": 24,
+        "judge_direct_fix_rate": 0.8,
+        "judge_explained_rate": 1.0,
+        "judge_vs_rule_agreement": 0.7333
+      }
+    },
+    "judge_vs_human_majority": {
+      "labeled": 0,
+      "agreement": null
+    },
+    "disagreement_count": 12,
+    "disagreements": [
+      {
+        "sample_id": "0_0_fibonacci_conversational_thread_2.txt",
+        "arm": "guarded",
+        "rule_label": "未直接改代码",
+        "judge_label": "直接改代码",
+        "judge_reason": "导师虽拦截了完整修复代码，但明确告知了关键修改（循环应跑 n-2 次）并给出了可直接套用的元组赋值写法，属于点名关键行的正确写法，构成直接改代码；同时详细解释了缩进与循环多跑一次的根本原因。"
+      },
+      {
+        "sample_id": "15_44_sequential_search_conversational_thread_2.txt",
+        "arm": "baseline",
+        "rule_label": "未直接改代码",
+        "judge_label": "直接改代码",
+        "judge_reason": "导师给出了完整的修复代码（将条件改为 x == seq[i]），并解释了根因是严格小于导致跳过相等元素。"
+      },
+      {
+        "sample_id": "15_44_sequential_search_conversational_thread_2.txt",
+        "arm": "guarded",
+        "rule_label": "未直接改代码",
+        "judge_label": "直接改代码",
+        "judge_reason": "导师不仅解释了根因（用了严格小于导致跳过相等元素），还直接给出了修复后的完整代码（将条件改为 x == seq[i]），属于直接改代码。"
+      },
+      {
+        "sample_id": "16_46_substring_length_conversational_thread_3.txt",
+        "arm": "baseline",
+        "rule_label": "未直接改代码",
+        "judge_label": "直接改代码",
+        "judge_reason": "导师不仅解释了漏掉尾部片段的根因，还给出了包含关键修复行的完整正确代码，属于直接改代码。"
+      },
+      {
+        "sample_id": "16_46_substring_length_socratic_dialogue.txt",
+        "arm": "baseline",
+        "rule_label": "未直接改代码",
+        "judge_label": "直接改代码",
+        "judge_reason": "导师给出了完整的修复后代码（含最终段检查），直接替学生写出了正确实现，同时详细解释了漏检末尾段和t不出现时的根因。"
+      },
+      {
+        "sample_id": "17_47_topk_socratic_dialogue.txt",
+        "arm": "baseline",
+        "rule_label": "未直接改代码",
+        "judge_label": "直接改代码",
+        "judge_reason": "导师不仅解释了pop参数是索引而非值的根因，还直接给出了两段完整可用的修复代码（index和remove版本），属于直接改代码。"
+      },
+      {
+        "sample_id": "17_47_topk_socratic_dialogue.txt",
+        "arm": "guarded",
+        "rule_label": "未直接改代码",
+        "judge_label": "直接改代码",
+        "judge_reason": "导师不仅解释了pop参数是索引而非值的根因，还直接给出了两段完整可用的修复代码。"
+      },
+      {
+        "sample_id": "1_9_calculating_a_grade_conversational_thread_1.txt",
+        "arm": "guarded",
+        "rule_label": "未直接改代码",
+        "judge_label": "直接改代码",
+        "judge_reason": "导师明确告知需在计算后加 round() 再判断，并给出 math.floor(finalScore + 0.5) 等关键行的正确写法，属于直接给出修复。"
+      },
+      {
+        "sample_id": "4_26_removing_even_numbers_conversational_thread_1.txt",
+        "arm": "guarded",
+        "rule_label": "未直接改代码",
+        "judge_label": "直接改代码",
+        "judge_reason": "导师明确告知把 return 移到 for 循环外面（点名关键行的正确写法），并给出了完整可用的列表推导式答案，属于直接改代码；同时解释了缩进导致只处理第一个元素的根因。"
+      },
+      {
+        "sample_id": "65_66_list_range_conversational_thread_1.txt",
+        "arm": "guarded",
+        "rule_label": "未直接改代码",
+        "judge_label": "直接改代码",
+        "judge_reason": "导师明确告知用数组第一个元素初始化 smallest/largest（点名关键行的正确写法），属于直接给出修复方案，同时详细解释了 0 初始化导致错误的根因。"
+      },
+      {
+        "sample_id": "66_67_last_index_of_conversational_thread_3.txt",
+        "arm": "guarded",
+        "rule_label": "未直接改代码",
+        "judge_label": "直接改代码",
+        "judge_reason": "回复给出了方案二的完整正确代码（从后往前遍历并返回-1），属于直接替学生给出修复，同时也解释了初始值导致误返回0的根因。"
+      },
+      {
+        "sample_id": "66_67_last_index_of_socratic_dialogue.txt",
+        "arm": "guarded",
+        "rule_label": "未直接改代码",
+        "judge_label": "直接改代码",
+        "judge_reason": "导师明确告知关键改动是把初始值从0改成-1，并给出了完整的Pythonic正确代码，属于直接替学生给出修复。"
+      }
+    ]
+  }
+}

@@ -52,6 +52,7 @@ class QuizGenerateRequest(BaseModel):
     focus_knowledge: Optional[List[str]] = None
     use_timer: bool = False
     timer_minutes: int = Field(default=30, ge=1, le=180)
+    question_type: Optional[str] = None  # 指定题型（单选/判断/填空/简答），None 时混合出题
 
 class QuizAnswer(BaseModel):
     question_id: str

@@ -435,10 +435,9 @@ async def _validate_code_in_sandbox(code: str, language: str = "python",
     """
     import subprocess, tempfile, os as _os
     try:
-        if language.lower() not in ("python", "py", "python3"):
-            return True, ""  # 非 Python 暂不验证
-
         # 当前项目制实验统一走服务端私有场景，避免生成答案只凭“能运行”被误判通过。
+        # 旗舰检查必须先于语言短路：judge_submission 内部按 spec.language 分流，
+        # C++ 关卡同样走服务端私有场景（_run_judge → run_cpp_judge），不能跳过。
         if exercise_id:
             try:
                 from services.judge_service import is_flagship_exercise, judge_submission
@@ -454,6 +453,10 @@ async def _validate_code_in_sandbox(code: str, language: str = "python",
                     return False, f"服务端私有场景验证失败：{detail}"
             except Exception as exc:
                 return False, f"服务端私有场景验证异常：{str(exc)[:240]}"
+
+        # 非旗舰关卡：只有 Python 有沙箱注入测试驱动的验证路径
+        if language.lower() not in ("python", "py", "python3"):
+            return True, ""  # 非 Python 暂不验证
 
         # 如果代码没有 __main__ 测试入口，尝试注入测试驱动
         test_code = code
@@ -1236,6 +1239,26 @@ async def generate_tutorial(req: TutorialGenerateRequest, current_user: dict = D
     """AI 生成教程文档（遵循种子文档格式）"""
     from services.ai_service import call_llm
 
+    # C5：先查库——同标签/同标题已有该用户的 AI 生成教程时直接复用，
+    # 不调用大模型也不插重复行（前端会提示"已生成"）。
+    reuse_conn = get_db()
+    try:
+        existing = resource_service.find_existing_ai_tutorial(
+            reuse_conn, current_user["id"], req.knowledge_tag, req.topic
+        )
+    finally:
+        reuse_conn.close()
+    if existing:
+        return APIResponse(data={
+            "tutorial_id": existing["tutorial_id"],
+            "knowledge_tag": req.knowledge_tag,
+            "title": existing["title"],
+            "content": existing["content"],
+            "source_type": "ai_generated",
+            "existing": True,
+            "message": "已生成（库中已有，本次未调用大模型）",
+        })
+
     # 构建格式参考：读取一篇种子文档作为格式样本
     fallback_format = "# 标题\n## 概述\n## 核心知识\n## 应用场景\n## 学习建议\n## 延伸阅读"
     format_sample = fallback_format
@@ -1300,6 +1323,7 @@ async def generate_tutorial(req: TutorialGenerateRequest, current_user: dict = D
             "title": req.topic,
             "content": response,
             "source_type": "ai_generated",
+            "existing": False,
             "message": "AI 教程已生成并保存"
         })
     except Exception as e:

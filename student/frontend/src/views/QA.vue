@@ -269,7 +269,9 @@ function _finishStream(convId) {
   if (s) { s.sending = false; _activeStreams.delete(convId) }
 }
 
-// sessionStorage 备份键（模块级，不依赖组件实例，每个对话独立备份）
+// 备份键（模块级，不依赖组件实例，每个对话独立备份）。
+// 用 localStorage 而非 sessionStorage：关闭标签页/浏览器崩溃后重新打开仍能恢复，
+// 中断的半截回答靠 _persistOrphanBackup 一次性补落库（5 分钟过期兜底防陈旧内容）。
 const STREAM_BACKUP_PREFIX = 'qa_stream_backup_'
 
 function _backupKey(convId) {
@@ -277,16 +279,16 @@ function _backupKey(convId) {
 }
 
 function _saveBackup(convId, data) {
-  try { sessionStorage.setItem(_backupKey(convId), JSON.stringify({ conversationId: convId, ...data, timestamp: Date.now() })) } catch (_) {}
+  try { localStorage.setItem(_backupKey(convId), JSON.stringify({ conversationId: convId, ...data, timestamp: Date.now() })) } catch (_) {}
 }
 
 function _loadBackup(convId) {
   try {
-    const raw = sessionStorage.getItem(_backupKey(convId))
+    const raw = localStorage.getItem(_backupKey(convId))
     if (!raw) return null
     const b = JSON.parse(raw)
     if (Date.now() - b.timestamp > 5 * 60 * 1000) {
-      sessionStorage.removeItem(_backupKey(convId))
+      localStorage.removeItem(_backupKey(convId))
       return null
     }
     return b
@@ -294,7 +296,89 @@ function _loadBackup(convId) {
 }
 
 function _clearBackup(convId) {
-  try { sessionStorage.removeItem(_backupKey(convId)) } catch (_) {}
+  try { localStorage.removeItem(_backupKey(convId)) } catch (_) {}
+}
+
+// ── 备份恢复与中断补落库 ─────────────────────────────────────
+
+// 从备份 message 构建助手消息（onMounted / openConversation / 应用备份共用一份字段映射）
+function _msgFromBackup(bm) {
+  return {
+    role: 'assistant',
+    content: bm.content || '',
+    thinking: bm.thinking || undefined,
+    answer: bm.answer || undefined,
+    thinkingExpanded: bm.thinkingExpanded !== false,
+    learningContext: bm.learningContext || undefined,
+    ragSources: bm.ragSources || undefined,
+    ragUnavailable: bm.ragUnavailable || undefined,
+    searchUnavailable: bm.searchUnavailable || undefined,
+    toolEvents: bm.toolEvents || undefined,
+    mindMap: bm.mindMap || undefined,
+    memoryUpdates: bm.memoryUpdates || undefined,
+    learningAnalysis: bm.learningAnalysis || undefined,
+    searchResults: bm.searchResults || undefined,
+    searchQuery: bm.searchQuery || undefined
+  }
+}
+
+// 备份是否有实质内容（空占位不触发恢复与补落库）
+function _backupHasContent(bm) {
+  return !!(bm && (bm.content || bm.thinking || bm.answer || bm.ragSources ||
+    bm.searchResults || bm.toolEvents || bm.mindMap || bm.memoryUpdates))
+}
+
+// 把流式备份合并进消息列表：流式期间后端只保存了用户消息（助手消息要等
+// onDone 才落库），所以末尾是非空助手消息时它属于上一轮、直接追加；
+// 末尾是空助手占位时替换。onDone 先同步清备份再保存，因此「备份存在」
+// 就意味着后端还没有这条助手消息，追加不会产生重复。
+function _mergeBackupIntoMsgs(baseMsgs, backup) {
+  if (!backup || !_backupHasContent(backup.message)) return baseMsgs
+  const streamMsg = _msgFromBackup(backup.message)
+  const msgs = Array.isArray(baseMsgs) ? [...baseMsgs] : []
+  const last = msgs.length ? msgs[msgs.length - 1] : null
+  if (last && last.role === 'assistant' && (!last.content || last.content === '') && (!last.answer || last.answer === '')) {
+    msgs[msgs.length - 1] = streamMsg
+  } else {
+    msgs.push(streamMsg)
+  }
+  return msgs
+}
+
+// 流已死（刷新/关闭标签页/手动停止）后，备份里的半截回答后端尚未保存——
+// 重新进入页面或停止时调用，一次性补落库；成功后清备份，失败保留备份下次重试。
+// 活着的流不处理：它由 onDone 正常落库，重复保存会产生两条回答。
+// （同一会话在两个标签页同时流式属于人为并发，不做去重。）
+function _persistOrphanBackup(convId) {
+  if (!convId || _isConversationStreaming(convId)) return
+  const backup = _loadBackup(convId)
+  if (!backup || backup.conversationId !== convId) return
+  const bm = backup.message
+  if (!_backupHasContent(bm) || !backup.question) return
+  // 与 onDone 相同的存储格式：思考过程与回答合并进一个字段
+  let answerToSave = bm.answer || bm.content || ''
+  if (bm.thinking && !answerToSave.includes('【思考过程】')) {
+    answerToSave = `【思考过程】\n${bm.thinking}\n【回答】\n${answerToSave}`
+  }
+  saveAssistantMessage({
+    question: backup.question,
+    answer: answerToSave,
+    question_type: backup.question_type || 'text',
+    explanation_level: backup.explanation_level || 'standard',
+    conversation_id: convId,
+    rag_sources: bm.ragSources || null,
+    search_results: bm.searchResults || null,
+    search_query: bm.searchQuery || '',
+    tool_events: bm.toolEvents || null,
+    mind_map: bm.mindMap || null,
+    learning_analysis: bm.learningAnalysis || null,
+    memory_updates: bm.memoryUpdates || null
+  }).then(() => {
+    _clearBackup(convId)
+    _invalidateConversationCache()
+  }).catch((err) => {
+    console.error('[QA] 中断备份补落库失败:', err)
+  })
 }
 
 // 带缓存的对话列表获取（避免每次挂载/切换都发请求）
@@ -440,38 +524,19 @@ onMounted(async () => {
     loadedMessageOffset.value = initialMsgs.length
     hasMoreMessages.value = initialMsgs.length >= 10
 
-    // 恢复流式备份：如果该会话仍有活跃的流式响应，恢复已收到的内容
+    // 恢复流式备份：流式进行中/中断的对话后端尚未保存助手消息，先合并备份
     const streamBackup = _loadBackup(conversationId.value)
     if (streamBackup && streamBackup.conversationId === conversationId.value) {
-      const lastMsg = messages.value.length > 0 ? messages.value[messages.value.length - 1] : null
-      if (lastMsg && lastMsg.role === 'assistant' && (!lastMsg.content || lastMsg.content === '') && (!lastMsg.answer || lastMsg.answer === '')) {
-        const backupMsg = streamBackup.message
-        if (backupMsg.thinking || backupMsg.answer || backupMsg.ragSources || backupMsg.searchResults || backupMsg.toolEvents || backupMsg.mindMap || backupMsg.memoryUpdates) {
-          messages.value[messages.value.length - 1] = {
-            role: 'assistant',
-            content: backupMsg.content || '',
-            thinking: backupMsg.thinking || undefined,
-            answer: backupMsg.answer || undefined,
-            thinkingExpanded: backupMsg.thinkingExpanded !== false,
-            learningContext: backupMsg.learningContext || undefined,
-            ragSources: backupMsg.ragSources || undefined,
-            ragUnavailable: backupMsg.ragUnavailable || undefined,
-            searchUnavailable: backupMsg.searchUnavailable || undefined,
-            toolEvents: backupMsg.toolEvents || undefined,
-            mindMap: backupMsg.mindMap || undefined,
-            memoryUpdates: backupMsg.memoryUpdates || undefined,
-            learningAnalysis: backupMsg.learningAnalysis || undefined,
-            searchResults: backupMsg.searchResults || undefined,
-            searchQuery: backupMsg.searchQuery || undefined
-          }
-        }
-      }
-      // 如果流仍在进行中，恢复 sending 状态和 abort 引用
+      messages.value = _mergeBackupIntoMsgs(messages.value, streamBackup)
       if (_isConversationStreaming(conversationId.value)) {
+        // 流仍在进行中：恢复 sending 状态和 abort 引用
         sending.value = true
         abortStream.value = () => _abortStreamForConv(conversationId.value)
-        // 将备份数据应用到最后一个占位消息
+        // 将备份数据应用到最后一条消息（合并结果一致，这里保证字段最新）
         _applyBackupToLastMessage(streamBackup)
+      } else {
+        // 流已死（刷新/关闭标签页/中断）：把备份里的半截回答一次性补落库
+        _persistOrphanBackup(conversationId.value)
       }
     }
 
@@ -709,39 +774,15 @@ async function openConversation(id) {
   try {
     const conversation = await getConversation(id)
     conversationId.value = conversation?.id || id
-    // 优先使用流式备份恢复（流式进行中的对话后端尚未保存）
+    const baseMsgs = _restoreMessages(Array.isArray(conversation?.messages) ? conversation.messages : [])
+    // 优先使用流式备份恢复（流式进行中/中断的对话后端尚未保存助手消息）
     const backup = _loadBackup(id)
-    if (isStreaming && backup && backup.conversationId === id) {
-      // 流式进行中：用后端数据初始化基础消息，再用备份恢复最后一条
-      const baseMsgs = _restoreMessages(Array.isArray(conversation?.messages) ? conversation.messages : [])
-      const bm = backup.message
-      // 构建最后一条助手消息（包含思考过程、RAG源、搜索结果等）
-      const streamMsg = {
-        role: 'assistant',
-        content: bm.content || '',
-        thinking: bm.thinking || undefined,
-        answer: bm.answer || undefined,
-        thinkingExpanded: bm.thinkingExpanded !== false,
-        learningContext: bm.learningContext || undefined,
-        ragSources: bm.ragSources || undefined,
-        ragUnavailable: bm.ragUnavailable || undefined,
-        searchUnavailable: bm.searchUnavailable || undefined,
-        toolEvents: bm.toolEvents || undefined,
-        mindMap: bm.mindMap || undefined,
-        memoryUpdates: bm.memoryUpdates || undefined,
-        learningAnalysis: bm.learningAnalysis || undefined,
-        searchResults: bm.searchResults || undefined,
-        searchQuery: bm.searchQuery || undefined
-      }
-      // 如果后端已保存该消息，替换；否则追加
-      if (baseMsgs.length > 0 && baseMsgs[baseMsgs.length - 1].role === 'assistant') {
-        baseMsgs[baseMsgs.length - 1] = streamMsg
-      } else {
-        baseMsgs.push(streamMsg)
-      }
-      messages.value = baseMsgs
+    if (backup && backup.conversationId === id) {
+      messages.value = _mergeBackupIntoMsgs(baseMsgs, backup)
+      // 流已死：把备份里的半截回答一次性补落库（流活着时由 onDone 正常保存）
+      if (!isStreaming) _persistOrphanBackup(id)
     } else {
-      messages.value = _restoreMessages(Array.isArray(conversation?.messages) ? conversation.messages : [])
+      messages.value = baseMsgs
     }
     // 跟踪消息加载状态：判断是否还有更早的消息
     loadedMessageOffset.value = (Array.isArray(conversation?.messages) ? conversation.messages.length : 0)
@@ -815,6 +856,16 @@ async function sendMessage() {
   const assistantIdx = messages.value.length - 1
   const thisConvId = conversationId.value // 捕获当前会话 ID（流式结束前不会变）
 
+  // 流式期间只写前端备份、不落库（后端在 onDone 才一次性保存助手消息）。
+  // 备份带上课问题与题型快照，中断恢复后由 _persistOrphanBackup 补落库。
+  const backupMeta = {
+    question: q,
+    question_type: questionType.value,
+    explanation_level: explanationLevel.value
+  }
+  let bkConvId = thisConvId // 备份写入的会话键：新建会话时随真实 ID 迁移
+  const _bk = (data) => _saveBackup(bkConvId, { ...backupMeta, ...data })
+
   // ⚡ 立即保存用户消息到数据库，防止刷新丢失
   saveUserMessage({
     question: q,
@@ -823,6 +874,14 @@ async function sendMessage() {
     explanation_level: explanationLevel.value,
   }).then((res) => {
     if (res && res.conversation_id) {
+      if (res.conversation_id !== bkConvId) {
+        // 新建会话：备份键从占位键迁移到真实会话 ID（首条消息发出时还没有 ID），
+        // 否则刷新后按会话 ID 查不到备份，半截回答无法恢复
+        const old = _loadBackup(bkConvId)
+        _clearBackup(bkConvId)
+        bkConvId = res.conversation_id
+        if (old) _saveBackup(bkConvId, { ...old, conversationId: bkConvId })
+      }
       conversationId.value = res.conversation_id
       if (res.conversation_id !== thisConvId) {
         // 新建会话：刷新侧边栏
@@ -832,7 +891,7 @@ async function sendMessage() {
     if (res?.memory_updates?.length) {
       memoryUpdatesData.value = res.memory_updates
       _applyToLastAssistant({ memoryUpdates: res.memory_updates })
-      _saveBackup(thisConvId, {
+      _bk({
         message: { ...(messages.value[assistantIdx] || {}), memoryUpdates: res.memory_updates }
       })
     }
@@ -877,7 +936,7 @@ async function sendMessage() {
   learningAnalysisData.value = null
 
   // 清除可能残留的流式备份
-  _clearBackup(thisConvId)
+  _clearBackup(bkConvId)
 
   // 模块级流在 askQuestionStream 调用后注册（其返回值就是 abort 函数）
 
@@ -912,7 +971,7 @@ async function sendMessage() {
         activeLearningContext = context
         _applyToLastAssistant({ learningContext: context })
         // 保存到模块级备份（跨组件持久）
-        _saveBackup(thisConvId, {
+        _bk({
           message: { ...(messages.value[assistantIdx] || {}), learningContext: context }
         })
       },
@@ -920,38 +979,38 @@ async function sendMessage() {
         // 暂存 RAG 数据，等思考完成后（检测到【回答】标记）再显示
         ragSourcesData.value = sources
         ragUnavailableMsg.value = ''
-        _saveBackup(thisConvId, {
+        _bk({
           message: { ...(messages.value[assistantIdx] || {}), ragSources: sources, ragUnavailable: null }
         })
       },
       onRagUnavailable(message) {
         // RAG 不可用提示也等思考完成后显示
         ragUnavailableMsg.value = message
-        _saveBackup(thisConvId, {
+        _bk({
           message: { ...(messages.value[assistantIdx] || {}), ragUnavailable: message }
         })
       },
       onSearchUnavailable(message) {
         searchUnavailableMsg.value = message
-        _saveBackup(thisConvId, {
+        _bk({
           message: { ...(messages.value[assistantIdx] || {}), searchUnavailable: message }
         })
       },
       onToolEvents(events) {
         toolEventsData.value = events
-        _saveBackup(thisConvId, {
+        _bk({
           message: { ...(messages.value[assistantIdx] || {}), toolEvents: events }
         })
       },
       onMindMap(mindMap) {
         mindMapData.value = mindMap
-        _saveBackup(thisConvId, {
+        _bk({
           message: { ...(messages.value[assistantIdx] || {}), mindMap }
         })
       },
       onLearningAnalysis(analysis) {
         learningAnalysisData.value = analysis
-        _saveBackup(thisConvId, {
+        _bk({
           message: { ...(messages.value[assistantIdx] || {}), learningAnalysis: analysis }
         })
       },
@@ -959,7 +1018,7 @@ async function sendMessage() {
         // 暂存搜索结果，等思考完成后（检测到【回答】标记）再显示
         searchResultsData.value = results
         searchQuery.value = sq
-        _saveBackup(thisConvId, {
+        _bk({
           message: { ...(messages.value[assistantIdx] || {}), searchResults: results, searchQuery: sq }
         })
       },
@@ -991,7 +1050,7 @@ async function sendMessage() {
           messages.value[assistantIdx] = msg
         }
         // 始终保存到模块级备份（即使切到其他页面也能恢复）
-        _saveBackup(thisConvId, {
+        _bk({
           message: msg
         })
         // 不再强制滚动 — 用户可自由翻阅
@@ -1022,7 +1081,10 @@ async function sendMessage() {
           scrollToBottom(true)
         }
         _finishStream(thisConvId)
-        _clearBackup(thisConvId)
+        // 必须在 saveAssistantMessage 之前同步清备份：保证「备份存在 ⟹ 后端尚无本轮
+        // 助手消息」这一不变式，恢复逻辑（_mergeBackupIntoMsgs/_persistOrphanBackup）
+        // 才不会重复落库。因此清备份不能移到保存成功的回调里。
+        _clearBackup(bkConvId)
         if (hasFile) removeFile()
         feedbackGiven.value = false
         // 保存助手回答到后端（用户消息已在 sendMessage 开始时保存）
@@ -1079,7 +1141,7 @@ async function sendMessage() {
           abortStream.value = null
         }
         _finishStream(thisConvId)
-        _clearBackup(thisConvId)
+        _clearBackup(bkConvId)
         ElMessage.error(err.message || '流式请求失败')
       }
     }
@@ -1163,7 +1225,9 @@ function stopStreaming() {
   }
   abortStream.value = null
   sending.value = false
-  _clearBackup(conversationId.value)
+  // 停止 ≠ 放弃：abort 后流已终止（不会再触发 onDone），把已生成的半截回答
+  // 一次性补落库而不是丢弃备份
+  _persistOrphanBackup(conversationId.value)
 }
 
 async function copyMessage(msg) {
@@ -1192,24 +1256,7 @@ function _applyBackupToLastMessage(backup) {
   if (!msgs.length) return
   const last = msgs[msgs.length - 1]
   if (last.role !== 'assistant') return
-  const bm = backup.message
-  msgs[msgs.length - 1] = {
-    role: 'assistant',
-    content: bm.content || '',
-    thinking: bm.thinking || undefined,
-    answer: bm.answer || undefined,
-    thinkingExpanded: bm.thinkingExpanded !== false,
-    learningContext: bm.learningContext || undefined,
-    ragSources: bm.ragSources || undefined,
-    ragUnavailable: bm.ragUnavailable || undefined,
-    searchUnavailable: bm.searchUnavailable || undefined,
-    toolEvents: bm.toolEvents || undefined,
-    mindMap: bm.mindMap || undefined,
-    memoryUpdates: bm.memoryUpdates || undefined,
-    learningAnalysis: bm.learningAnalysis || undefined,
-    searchResults: bm.searchResults || undefined,
-    searchQuery: bm.searchQuery || undefined
-  }
+  msgs[msgs.length - 1] = _msgFromBackup(backup.message)
 }
 
 function quickAsk(q) {

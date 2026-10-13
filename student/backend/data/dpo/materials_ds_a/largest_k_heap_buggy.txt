@@ -1,0 +1,72 @@
+<problem>
+Write a function `kth_largest(nums: List[int], k: int) -> int` that returns the k-th largest element in `nums` using a heap (`heapq`). You may assume `1 <= k <= len(nums)`.
+
+## Example Cases:
+```
+kth_largest([3, 2, 1, 5, 4], 2) => 4
+kth_largest([7, 6, 5], 3) => 5
+kth_largest([1], 1) => 1
+```
+</problem>
+<bug_code>
+1. import heapq
+2. 
+3. def kth_largest(nums, k):
+4.  heap = []
+5.  for x in nums:
+6.    heapq.heappush(heap, -x)
+7.    if len(heap) > k:
+8.      heapq.heappop(heap)
+9.  return -heap[0]
+</bug_code>
+<bug_desc>
+The negation trick is applied inconsistently with the eviction logic. Pushing `-x` keeps a max-heap over the original values, so `heappop` evicts the *largest* original number instead of the smallest — the heap ends up holding the k smallest elements, and the function returns the k-th largest of those, i.e. the k-th smallest overall (it returns 2 instead of 4 for `[3,2,1,5,4]`, k=2).
+</bug_desc>
+<bug_fixes>
+Replace `-x` with `x` on line 6
+Replace `return -heap[0]` with `return heap[0]` on line 9
+</bug_fixes>
+<unit_tests>
+assert kth_largest([3, 2, 1, 5, 4], 2) == 4
+assert kth_largest([7, 6, 5], 3) == 5
+assert kth_largest([1], 1) == 1
+assert kth_largest([2, 1], 1) == 2
+</unit_tests>
+<stu_desc>
+
+</stu_desc>
+<dialogue>
+User: My heap-based kth_largest returns 2 for `[3,2,1,5,4]` with k=2, but the answer should be 4. I feel like I mixed up the sign convention somewhere. Here it is:
+	<code>
+1. import heapq
+2. 
+3. def kth_largest(nums, k):
+4.  heap = []
+5.  for x in nums:
+6.    heapq.heappush(heap, -x)
+7.    if len(heap) > k:
+8.      heapq.heappop(heap)
+9.  return -heap[0]
+
+	</code>
+Assistant: Python's `heapq` is a min-heap. What does pushing `-x` do to the ordering — and consequently, which element does `heappop` remove when the heap is full?
+	<alt>With values negated, is `heap[0]` the smallest or the largest of the stored originals?
+	<alt>Trace it: after pushing the negations of 3, 2, 1, 5, 4 with k=2, which original numbers survive in the heap?
+User: Pushing -x means heap[0] is the most negative = the largest original number. So heappop removes the LARGEST original value — I'm evicting exactly the elements I want to keep! The heap ends up with the 2 smallest numbers, 1 and 2.
+Assistant: Right — the negation turns the min-heap into a max-heap, but you still want a min-heap so the smallest of the k candidates gets evicted. What should lines 6 and 9 look like with plain values?
+	<alt>How do you keep the k largest with a plain min-heap: what do you push, what do you pop, and what do you read at the end?
+User: Push `x` normally, pop the smallest when size exceeds k, and return `heap[0]` — the smallest of the k largest. Both examples now return 4 and 5. Thanks!
+	<code>
+1. import heapq
+2. 
+3. def kth_largest(nums, k):
+4.  heap = []
+5.  for x in nums:
+6.    heapq.heappush(heap, x)
+7.    if len(heap) > k:
+8.      heapq.heappop(heap)
+9.  return heap[0]
+
+	</code>
+Assistant: Exactly — a plain min-heap of size k answers the k-th largest question directly.
+</dialogue>

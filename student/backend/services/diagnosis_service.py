@@ -261,7 +261,7 @@ async def generate_quiz(user_id: int, stage: str = "入门", count: int = 10,
         stage: 学习阶段（入门/进阶/高阶）
         count: 题目数量
         focus_knowledge: 重点关注的知识分类
-        question_type: 指定题型（暂未使用，题库统一为简答）
+        question_type: 指定题型（单选/判断/填空/简答），None 时按题型配比混合出题
         use_timer: 是否启用计时
         timer_minutes: 计时分钟数
     """
@@ -291,7 +291,8 @@ async def generate_quiz(user_id: int, stage: str = "入门", count: int = 10,
         focus_knowledge=target_knowledge,
         avoid_topics=avoid_knowledge,
         knowledge_filter=knowledge_filter,
-        exclude_ids=exclude_ids
+        exclude_ids=exclude_ids,
+        question_type=question_type
     )
 
     # 如果题库选题不够，回退说明

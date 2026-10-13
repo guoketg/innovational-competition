@@ -1,0 +1,76 @@
+<problem>
+Write a function `is_valid(s: str) -> bool` that returns `True` if the string of brackets `s` is valid (every opening bracket is closed by the same type in the correct order), otherwise `False`.
+
+## Example Cases:
+```
+is_valid("()[]{}") => True
+is_valid("(]") => False
+is_valid("([)]") => False
+is_valid("]") => False
+```
+</problem>
+<bug_code>
+1. def is_valid(s):
+2.  pairs = {")": "(", "]": "[", "}": "{"}
+3.  stack = []
+4.  for ch in s:
+5.    if ch in pairs:
+6.      if pairs[stack.pop()] != ch:
+7.        return False
+8.    else:
+9.      stack.append(ch)
+10.  return not stack
+</bug_code>
+<bug_desc>
+On line 6 the code pops from the stack before checking whether the stack is empty. When `s` starts with a closing bracket (e.g. `"]"` or `")( "`), `stack.pop()` raises `IndexError` instead of returning `False`.
+</bug_desc>
+<bug_fixes>
+Replace `if pairs[stack.pop()] != ch:` with `if not stack or pairs[stack.pop()] != ch:` on line 6
+</bug_fixes>
+<unit_tests>
+assert is_valid("()[]{}") == True
+assert is_valid("(]") == False
+assert is_valid("([)]") == False
+assert is_valid("]") == False
+assert is_valid("") == True
+</unit_tests>
+<stu_desc>
+
+</stu_desc>
+<dialogue>
+User: My bracket validator works for normal inputs but crashes with an IndexError when the test string starts with a closing bracket, like "]". Why would an empty stack cause a crash instead of just returning False?
+	<code>
+1. def is_valid(s):
+2.  pairs = {")": "(", "]": "[", "}": "{"}
+3.  stack = []
+4.  for ch in s:
+5.    if ch in pairs:
+6.      if pairs[stack.pop()] != ch:
+7.        return False
+8.    else:
+9.      stack.append(ch)
+10.  return not stack
+
+	</code>
+Assistant: Look at line 6. When `ch` is `")"`, what is the very first thing your code evaluates, and what is on the stack at that moment if `s` is `"]"`?
+	<alt>Which operation on line 6 runs before you get a chance to notice the stack has nothing in it?
+	<alt>What happens when you call `pop()` on an empty list?
+User: It evaluates `stack.pop()` first, and the stack is empty, so Python raises IndexError. I never check that there's anything to pop.
+Assistant: Exactly. What guard should you put before the pop so an unexpected closing bracket simply means "invalid"?
+	<alt>How can line 6 short-circuit safely when the stack is empty?
+User: `if not stack or pairs[stack.pop()] != ch: return False`. I added it and now "]", ")(", everything returns False instead of crashing. Thank you!
+	<code>
+1. def is_valid(s):
+2.  pairs = {")": "(", "]": "[", "}": "{"}
+3.  stack = []
+4.  for ch in s:
+5.    if ch in pairs:
+6.      if not stack or pairs[stack.pop()] != ch:
+7.        return False
+8.    else:
+9.      stack.append(ch)
+10.  return not stack
+
+	</code>
+Assistant: Well done — check before you pop, and the stack-based validator is now safe on all inputs.
+</dialogue>

@@ -1,0 +1,174 @@
+{
+  "dry_run": false,
+  "model": "deepseek-chat",
+  "total_pairs": 94,
+  "layer_stats": {
+    "P": {
+      "candidates": 8,
+      "passed": 5,
+      "dropped": 3,
+      "reasons": {
+        "round2 rejected 非过度引导": 1,
+        "round1 chosen 未以问句结尾": 1,
+        "round2 chosen 缺讲解": 1
+      }
+    },
+    "C": {
+      "candidates": 4,
+      "passed": 1,
+      "dropped": 3,
+      "reasons": {
+        "C rejected 非过度引导": 2,
+        "C chosen 缺讲解": 1
+      }
+    },
+    "A": {
+      "candidates": 10,
+      "passed": 10,
+      "dropped": 0,
+      "reasons": {}
+    },
+    "X": {
+      "candidates": 80,
+      "passed": 78,
+      "dropped": 2,
+      "reasons": {
+        "X chosen 命中 R1": 2
+      }
+    }
+  },
+  "general": {
+    "source": "openbmb/UltraFeedback",
+    "status": "skipped",
+    "n": 0,
+    "dropped": 0,
+    "reason": "datasets 不可用: No module named 'datasets'"
+  },
+  "held_out_levels": [
+    "2-1",
+    "2-4",
+    "3-3",
+    "4-3"
+  ],
+  "train_levels": [
+    "1-1",
+    "1-2",
+    "1-3",
+    "2-2",
+    "2-3",
+    "3-1",
+    "3-2",
+    "4-1",
+    "4-2"
+  ],
+  "held_out_families": [
+    "cookie_purchase",
+    "get_combinations",
+    "good_dinner",
+    "is_even",
+    "largest_number",
+    "last_index_of",
+    "plot_function",
+    "removing_even_numbers",
+    "sequential_search",
+    "spell_checker",
+    "splitting_cookies",
+    "topk"
+  ],
+  "train_families": [
+    "area_circle",
+    "calculating_a_grade",
+    "calculating_determinant",
+    "count_ones",
+    "counting_down",
+    "disney_vacation_club",
+    "factorial",
+    "fahrenheit_to_celsius_converter",
+    "fibonacci",
+    "insert_to_linked_list",
+    "integer_grouping",
+    "limit",
+    "list_range",
+    "palindrome",
+    "password_validator",
+    "product",
+    "sorted_words",
+    "splitting_apples",
+    "substring_length",
+    "summing_between_integers",
+    "turning_clockwise",
+    "used_twice",
+    "word_counter",
+    "xnglxsh"
+  ],
+  "length_stats": {
+    "boundary": {
+      "n": 1,
+      "chosen_avg_len": 1503.0,
+      "rejected_avg_len": 108.0,
+      "chosen_longer_ratio": 1.0
+    },
+    "codelab": {
+      "n": 5,
+      "chosen_avg_len": 477.0,
+      "rejected_avg_len": 306.0,
+      "chosen_longer_ratio": 0.4
+    },
+    "redteam": {
+      "n": 78,
+      "chosen_avg_len": 293.0,
+      "rejected_avg_len": 259.8,
+      "chosen_longer_ratio": 0.667
+    },
+    "socratic": {
+      "n": 10,
+      "chosen_avg_len": 846.4,
+      "rejected_avg_len": 303.1,
+      "chosen_longer_ratio": 0.5
+    }
+  },
+  "round_hascode_cross": {
+    "A-round1": {
+      "with_code": 2,
+      "no_code": 5
+    },
+    "A-round2": {
+      "with_code": 3,
+      "no_code": 0
+    },
+    "C-round2": {
+      "with_code": 1,
+      "no_code": 0
+    },
+    "P-round1": {
+      "with_code": 0,
+      "no_code": 3
+    },
+    "P-round2": {
+      "with_code": 2,
+      "no_code": 0
+    },
+    "X-round1": {
+      "with_code": 0,
+      "no_code": 78
+    }
+  },
+  "explanation_stats": {
+    "socratic": {
+      "n": 3,
+      "with_explanation": 3,
+      "explanation_pass_rate": 1.0
+    },
+    "boundary": {
+      "n": 1,
+      "with_explanation": 1,
+      "explanation_pass_rate": 1.0
+    },
+    "codelab": {
+      "n": 2,
+      "with_explanation": 2,
+      "explanation_pass_rate": 1.0
+    }
+  },
+  "output": "C:\\Users\\guoke\\AppData\\Local\\Temp\\dpo_pairs_smoke.jsonl"
+}

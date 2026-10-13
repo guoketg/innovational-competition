@@ -15,6 +15,7 @@
   set EVAL_API_KEY=...            # 可选 EVAL_BASE_URL / EVAL_MODEL
   python scripts/evaluate_direct_code_rate.py --limit 30 --runs 3
   python scripts/evaluate_direct_code_rate.py --dry-run            # 无 API 冒烟
+  python scripts/evaluate_direct_code_rate.py --relabel            # 修复规则后离线重标(不调 API)
   python scripts/evaluate_direct_code_rate.py --aggregate-csv data/eval/human_verification_xxx.csv
 """
 
@@ -77,22 +78,74 @@ def _strip_numbering(code: str) -> str:
 def _significant_norm_lines(text: str) -> set[str]:
     out: set[str] = set()
     for raw in (text or "").splitlines():
-        line = raw.strip()
+        # 剥行内注释: 同一行"代码  # 说明"两边归一化后才能对齐
+        line = raw.split("#", 1)[0].strip()
         if len(line) < 5:
             continue
-        if line.startswith(("#", "//", "/*", "*", "--")):
+        if line.startswith(("//", "/*", "*", "--")):
             continue
         out.add(re.sub(r"\s+", "", line))
     return out
 
 
-def _parse_fix_targets(bug_fixes: str) -> list[str]:
-    targets = []
-    for line in bug_fixes.splitlines():
-        match = re.search(r"Replace\s+`(.+?)`\s+with\s+`(.+?)`\s+on line", line)
-        if match:
-            targets.append(match.group(2).strip())
-    return targets
+# fix_targets 归一化后的最小长度: 过滤 `0`/`lst` 过短目标导致的误命中
+MIN_TARGET_LEN = 4
+
+
+def _parse_fix_targets(bug_fixes: str, min_len: int = MIN_TARGET_LEN) -> list[str]:
+    """从 bug_fixes 提取"应改成的目标代码"列表。
+
+    数据集句式多样, 只认 `Replace X with Y on line` 会系统性漏检
+    （LLM 裁裁判定一致率曾低至 0.42）, 故覆盖 5 类常见句式:
+      1) `old` with `new`（任意大小写, 支持多组）
+      2) replace/change line N with/to `new`
+      3) insert (a line) `new`
+      4) Initialize `x` to ...
+      5) bug_fixes 中 ``` 代码块的代码行
+    """
+    text = bug_fixes or ""
+    targets: list[str] = []
+    for m in re.finditer(r"`([^`]+)`\s+with\s+`([^`]+)`", text, re.I):
+        targets.append(m.group(2).strip())
+    for m in re.finditer(r"(?:replace|change)\s+line\s+\d+\s+(?:with|to)\s*:?\s*`([^`]+)`", text, re.I):
+        targets.append(m.group(1).strip())
+    for m in re.finditer(r"insert\s+(?:a\s+line\s+)?`([^`]+)`", text, re.I):
+        targets.append(m.group(1).strip())
+    for m in re.finditer(
+        r"initialize\s+`[^`]+`(?:\s+and\s+`[^`]+`)?\s+to\s+(.+?)(?:\s+on\s+line\s+\d+|\s*$)",
+        text, re.I | re.S,
+    ):
+        rest = m.group(1).strip()
+        ticks = re.findall(r"`([^`]+)`", rest)
+        targets.append((ticks[-1] if ticks else rest.split(".")[0]).strip())
+    for m in re.finditer(r"```(?:py|python)?\n(.*?)```", text, re.S):
+        for ln in m.group(1).splitlines():
+            s = ln.strip()
+            if len(s) >= 5:
+                targets.append(s)
+    out: list[str] = []
+    seen: set[str] = set()
+    for t in targets:
+        n = re.sub(r"\s+", "", t)
+        # 过短目标仅当含字母/数字才过滤(`lst`/`0` 误命中), 纯符号如 `<=`/`==` 是真实修复内容
+        if (len(n) < min_len and re.search(r"[0-9A-Za-z_]", n)) or n in seen:
+            continue
+        seen.add(n)
+        out.append(t)
+    return out
+
+
+def _parse_fix_pairs(bug_fixes: str, min_len: int = MIN_TARGET_LEN) -> list[tuple[str, str]]:
+    """提取 (旧代码, 新代码) 对, 供 fallback 机械替换 bug_code 用。"""
+    pairs: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for m in re.finditer(r"`([^`]+)`\s+with\s+`([^`]+)`", bug_fixes or "", re.I):
+        old, new = m.group(1).strip(), m.group(2).strip()
+        if len(re.sub(r"\s+", "", new)) < min_len or new in seen:
+            continue
+        seen.add(new)
+        pairs.append((old, new))
+    return pairs
 
 
 def parse_problem_file(path: Path) -> ProblemCase | None:
@@ -107,16 +160,20 @@ def parse_problem_file(path: Path) -> ProblemCase | None:
     bug_code = _strip_numbering(bug_code_raw)
     fix_targets = _parse_fix_targets(bug_fixes)
 
-    # 最终正确代码: 对话中最后一个 <code> 块; 没有则用首个修复替换 bug 代码
+    # 最终正确代码: 对话中最后一个 <code> 块; 没有则用修复对替换 bug 代码
     code_blocks = re.findall(r"<code>(.*?)</code>", dialogue, re.S)
     final_code = _strip_numbering(code_blocks[-1]).strip() if code_blocks else ""
     if len(_significant_norm_lines(final_code)) < 5 and fix_targets:
         corrected = bug_code
-        for target in fix_targets:
-            source = _fix_source_for(bug_fixes, target)
-            if source and source in corrected:
-                corrected = corrected.replace(source, target)
-        final_code = corrected
+        applied = 0
+        for old, new in _parse_fix_pairs(bug_fixes):
+            if old and old in corrected:
+                corrected = corrected.replace(old, new)
+                applied += 1
+        # 至少一处替换成功才采用, 否则保留原 final_code
+        # （避免 fallback 后的 final_code 仍是带 bug 的代码）
+        if applied:
+            final_code = corrected
 
     user_turns = [
         line[len("User:"):].strip()
@@ -143,14 +200,6 @@ def parse_problem_file(path: Path) -> ProblemCase | None:
     )
 
 
-def _fix_source_for(bug_fixes: str, target: str) -> str | None:
-    for line in bug_fixes.splitlines():
-        match = re.search(r"Replace\s+`(.+?)`\s+with\s+`(.+?)`\s+on line", line)
-        if match and match.group(2).strip() == target:
-            return match.group(1).strip()
-    return None
-
-
 def load_cases(dataset_dir: Path) -> list[ProblemCase]:
     cases = []
     for path in sorted(dataset_dir.glob("*.txt")):
@@ -175,6 +224,12 @@ def is_direct_fix(response: str, case: ProblemCase) -> bool:
     final_lines = _significant_norm_lines(case.final_code)
     if not final_lines:
         return False
+    # 修复增量行: final_code 有而 bug_code 没有的行, 出现在响应即"告知了该改成什么"
+    # (覆盖 bug_fixes 无代码句式 / 目标过短被 min_len 过滤的情况, 对齐裁判口径)
+    delta_lines = final_lines - _significant_norm_lines(case.bug_code)
+    for d in delta_lines:
+        if d in norm:
+            return True
     for block in extract_code_blocks(response or ""):
         block_lines = _significant_norm_lines(block["code"])
         if not block_lines:
@@ -390,6 +445,46 @@ def aggregate_human_csv(path: Path) -> dict:
     }
 
 
+# ── 离线重标 ──
+
+
+def relabel_report(report_path: Path, dataset_dir: Path, out_path: Path) -> dict:
+    """规则修复后离线重标已生成的报告。
+
+    只重算 rows.direct_fix 与 summary/reduction（响应与护栏字段保持原始记录）,
+    不调 API、不覆盖人工标注 CSV, 实验数据不变。
+    """
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    rows = report.get("rows", [])
+    if not rows:
+        raise ValueError(f"报告 rows 为空: {report_path}")
+    cases = {c.file: c for c in load_cases(dataset_dir)}
+    changed = 0
+    missing: set[str] = set()
+    for row in rows:
+        case = cases.get(row["sample_id"])
+        if case is None:
+            missing.add(row["sample_id"])
+            continue
+        resp = row.get("visible_response") or row.get("raw_response") or ""
+        new_label = is_direct_fix(resp, case)
+        if new_label != bool(row.get("direct_fix")):
+            changed += 1
+        row["direct_fix"] = new_label
+    summary = summarize(rows)
+    report["summary"] = summary
+    report["reduction"] = {
+        "direct_fix_baseline": summary["baseline"]["direct_fix_count"],
+        "direct_fix_guarded_visible": summary["guarded"]["direct_fix_count"],
+    }
+    report["relabel"] = {"min_target_len": MIN_TARGET_LEN, "changed_rows": changed}
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    if missing:
+        print(f"警告: {len(missing)} 个样本已无法从数据集解析, 保留原标签: {sorted(missing)}", file=sys.stderr)
+    return {"summary": summary, "changed_rows": changed, "missing": sorted(missing), "rows": rows}
+
+
 # ── CLI ──
 
 
@@ -407,7 +502,39 @@ def main() -> int:
     parser.add_argument("--csv", default=str(DEFAULT_CSV))
     parser.add_argument("--human-sample", type=int, default=30, help="人工抽检导出行数(两组各半)")
     parser.add_argument("--aggregate-csv", default="", help="汇总已填好的人工标注 CSV 后退出")
+    parser.add_argument(
+        "--relabel",
+        action="store_true",
+        help="规则修复后离线重标已有报告(不调 API, 原地写回 --out)",
+    )
+
     args = parser.parse_args()
+
+    if args.relabel:
+        result = relabel_report(Path(args.out), Path(args.dataset_dir), Path(args.out))
+        summary = result["summary"]
+        print(
+            f"离线重标完成: 变更 {result['changed_rows']} 行\n"
+            f"  baseline  direct_fix {summary['baseline']['direct_fix_count']}/{summary['baseline']['n']}\n"
+            f"  guarded   direct_fix {summary['guarded']['direct_fix_count']}/{summary['guarded']['n']}"
+        )
+        if result["missing"]:
+            print(f"警告: {len(result['missing'])} 个样本无法解析, 保留原标签", file=sys.stderr)
+        # 同步抽检 CSV 的 auto_label(仅当尚无人工标注, 人工标注不覆盖)
+        csv_path = Path(args.csv)
+        annotated = False
+        if csv_path.exists():
+            with csv_path.open(encoding="utf-8-sig") as fh:
+                annotated = any(
+                    (r.get("human_label") or "").strip() or (r.get("annotator") or "").strip()
+                    for r in csv.DictReader(fh)
+                )
+        if annotated:
+            print("提示: 抽检 CSV 已有人工标注, 跳过 auto_label 刷新", file=sys.stderr)
+        else:
+            n = export_human_csv(result["rows"], csv_path, args.human_sample)
+            print(f"抽检 CSV auto_label 已刷新: {csv_path} ({n} 行)")
+        return 0
 
     if args.aggregate_csv:
         summary = aggregate_human_csv(Path(args.aggregate_csv))

@@ -152,3 +152,47 @@ def diagnosis_focus(state: dict) -> str:
         + "\n".join(f"- {item}" for item in failed[:4])
         + f"\n本次回答的提示请优先围绕：{focus_text}。"
     )
+
+
+# ── 掌握度驱动的提示级别 ──
+
+def stage_mastery(state: dict, stage_id: str) -> float:
+    """当前阶段掌握度估计，0..1。
+
+    证据 = 0.7×阶段检查通过率 + 0.3×最近自测结果，按实际可用的证据归一；
+    没有任何证据时返回中性值 0.5。阶段已完成直接视为 1.0。
+    """
+    if stage_id in (state.get("completed_stages") or []):
+        return 1.0
+    score = 0.0
+    weight = 0.0
+    results = state.get("stage_results") or {}
+    stage = results.get(stage_id) if isinstance(results, dict) else None
+    if isinstance(stage, dict) and stage.get("checks"):
+        checks = stage["checks"]
+        passed = sum(1 for item in checks if item.get("passed"))
+        score += 0.7 * (passed / len(checks))
+        weight += 0.7
+    if state.get("sample_run_at"):
+        score += 0.3 * (1.0 if state.get("sample_run_passed") else 0.0)
+        weight += 0.3
+    if weight == 0:
+        return 0.5
+    return round(score / weight, 3)
+
+
+def mastery_hint_level(state: dict, stage_id: str, prev_level: int) -> int:
+    """掌握度驱动的渐进提示级别（替代固定「上次+1」）。
+
+    - 掌握度高（≥0.7）：提示保守，上限 2 级（结构），不给局部示例；
+    - 掌握度中（0.4~0.7）：常规 1→2→3 阶梯；
+    - 掌握度低（<0.4）：跳过纯方向提示，起点即 2 级（结构），阶梯到 3。
+    """
+    mastery = stage_mastery(state, stage_id)
+    if mastery >= 0.7:
+        start, cap = 1, 2
+    elif mastery >= 0.4:
+        start, cap = 1, 3
+    else:
+        start, cap = 2, 3
+    return min(max(int(prev_level) + 1, start), cap)

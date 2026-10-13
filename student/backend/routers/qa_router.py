@@ -36,6 +36,10 @@ from services.personalization_service import (
 from database import get_db
 from services.guidance_context_service import build_learning_context, public_learning_context
 from services.mind_map_service import get_mind_map
+from services.answer_guard_service import (
+    GuardedStreamFilter, REGEN_FEEDBACK, apply_guard, detect_exercise,
+    evaluate_release, load_guard_references, log_guard_event,
+)
 
 router = APIRouter()
 MAX_QA_UPLOAD_BYTES = int(os.getenv('QA_MAX_UPLOAD_BYTES', str(20 * 1024 * 1024)))
@@ -305,6 +309,35 @@ print(final_message.content)
 **常见误区：**不要直接执行模型生成的任意函数名或参数。模型负责“建议调用”，宿主程序必须负责白名单、参数校验、权限控制、超时和错误处理。"""
 
 
+def _guarded_sse_lines(raw: str, guard_filter: GuardedStreamFilter) -> list[str]:
+    """把 stream_llm 的一条 SSE 行过一遍流式护栏。
+
+    只过滤正文 content（reasoning 是内部推理，原样透传）；护栏未启用时
+    直接透传，零解析开销。返回可下发的 SSE 行序列。
+    """
+    if not guard_filter.enabled or not raw.startswith("data: "):
+        return [raw]
+    payload = raw[len("data: "):].strip()
+    if payload == "[DONE]":
+        return [raw]
+    try:
+        obj = json.loads(payload)
+    except ValueError:
+        return [raw]
+    if "content" not in obj:
+        return [raw]
+
+    out: list[str] = []
+    if obj.get("reasoning"):
+        out.append(f"data: {json.dumps({'reasoning': obj['reasoning']}, ensure_ascii=False)}\n\n")
+    for kind, part in guard_filter.feed(obj.get("content") or ""):
+        if kind == "event":
+            out.append(f"data: {json.dumps(part, ensure_ascii=False)}\n\n")
+        else:
+            out.append(f"data: {json.dumps({'content': part}, ensure_ascii=False)}\n\n")
+    return out
+
+
 @router.post("/ask/stream")
 async def ask_question_stream(req: QARequest, current_user: dict = Depends(get_current_user)):
     """流式AI答疑，返回SSE格式。支持深度思考和联网搜索。"""
@@ -516,6 +549,20 @@ async def ask_question_stream(req: QARequest, current_user: dict = Depends(get_c
             temperature = 0.42 if req.deep_thinking else 0.7
             max_tokens = 8192 if req.deep_thinking else 4096
 
+    # 输入侧关卡识别 + 输出侧流式护栏：命中关卡问题才启用，通用问题不拦
+    # 时机释放阀：学生本轮贴了自己的代码 / 已被拦多轮 → 放行完整参考讲解
+    guard_exercise_id = detect_exercise(req.question)
+    guard_release, guard_release_reason = evaluate_release(
+        current_user["id"], guard_exercise_id, req.question,
+    )
+    guard_filter = GuardedStreamFilter(
+        load_guard_references(guard_exercise_id),
+        release=guard_release,
+        release_reason=guard_release_reason,
+        log_context={"channel": "stream", "user_id": current_user["id"],
+                     "exercise_id": guard_exercise_id},
+    )
+
     async def _stream_with_search():
         """先发送 RAG 来源/不可用提示和搜索结果，再流式输出 LLM 回答（带心跳保活）"""
         if learning_context.get("available"):
@@ -568,7 +615,8 @@ async def ask_question_stream(req: QARequest, current_user: dict = Depends(get_c
                 try:
                     kind, data = await asyncio.wait_for(queue.get(), timeout=15.0)
                     if kind == 'chunk':
-                        yield data
+                        for line in _guarded_sse_lines(data, guard_filter):
+                            yield line
                     elif kind == 'error':
                         yield f"data: {json.dumps({'error': f'AI 响应中断: {data}'}, ensure_ascii=False)}\n\n"
                         break
@@ -583,6 +631,46 @@ async def ask_question_stream(req: QARequest, current_user: dict = Depends(get_c
                 await producer_task
             except asyncio.CancelledError:
                 pass
+
+        # 流结束：结算过滤器（未闭合围栏 + R2 记录），有产物则补发
+        for kind, part in guard_filter.close():
+            if kind == "event":
+                yield f"data: {json.dumps(part, ensure_ascii=False)}\n\n"
+            else:
+                yield f"data: {json.dumps({'content': part}, ensure_ascii=False)}\n\n"
+
+        # 重生成再检（regenerate-and-recheck）：流式首版已发生拦截时，
+        # 补一次带纠正反馈的非流式重生成并复检；通过则把新答案追加下发
+        #（前端在 [DONE] 后仍会继续处理 data 事件，见 api/qa.js）。
+        if guard_filter.blocked_count and guard_exercise_id and _llm_mode(current_user["id"]) != "local":
+            try:
+                retry_raw = await call_llm(
+                    current_user["id"],
+                    [*messages, {"role": "user", "content": REGEN_FEEDBACK}],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                retry_text, retry_verdict = apply_guard(
+                    str(retry_raw or ""), load_guard_references(guard_exercise_id)
+                )
+                if not retry_verdict.blocked:
+                    log_guard_event(retry_verdict, {
+                        "channel": "qa_stream_regen", "user_id": current_user["id"],
+                        "exercise_id": guard_exercise_id, "attempts": 1,
+                        "status": "passed",
+                    })
+                    yield f"data: {json.dumps({'guard_regen': {'status': 'passed', 'attempts': 1}}, ensure_ascii=False)}\n\n"
+                    note = "\n\n---\n**【防泄题护栏·重新生成】** 上一版回答被拦截，以下是按引导重新生成并通过复检的回答：\n\n"
+                    yield f"data: {json.dumps({'content': note + retry_text}, ensure_ascii=False)}\n\n"
+                else:
+                    log_guard_event(retry_verdict, {
+                        "channel": "qa_stream_regen", "user_id": current_user["id"],
+                        "exercise_id": guard_exercise_id, "attempts": 1,
+                        "status": "failed",
+                    })
+                    yield f"data: {json.dumps({'guard_regen': {'status': 'failed', 'attempts': 1}}, ensure_ascii=False)}\n\n"
+            except Exception as exc:  # 重生成失败不影响已完成的主回答
+                print(f"[QA-STREAM] guard regen failed: {exc}")
 
     return StreamingResponse(
         _stream_with_search(),
