@@ -6,6 +6,7 @@ from auth import get_current_user
 from schemas import APIResponse, LearningPathGenerateRequest, PathProgressUpdateRequest, TaskUpdate, TaskQuizRequest, DiagnosticTestRequest, TutorialSaveRequest, TutorialGenerateRequest
 from services import learning_service, resource_service
 from database import get_db
+import json
 import os
 
 router = APIRouter()
@@ -1129,14 +1130,25 @@ async def generate_tutorial(req: TutorialGenerateRequest, current_user: dict = D
 
     # C5：先查库——同标签/同标题已有该用户的 AI 生成教程时直接复用，
     # 不调用大模型也不插重复行（前端会提示"已生成"）。
-    reuse_conn = get_db()
-    try:
-        existing = resource_service.find_existing_ai_tutorial(
-            reuse_conn, current_user["id"], req.knowledge_tag, req.topic
-        )
-    finally:
-        reuse_conn.close()
+    # #31：req.force=True 时跳过复用，按最新画像强制重新生成。
+    existing = None
+    if not req.force:
+        reuse_conn = get_db()
+        try:
+            existing = resource_service.find_existing_ai_tutorial(
+                reuse_conn, current_user["id"], req.knowledge_tag, req.topic
+            )
+        finally:
+            reuse_conn.close()
     if existing:
+        # #31：快照以 TEXT 落库（JSON 字符串），复用分支需还原为对象供前端标注
+        snapshot = None
+        raw = existing.get("profile_snapshot")
+        if raw:
+            try:
+                snapshot = json.loads(raw)
+            except Exception:
+                snapshot = None
         return APIResponse(data={
             "tutorial_id": existing["tutorial_id"],
             "knowledge_tag": req.knowledge_tag,
@@ -1144,6 +1156,8 @@ async def generate_tutorial(req: TutorialGenerateRequest, current_user: dict = D
             "content": existing["content"],
             "source_type": "ai_generated",
             "existing": True,
+            "generated_at": existing.get("created_at"),
+            "profile_snapshot": snapshot,
             "message": "已生成（库中已有，本次未调用大模型）",
         })
 
@@ -1204,11 +1218,19 @@ async def generate_tutorial(req: TutorialGenerateRequest, current_user: dict = D
             return APIResponse(code=500, message=f"AI 生成失败: {response}", data=None)
 
         # 保存生成的内容到数据库
+        # #31：同时落画像快照，记录"基于你此刻状态生成"，供 UI 标注与按最新状态重生成
+        try:
+            from services.personalization_service import get_profile_snapshot
+            snapshot = get_profile_snapshot(current_user["id"])
+        except Exception:
+            snapshot = None
+        snapshot_json = json.dumps(snapshot, ensure_ascii=False) if snapshot else ""
+
         conn = get_db()
         try:
             cursor = conn.execute(
-                "INSERT INTO tutorial_documents (knowledge_tag, title, content, source_type, user_id, parent_id) VALUES (?, ?, ?, 'ai_generated', ?, NULL)",
-                (req.knowledge_tag, req.topic, response, current_user["id"])
+                "INSERT INTO tutorial_documents (knowledge_tag, title, content, source_type, user_id, parent_id, profile_snapshot) VALUES (?, ?, ?, 'ai_generated', ?, NULL, ?)",
+                (req.knowledge_tag, req.topic, response, current_user["id"], snapshot_json)
             )
             tutorial_id = cursor.lastrowid
             conn.commit()
@@ -1222,6 +1244,8 @@ async def generate_tutorial(req: TutorialGenerateRequest, current_user: dict = D
             "content": response,
             "source_type": "ai_generated",
             "existing": False,
+            "generated_at": snapshot.get("generated_at") if snapshot else None,
+            "profile_snapshot": snapshot,
             "message": "AI 教程已生成并保存"
         })
     except Exception as e:

@@ -87,6 +87,7 @@ CREATE TABLE users (
     programming_background  TEXT DEFAULT '',          -- 编程背景
     years_experience        INTEGER DEFAULT 0,        -- 从业年限
     answer_preference       TEXT DEFAULT '分步清晰',
+    reminder_enabled        INTEGER DEFAULT 1,        -- 每日学习提醒开关（#32）
     created_at              TIMESTAMPTZ DEFAULT NOW(),
     updated_at              TIMESTAMPTZ DEFAULT NOW()
 );
@@ -319,6 +320,19 @@ CREATE TABLE knowledge_mastery (
 );
 CREATE INDEX idx_mastery_user_due ON knowledge_mastery(user_id, next_review_at, mastery_score);
 
+-- 17b. notifications — 站内提醒（#32 最小可用提醒体系：今日待复习 / 连续未学习）
+CREATE TABLE notifications (
+    id                SERIAL PRIMARY KEY,
+    user_id           INTEGER NOT NULL REFERENCES users(id),
+    category          TEXT DEFAULT 'review',   -- review / streak / system
+    title             TEXT DEFAULT '',
+    content           TEXT DEFAULT '',
+    action_url        TEXT DEFAULT '',         -- 前端跳转路径（如 /error-book）
+    is_read           INTEGER DEFAULT 0,
+    created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_notification_user ON notifications(user_id, is_read, created_at);
+
 -- 18. tutorial_documents — 教程文档
 CREATE TABLE tutorial_documents (
     id                  SERIAL PRIMARY KEY,
@@ -329,6 +343,7 @@ CREATE TABLE tutorial_documents (
     user_id             INTEGER REFERENCES users(id),  -- NULL=种子数据（共享）
     parent_id           INTEGER,                        -- 用户修改种子文档时指向原始种子
     curriculum_version  TEXT DEFAULT '',
+    profile_snapshot    TEXT DEFAULT '',                -- 生成时画像快照（#31：掌握度分档等）
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     updated_at          TIMESTAMPTZ DEFAULT NOW()
 );

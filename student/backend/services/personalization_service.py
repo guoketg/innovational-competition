@@ -976,6 +976,31 @@ def build_personalized_system_prompt(user_id: int, query: str, base_prompt: str)
     return str(base_prompt).rstrip() + context
 
 
+REVIEW_MAX_MULTIPLIER = 5  # 复习次数放大倍数上限（#33）
+REVIEW_MAX_INTERVAL_DAYS = 60  # 间隔天数上限（#33）
+
+
+def compute_review_interval(mastery: float, attempt_count: int) -> int:
+    """间隔复习纯函数（#33）：next_review 间隔 = f(掌握度, 复习次数)。
+
+    - 掌握度分档给基础间隔（低掌握度短、高掌握度长）：< MASTERY_LOW → 1 天，
+      [MASTERY_LOW, MASTERY_HIGH) → 3 天，≥ MASTERY_HIGH → 7 天。
+    - 复习次数（attempt_count）放大：每多复习一轮递进一倍，上限
+      REVIEW_MAX_MULTIPLIER 倍；再封顶 REVIEW_MAX_INTERVAL_DAYS 天。
+    分档常量与 teaching_policy_service 主口径同源，便于单测。
+    """
+    from services.teaching_policy_service import MASTERY_HIGH, MASTERY_LOW
+
+    if mastery < MASTERY_LOW:
+        base = 1
+    elif mastery < MASTERY_HIGH:
+        base = 3
+    else:
+        base = 7
+    rounds = max(1, min(int(attempt_count or 1), REVIEW_MAX_MULTIPLIER))
+    return int(min(base * rounds, REVIEW_MAX_INTERVAL_DAYS))
+
+
 def record_mastery_evidence(
     user_id: int,
     knowledge_tag: str,
@@ -1003,7 +1028,7 @@ def record_mastery_evidence(
     attempts = int(current["attempt_count"] or 0) + 1
     incorrect = int(current["incorrect_count"] or 0) + (1 if passed is False else 0)
     now = datetime.now()
-    interval = 1 if mastery < 0.65 else (3 if mastery < 0.82 else 7)
+    interval = compute_review_interval(mastery, attempts)
     next_review = (now + timedelta(days=interval)).isoformat()
     if row:
         conn.execute(
@@ -1099,6 +1124,27 @@ def get_mastery_profile(user_id: int, limit: int = 5) -> dict:
     }
 
 
+def get_weak_tags(user_id: int, limit: int = 5) -> list[str]:
+    """主口径薄弱标签（#34 练习/复习卷组装用）。
+
+    只读主口径 knowledge_mastery 表：取掌握度 ≤ MASTERY_LOW 的标签，按掌握度升序；
+    若无达标项则按最低分兜底排序（保证有证据时总能给出优先级）。无证据返回空列表。
+    """
+    from services.teaching_policy_service import MASTERY_LOW
+
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT knowledge_tag, mastery_score FROM knowledge_mastery
+           WHERE user_id = ? ORDER BY mastery_score ASC""",
+        (user_id,),
+    ).fetchall()
+    conn.close()
+
+    below = [r["knowledge_tag"] for r in rows if r["mastery_score"] <= MASTERY_LOW]
+    ranked = below if below else [r["knowledge_tag"] for r in rows]
+    return ranked[:max(1, limit)]
+
+
 def get_overall_mastery(user_id: int) -> float:
     """该用户的全局掌握度估计（0..1），QA 主通道的提示阶梯输入（#22）。
 
@@ -1114,6 +1160,38 @@ def get_overall_mastery(user_id: int) -> float:
     if row is None or row["avg_mastery"] is None:
         return 0.5
     return round(float(row["avg_mastery"]), 3)
+
+
+def get_profile_snapshot(user_id: int) -> dict:
+    """教程画像快照（#31）：记录生成教程时所依据的画像关键项，供落库与 UI 标注。
+
+    含全局掌握度、掌握度分档、主口径薄弱标签与生成时间；无证据时掌握度按中性值
+    0.5 计，分档标为"暂无证据"，不编造强弱项。
+    """
+    from services.teaching_policy_service import MASTERY_HIGH, MASTERY_LOW
+
+    conn = get_db()
+    has_evidence = int(conn.execute(
+        "SELECT COUNT(*) FROM knowledge_mastery WHERE user_id = ?", (user_id,)
+    ).fetchone()[0])
+    conn.close()
+
+    overall = get_overall_mastery(user_id)
+    if not has_evidence:
+        level = "暂无证据"
+    elif overall >= MASTERY_HIGH:
+        level = "已掌握"
+    elif overall >= MASTERY_LOW:
+        level = "中档"
+    else:
+        level = "待加强"
+
+    return {
+        "overall_mastery": overall,
+        "mastery_level": level,
+        "weak_tags": get_weak_tags(user_id, limit=5) if has_evidence else [],
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+    }
 
 
 def get_memory_overview(user_id: int) -> dict:

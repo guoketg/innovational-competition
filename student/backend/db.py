@@ -41,6 +41,7 @@ TABLE_CONFLICT_MAP = {
     "qa_history":                 ["id"],
     "learning_paths":             ["id"],
     "daily_tasks":                ["id"],
+    "notifications":              ["id"],
     "learning_records":           ["id"],
     "user_resources":             ["id"],
     "qa_feedback":                ["id"],

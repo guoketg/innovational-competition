@@ -29,6 +29,15 @@ def get_all_tags_flat():
             })
     return tags
 
+
+def _primary_weak_tags(user_id: int, limit: int = 4) -> list:
+    """主口径薄弱标签（#34 练习/诊断卷组装用）：复用 personalization_service.get_weak_tags。"""
+    try:
+        from services.personalization_service import get_weak_tags
+        return get_weak_tags(user_id, limit=limit)
+    except Exception:
+        return []
+
 def get_user_knowledge_profile(user_id: int) -> dict:
     """获取用户学情画像（优化版）
 
@@ -268,8 +277,11 @@ async def generate_quiz(user_id: int, stage: str = "入门", count: int = 10,
     profile = get_user_knowledge_profile(user_id)
     all_tags = get_all_tags_flat()
 
+    # 主口径薄弱标签（#34）：knowledge_mastery 掌握度最低的标签优先入卷
+    primary_weak = _primary_weak_tags(user_id)
+
     # 选取目标知识点（优先薄弱点）
-    weak = profile["weak_points"]
+    weak = primary_weak + [t for t in profile["weak_points"] if t not in primary_weak]
     if focus_knowledge:
         target_knowledge = focus_knowledge
     elif weak:
@@ -304,6 +316,11 @@ async def generate_quiz(user_id: int, stage: str = "入门", count: int = 10,
             "total": 0,
             "stage": stage
         }
+
+    # 主口径薄弱标签命中的题目优先排在前面（#34 组装阶段按画像调整）
+    if primary_weak:
+        weak_set = set(primary_weak)
+        all_questions.sort(key=lambda q: 0 if q.get("knowledge_tag") in weak_set else 1)
 
     # 保存测评会话
     questions_json = json.dumps(all_questions, ensure_ascii=False)

@@ -188,8 +188,19 @@ async def generate_learning_path(user_id: int, goal: str = "", timeline: str = "
     )
 
     # 学习路径生成使用更长超时（180s）和更大 max_tokens（容纳长JSON）
+    # 个性化出口（#34）：LLM 调用注入完整画像（与 QA #22 / 教程 #26 同一主口径），异常回退基础提示
+    base_system = "你是AI智能体学科的学习规划师，只输出JSON。"
+    try:
+        from services.personalization_service import build_personalized_system_prompt
+        system_prompt = build_personalized_system_prompt(
+            user_id,
+            goal or (user["learning_goal"] if user and user["learning_goal"] else "学习路径规划"),
+            base_system,
+        )
+    except Exception:
+        system_prompt = base_system
     response = await call_llm(user_id, [
-        {"role": "system", "content": "你是AI智能体学科的学习规划师，只输出JSON。"},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": prompt}
     ], temperature=0.7, max_tokens=4096)
 
@@ -1393,6 +1404,15 @@ async def generate_review_quiz(user_id: int, session_id: int = None, count: int 
 
     if not rows:
         return {"error": "错题本暂无错题，无法生成重测卷"}
+
+    # 组装阶段按画像调整（#34）：未复习优先（SQL 已排序），其中主口径薄弱标签的错题再优先
+    try:
+        from services.personalization_service import get_weak_tags
+        weak_set = set(get_weak_tags(user_id, limit=6))
+    except Exception:
+        weak_set = set()
+    if weak_set:
+        rows = sorted(rows, key=lambda r: (r["reviewed"], 0 if r["knowledge_tag"] in weak_set else 1))
 
     questions = []
     for r in rows[:count]:

@@ -44,6 +44,14 @@ MAX_FILE_SIZE = 300_000
 SKIP_PARTS = {".venv", "__pycache__", ".git", ".pytest_cache", ".cache"}
 TUTOR_HISTORY_LIMIT = 12
 logger = logging.getLogger(__name__)
+
+# #29 行为通道护栏：AI 直改学生工作区（写文件/建目录）被拦时，回灌给模型的拒绝说明。
+# 与内容通道（文本护栏）共用同一释放阀，杜绝"绕过文本护栏、直接调工具把答案写进代码"。
+_TOOL_GUARD_DENY_MESSAGE = (
+    "【防泄题护栏·工具拦截】本次调用被拒绝：当前未达到直接改写学生工作区的条件。"
+    "请不要直接写入/覆盖学生的代码，改为用提问和提示引导他从下一步该做什么开始思考。"
+    "当学生自己贴出尝试代码、或已多轮尝试、或该关掌握度达标后，系统才会放行直接改写。"
+)
 TRACK_CONFIG = {
     "1": {
         # 四个阶段都是数据结构与算法：只用标准库，因此 packages / imports 都为空。
@@ -2650,7 +2658,7 @@ async def ask_assistant_streaming(
     collected_answer = ""
 
     from services.answer_guard_service import (
-        GuardedStreamFilter, REGEN_FEEDBACK, apply_guard, evaluate_release,
+        GuardVerdict, GuardedStreamFilter, REGEN_FEEDBACK, apply_guard, evaluate_release,
         load_guard_references, log_guard_event,
     )
     # 时机释放阀：学生贴了自己的代码 / 已被拦多轮 → 流式与持久化兜底都放行
@@ -2772,16 +2780,46 @@ async def ask_assistant_streaming(
                         "args": tool_args,
                     }, ensure_ascii=False) + "\n"
 
+                    # get_sample_run_result 只读代码不改工作区，不算改动类工具。
+                    mutating_tool = tool_name in {
+                        "write_project_file", "create_project_directory",
+                    }
+
+                    # #29 行为通道护栏：AI 直改学生代码（写文件/建目录）与内容通道共用
+                    # 同一释放阀（evaluate_release）。未释放时拒绝执行，改为引导，杜绝
+                    # "绕过文本护栏、直接调工具把答案写进学生代码"。
+                    if mutating_tool and not _stream_release:
+                        yield _json.dumps({
+                            "type": "tool_result",
+                            "tool": tool_name,
+                            "status": "blocked",
+                            "detail": "护栏拦截：未达释放条件，拒绝直接改写学生代码",
+                            "preview": "",
+                            "workspace_changed": False,
+                        }, ensure_ascii=False) + "\n"
+                        observations.append({
+                            "tool": tool_name,
+                            "label": f"调用 {tool_name}",
+                            "status": "blocked",
+                            "detail": "护栏拦截：未达释放条件",
+                        })
+                        log_guard_event(
+                            GuardVerdict(blocked=True, severity="full", reasons=["tool_write_blocked"]),
+                            {"channel": "tool_guard", "exercise": exercise_id, "user": user_id,
+                             "tool": tool_name},
+                        )
+                        # 回灌拒绝说明，让模型转向引导式教学而非直接改代码
+                        llm_messages.append(ToolMessage(
+                            content=_TOOL_GUARD_DENY_MESSAGE, tool_call_id=tool_call_id,
+                        ))
+                        continue
+
                     try:
                         result = _execute_lab_tool(tool_name, tool_args, user_id, exercise_id)
                     except Exception as tool_err:
                         result = f"工具执行失败: {tool_err}"
                         logger.warning("Lab tool %s failed: %s", tool_name, tool_err)
 
-                    # get_sample_run_result 只读代码不改工作区，不算改动类工具。
-                    mutating_tool = tool_name in {
-                        "write_project_file", "create_project_directory",
-                    }
                     yield _json.dumps({
                         "type": "tool_result",
                         "tool": tool_name,

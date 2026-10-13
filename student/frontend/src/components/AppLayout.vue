@@ -59,6 +59,15 @@
         <el-icon><Menu /></el-icon>
       </button>
       <el-main class="main-content" :class="{ 'is-fullscreen': route.meta.fullscreen, 'is-workspace': route.meta.workspace }">
+        <div v-if="!route.meta.fullscreen && bannerNotice" class="notify-banner">
+          <span class="notify-dot"></span>
+          <div class="notify-text">
+            <strong>{{ bannerNotice.title }}</strong>
+            <span>{{ bannerNotice.content }}</span>
+          </div>
+          <button class="notify-action" @click="openNotice(bannerNotice)">去处理</button>
+          <button class="notify-close" aria-label="关闭提醒" @click="dismissBanner(bannerNotice)">×</button>
+        </div>
         <router-view v-slot="{ Component }">
           <transition name="page-fade" mode="out-in">
             <component :is="Component" />
@@ -66,13 +75,24 @@
         </router-view>
       </el-main>
     </el-container>
+    <button
+      v-if="!route.meta.fullscreen"
+      class="notify-bell"
+      title="站内提醒"
+      aria-label="站内提醒"
+      @click="goNotifications"
+    >
+      <el-icon><Bell /></el-icon>
+      <span v-if="unreadCount > 0" class="notify-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+    </button>
   </el-container>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import { getNotifications, markNotificationRead } from '../api/notification'
 
 const route = useRoute()
 const router = useRouter()
@@ -81,6 +101,56 @@ const sidebarCollapsed = ref(localStorage.getItem('sidebar_collapsed') === 'true
 const mobileOpen = ref(false)
 const activeMenu = computed(() => route.path)
 const sidebarWidth = computed(() => sidebarCollapsed.value && !mobileOpen.value ? '64px' : '252px')
+
+const notices = ref([])
+const unreadCount = ref(0)
+const dismissedIds = ref(new Set())
+const bannerNotice = computed(() =>
+  notices.value.find(n => !n.is_read && !dismissedIds.value.has(n.id)) || null
+)
+
+async function loadNotifications() {
+  if (route.meta.fullscreen) return
+  try {
+    const data = await getNotifications({ limit: 20 })
+    notices.value = (data?.items || []).map(n => ({ ...n }))
+    unreadCount.value = data?.unread_count || 0
+  } catch (e) {
+    // 提醒非核心链路，失败静默，不打扰用户
+  }
+}
+
+function dismissBanner(notice) {
+  dismissedIds.value.add(notice.id)
+  dismissedIds.value = new Set(dismissedIds.value)
+}
+
+async function openNotice(notice) {
+  if (!notice) return
+  try {
+    await markNotificationRead(notice.id)
+    notice.is_read = true
+    unreadCount.value = Math.max(0, unreadCount.value - 1)
+  } catch (e) { /* 忽略 */ }
+  router.push(notice.action_url || '/dashboard')
+}
+
+function goNotifications() {
+  openNotice(bannerNotice.value || notices.value[0])
+}
+
+function onVisibilityChange() {
+  if (!document.hidden) loadNotifications()
+}
+
+onMounted(() => {
+  loadNotifications()
+  document.addEventListener('visibilitychange', onVisibilityChange)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+})
 
 const menuItems = [
   { route: '/dashboard',    label: '学习控制台', icon: 'DataAnalysis' },
@@ -181,6 +251,18 @@ function handleLogout() {
 .main-content.is-workspace > * { width:100%;height:auto!important;min-width:0;min-height:0;align-self:stretch; }
 .sidebar-scrim { display: none; }
 .mobile-nav-launch{display:none}
+.notify-banner { display:flex;align-items:center;gap:12px;margin:0 0 16px;padding:12px 16px;border:1px solid #f3d9cf;border-radius:14px;background:linear-gradient(100deg,#fff7f3,#fffdfb);box-shadow:0 6px 18px rgba(210,120,90,.08); }
+.notify-dot { width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#ff8c73;box-shadow:0 0 0 4px rgba(255,140,115,.15); }
+.notify-text { min-width:0;flex:1;display:flex;flex-direction:column;gap:2px; }
+.notify-text strong { color:#c05238;font-size:13px; }
+.notify-text span { color:var(--ink-500,#6b7280);font-size:12px; }
+.notify-action { padding:6px 14px;border:1px solid rgba(255,140,115,.4);border-radius:9px;color:#c05238;background:#fff;font-size:12px;font-weight:650;cursor:pointer;transition:.2s; }
+.notify-action:hover { background:#fff1eb; }
+.notify-close { border:0;background:transparent;color:var(--ink-400,#9aa2b1);font-size:18px;line-height:1;cursor:pointer;padding:0 4px; }
+.notify-close:hover { color:var(--ink-600,#4b5563); }
+.notify-bell { position:fixed;z-index:19;right:14px;top:10px;display:grid;width:38px;height:38px;place-items:center;border:1px solid rgba(221,226,237,.9);border-radius:10px;color:#33415c;background:rgba(255,255,255,.92);box-shadow:0 7px 20px rgba(24,38,72,.12);cursor:pointer; }
+.notify-bell .el-icon { font-size:18px; }
+.notify-badge { position:absolute;right:-5px;top:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;color:#fff;background:#ff5a3c;font-size:10px;font-weight:700;line-height:17px;text-align:center;box-shadow:0 0 0 2px #fff; }
 
 @media (max-width: 900px) {
   .sidebar { position: fixed; inset: 0 auto 0 0; width: 268px !important; transform: translateX(-105%); transition: transform .28s ease; }

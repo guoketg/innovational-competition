@@ -196,6 +196,7 @@ class TutorialGenerateRequest(BaseModel):
     knowledge_tag: str = Field(..., min_length=1)
     topic: str = Field(..., min_length=1)
     goal: str = ""
+    force: bool = False  # #31：跳过 C5 复用缓存，按最新画像强制重新生成
 
 class TutorialResponse(BaseModel):
     tutorial_id: int

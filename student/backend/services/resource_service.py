@@ -361,7 +361,7 @@ def _get_tutorial_from_db(knowledge: str, user_id: int = None) -> dict | None:
         # 1. 优先查用户私有版本
         if user_id:
             row = conn.execute(
-                "SELECT id, knowledge_tag, title, content, source_type, parent_id "
+                "SELECT id, knowledge_tag, title, content, source_type, parent_id, created_at, profile_snapshot "
                 "FROM tutorial_documents "
                 "WHERE knowledge_tag = ? AND user_id = ? "
                 "ORDER BY updated_at DESC LIMIT 1",
@@ -377,6 +377,9 @@ def _get_tutorial_from_db(knowledge: str, user_id: int = None) -> dict | None:
                     "source_type": row["source_type"],
                     "tutorial_id": row["id"],
                     "parent_id": row["parent_id"],
+                    # #31：AI 生成教程回传生成时间与画像快照，供前端标注"基于你 X 时的状态生成"
+                    "created_at": row["created_at"],
+                    "profile_snapshot": row["profile_snapshot"],
                     "from_db": True,
                 }
 
@@ -538,14 +541,14 @@ def find_existing_ai_tutorial(conn, user_id, knowledge_tag: str = "", title: str
     """
     if knowledge_tag:
         row = conn.execute(
-            "SELECT id, title, content FROM tutorial_documents"
+            "SELECT id, title, content, created_at, profile_snapshot FROM tutorial_documents"
             " WHERE knowledge_tag = ? AND user_id = ? AND source_type = 'ai_generated'"
             " ORDER BY id DESC LIMIT 1",
             (knowledge_tag, user_id),
         ).fetchone()
     elif title:
         row = conn.execute(
-            "SELECT id, title, content FROM tutorial_documents"
+            "SELECT id, title, content, created_at, profile_snapshot FROM tutorial_documents"
             " WHERE title = ? AND user_id = ? AND source_type = 'ai_generated'"
             " ORDER BY id DESC LIMIT 1",
             (title, user_id),
@@ -553,7 +556,13 @@ def find_existing_ai_tutorial(conn, user_id, knowledge_tag: str = "", title: str
     else:
         return None
     if row:
-        return {"tutorial_id": row["id"], "title": row["title"], "content": row["content"]}
+        return {
+            "tutorial_id": row["id"],
+            "title": row["title"],
+            "content": row["content"],
+            "created_at": row["created_at"],
+            "profile_snapshot": row["profile_snapshot"],
+        }
     return None
 
 

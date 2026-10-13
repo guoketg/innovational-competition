@@ -285,6 +285,21 @@ def init_db():
             ON user_memory_facts(user_id, category, mention_count);
         CREATE INDEX IF NOT EXISTS idx_mastery_user_due
             ON knowledge_mastery(user_id, next_review_at, mastery_score);
+
+        -- 站内通知表（#32 最小可用提醒体系：今日待复习 / 连续未学习）
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            category TEXT DEFAULT 'review',
+            title TEXT DEFAULT '',
+            content TEXT DEFAULT '',
+            action_url TEXT DEFAULT '',
+            is_read INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_notification_user
+            ON notifications(user_id, is_read, created_at);
     """)
 
     # RAG 知识库文档追踪表
@@ -319,6 +334,7 @@ def init_db():
     _run_migration(conn, "users", "programming_background TEXT DEFAULT ''", "用户表迁移: 添加技术背景")
     _run_migration(conn, "users", "years_experience INTEGER DEFAULT 0", "用户表迁移: 添加从业年限")
     _run_migration(conn, "users", "answer_preference TEXT DEFAULT '分步清晰'", "用户表迁移: 添加回答偏好")
+    _run_migration(conn, "users", "reminder_enabled INTEGER DEFAULT 1", "用户表迁移: 添加每日学习提醒开关")
 
     # 教程文档表 — 种子数据 + 用户私有修改 + AI 生成
     conn.execute("""
@@ -331,12 +347,15 @@ def init_db():
             user_id INTEGER,
             parent_id INTEGER,
             curriculum_version TEXT DEFAULT '',
+            profile_snapshot TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tutorial_knowledge ON tutorial_documents(knowledge_tag, user_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tutorial_user ON tutorial_documents(user_id, source_type)")
+    # #31：教程落库记生成时的画像快照（掌握度分档等），供 UI 标注与"按最新状态重新生成"
+    _run_migration(conn, "tutorial_documents", "profile_snapshot TEXT DEFAULT ''", "教程表迁移: 添加画像快照列")
     conn.commit()
 
     # 习题评测元数据表 — 存储每道题的锁定代码/目标函数/测试用例

@@ -359,6 +359,7 @@ import { useUserStore } from '../stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getLLMConfig, saveLLMConfig, resetLLMConfig, saveEmbeddingConfig, saveSearchConfig } from '../api/llm'
 import { getMemoryOverview, getKnowledgeDetail, createMemory, updateMemory, deleteMemory } from '../api/qa'
+import { getReminderSettings, updateReminderSettings } from '../api/notification'
 import { marked } from 'marked'
 import PageHero from '../components/PageHero.vue'
 
@@ -561,6 +562,12 @@ function quickSetupDeepSeek() {
 onMounted(async () => {
   refreshMemoryOverview()
   try {
+    const data = await getReminderSettings()
+    if (data && typeof data.reminder_enabled === 'boolean') {
+      settings.reminder = data.reminder_enabled
+    }
+  } catch(e) {}
+  try {
     const data = await getLLMConfig()
     llmConfig.value = data
     // Check if DeepSeek / Embedding are already configured
@@ -591,10 +598,13 @@ async function handleSave() {
   finally { saving.value = false }
 }
 
-function saveSettings() {
+async function saveSettings() {
   localStorage.setItem('qa_level', settings.explanationLevel)
   localStorage.setItem('reminder', settings.reminder.toString())
   localStorage.setItem('pace', settings.pace.toString())
+  try {
+    await updateReminderSettings(settings.reminder)
+  } catch(e) {}
   ElMessage.success('偏好设置已保存')
 }
 
