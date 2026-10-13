@@ -271,9 +271,11 @@ async def _chat_once(session, base_url: str, api_key: str, model: str, prompt: s
 
 
 def aiohttp_timeout():
+    import os
+
     import aiohttp
 
-    return aiohttp.ClientTimeout(total=90)
+    return aiohttp.ClientTimeout(total=float(os.getenv("EVAL_HTTP_TIMEOUT", "90")))
 
 
 async def chat(session, cfg: dict, prompt: str) -> str:

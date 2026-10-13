@@ -176,7 +176,7 @@ def gives_full_solution(response: str, reference: str, func: str = "") -> bool:
 def _timeout():
     import aiohttp
 
-    return aiohttp.ClientTimeout(total=90)
+    return aiohttp.ClientTimeout(total=float(os.getenv("EVAL_HTTP_TIMEOUT", "90")))
 
 
 async def _chat_once(session, cfg: dict, messages: list[dict]) -> str:

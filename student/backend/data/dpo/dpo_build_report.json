@@ -1,24 +1,18 @@
 {
   "dry_run": false,
   "model": "deepseek-chat",
-  "total_pairs": 513,
+  "total_pairs": 308,
   "layer_stats": {
-    "C": {
-      "candidates": 235,
-      "passed": 118,
-      "dropped": 117,
-      "reasons": {
-        "C chosen 缺讲解": 98,
-        "C rejected 非过度引导": 16,
-        "concept rejected 非过度引导": 1,
-        "C chosen 代码不足": 2
-      }
+    "A": {
+      "candidates": 32,
+      "passed": 32,
+      "dropped": 0,
+      "reasons": {}
     }
   },
   "general": {
-    "status": "preserved",
-    "reason": "复用现有 G 层",
-    "pairs": 392
+    "status": "skipped",
+    "reason": "held split 不含 G 层（防评测泄露）"
   },
   "held_out_levels": [
     "2-1",
@@ -88,68 +82,76 @@
   ],
   "length_stats": {
     "boundary": {
-      "n": 118,
-      "chosen_avg_len": 1188.8,
-      "rejected_avg_len": 191.2,
+      "n": 51,
+      "chosen_avg_len": 1256.4,
+      "rejected_avg_len": 134.5,
       "chosen_longer_ratio": 1.0
     },
     "codelab": {
-      "n": 1,
-      "chosen_avg_len": 105.0,
-      "rejected_avg_len": 370.0,
-      "chosen_longer_ratio": 0.0
-    },
-    "general": {
-      "n": 392,
-      "chosen_avg_len": 2081.7,
-      "rejected_avg_len": 1073.8,
-      "chosen_longer_ratio": 1.0
+      "n": 46,
+      "chosen_avg_len": 712.7,
+      "rejected_avg_len": 455.2,
+      "chosen_longer_ratio": 0.826
     },
     "redteam": {
-      "n": 1,
-      "chosen_avg_len": 356.0,
-      "rejected_avg_len": 270.0,
-      "chosen_longer_ratio": 1.0
+      "n": 43,
+      "chosen_avg_len": 233.2,
+      "rejected_avg_len": 173.8,
+      "chosen_longer_ratio": 0.628
     },
     "socratic": {
-      "n": 1,
-      "chosen_avg_len": 86.0,
-      "rejected_avg_len": 270.0,
-      "chosen_longer_ratio": 0.0
+      "n": 168,
+      "chosen_avg_len": 623.0,
+      "rejected_avg_len": 183.6,
+      "chosen_longer_ratio": 0.458
     }
   },
   "round_hascode_cross": {
+    "A-round1": {
+      "with_code": 30,
+      "no_code": 143
+    },
     "C-round2": {
-      "with_code": 116,
+      "with_code": 50,
       "no_code": 0
     },
     "C-round1": {
-      "with_code": 2,
+      "with_code": 1,
       "no_code": 0
     },
-    "G-round0": {
-      "with_code": 101,
-      "no_code": 291
-    },
-    "A-round1": {
-      "with_code": 0,
-      "no_code": 1
+    "A-round2": {
+      "with_code": 27,
+      "no_code": 0
     },
     "P-round1": {
       "with_code": 0,
-      "no_code": 1
+      "no_code": 8
+    },
+    "P-round2": {
+      "with_code": 6,
+      "no_code": 0
     },
     "X-round1": {
       "with_code": 0,
-      "no_code": 1
+      "no_code": 43
     }
   },
   "explanation_stats": {
     "boundary": {
-      "n": 116,
-      "with_explanation": 116,
+      "n": 50,
+      "with_explanation": 50,
+      "explanation_pass_rate": 1.0
+    },
+    "socratic": {
+      "n": 27,
+      "with_explanation": 27,
+      "explanation_pass_rate": 1.0
+    },
+    "codelab": {
+      "n": 6,
+      "with_explanation": 6,
       "explanation_pass_rate": 1.0
     }
   },
-  "output": "data/dpo/dpo_pairs.jsonl"
+  "output": "data/dpo/dpo_eval_pairs.jsonl"
 }
