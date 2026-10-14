@@ -21,9 +21,15 @@ def _make_conn() -> sqlite3.Connection:
             knowledge_tag TEXT NOT NULL,
             title TEXT DEFAULT '',
             content TEXT NOT NULL,
+            content_layer TEXT DEFAULT '',
+            personalization_layer TEXT DEFAULT '',
+            profile_fingerprint TEXT DEFAULT '',
+            profile_snapshot TEXT DEFAULT '',
             source_type TEXT DEFAULT 'seed',
             user_id INTEGER,
-            parent_id INTEGER
+            parent_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
     return conn

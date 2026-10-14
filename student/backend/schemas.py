@@ -198,6 +198,10 @@ class TutorialGenerateRequest(BaseModel):
     goal: str = ""
     force: bool = False  # #31：跳过 C5 复用缓存，按最新画像强制重新生成
 
+class TutorialEvolveRequest(BaseModel):
+    # #31 分层演化：只按最新学习状态重算个性化层，正文层稳定复用，不调用大模型
+    knowledge_tag: str = Field(..., min_length=1)
+
 class TutorialResponse(BaseModel):
     tutorial_id: int
     knowledge_tag: str

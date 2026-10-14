@@ -37,3 +37,7 @@ export const deleteTutorial = (knowledgeTag) =>
 
 export const generateAITutorial = (data) =>
   request.post('/learning/tutorial/generate', data)
+
+/** #31 教程随学习动态演化：只重算个性化层，正文稳定复用，不调用大模型 */
+export const evolveTutorial = (data) =>
+  request.post('/learning/tutorial/evolve', data)

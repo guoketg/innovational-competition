@@ -348,6 +348,9 @@ def init_db():
             parent_id INTEGER,
             curriculum_version TEXT DEFAULT '',
             profile_snapshot TEXT DEFAULT '',
+            content_layer TEXT DEFAULT '',
+            personalization_layer TEXT DEFAULT '',
+            profile_fingerprint TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -356,6 +359,10 @@ def init_db():
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tutorial_user ON tutorial_documents(user_id, source_type)")
     # #31：教程落库记生成时的画像快照（掌握度分档等），供 UI 标注与"按最新状态重新生成"
     _run_migration(conn, "tutorial_documents", "profile_snapshot TEXT DEFAULT ''", "教程表迁移: 添加画像快照列")
+    # #31 分层演化：正文层（稳定复用）+ 个性化层（随画像重算）+ 画像指纹（漂移判定）
+    _run_migration(conn, "tutorial_documents", "content_layer TEXT DEFAULT ''", "教程表迁移: 添加正文层列")
+    _run_migration(conn, "tutorial_documents", "personalization_layer TEXT DEFAULT ''", "教程表迁移: 添加个性化层列")
+    _run_migration(conn, "tutorial_documents", "profile_fingerprint TEXT DEFAULT ''", "教程表迁移: 添加画像指纹列")
     conn.commit()
 
     # 习题评测元数据表 — 存储每道题的锁定代码/目标函数/测试用例

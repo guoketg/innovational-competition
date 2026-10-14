@@ -361,7 +361,8 @@ def _get_tutorial_from_db(knowledge: str, user_id: int = None) -> dict | None:
         # 1. 优先查用户私有版本
         if user_id:
             row = conn.execute(
-                "SELECT id, knowledge_tag, title, content, source_type, parent_id, created_at, profile_snapshot "
+                "SELECT id, knowledge_tag, title, content, content_layer, personalization_layer, "
+                "profile_fingerprint, source_type, parent_id, created_at, profile_snapshot "
                 "FROM tutorial_documents "
                 "WHERE knowledge_tag = ? AND user_id = ? "
                 "ORDER BY updated_at DESC LIMIT 1",
@@ -380,6 +381,10 @@ def _get_tutorial_from_db(knowledge: str, user_id: int = None) -> dict | None:
                     # #31：AI 生成教程回传生成时间与画像快照，供前端标注"基于你 X 时的状态生成"
                     "created_at": row["created_at"],
                     "profile_snapshot": row["profile_snapshot"],
+                    # #31 分层演化：正文层/个性化层/画像指纹回传，供前端判定"学习状态是否已漂移"
+                    "content_layer": row["content_layer"],
+                    "personalization_layer": row["personalization_layer"],
+                    "profile_fingerprint": row["profile_fingerprint"],
                     "from_db": True,
                 }
 
@@ -541,14 +546,16 @@ def find_existing_ai_tutorial(conn, user_id, knowledge_tag: str = "", title: str
     """
     if knowledge_tag:
         row = conn.execute(
-            "SELECT id, title, content, created_at, profile_snapshot FROM tutorial_documents"
+            "SELECT id, title, content, content_layer, personalization_layer, profile_fingerprint,"
+            " created_at, profile_snapshot FROM tutorial_documents"
             " WHERE knowledge_tag = ? AND user_id = ? AND source_type = 'ai_generated'"
             " ORDER BY id DESC LIMIT 1",
             (knowledge_tag, user_id),
         ).fetchone()
     elif title:
         row = conn.execute(
-            "SELECT id, title, content, created_at, profile_snapshot FROM tutorial_documents"
+            "SELECT id, title, content, content_layer, personalization_layer, profile_fingerprint,"
+            " created_at, profile_snapshot FROM tutorial_documents"
             " WHERE title = ? AND user_id = ? AND source_type = 'ai_generated'"
             " ORDER BY id DESC LIMIT 1",
             (title, user_id),
@@ -560,10 +567,72 @@ def find_existing_ai_tutorial(conn, user_id, knowledge_tag: str = "", title: str
             "tutorial_id": row["id"],
             "title": row["title"],
             "content": row["content"],
+            "content_layer": row["content_layer"],
+            "personalization_layer": row["personalization_layer"],
+            "profile_fingerprint": row["profile_fingerprint"],
             "created_at": row["created_at"],
             "profile_snapshot": row["profile_snapshot"],
         }
     return None
+
+
+def compose_tutorial_text(content_layer: str, personalization_layer: str) -> str:
+    """把正文层与个性化层拼成最终展示文本（#31 分层演化）。
+
+    个性化层为空时直接返回正文，保证与旧数据（无分层）行为一致。
+    """
+    body = (content_layer or "").rstrip()
+    extra = (personalization_layer or "").strip()
+    if not extra:
+        return body
+    return f"{body}\n\n---\n\n{extra}\n"
+
+
+def evolve_ai_tutorial(conn, user_id: int, knowledge_tag: str, snapshot: dict | None) -> dict | None:
+    """#31 教程随学习动态演化：只重算个性化层并落库，正文层保持稳定复用。
+
+    定位该用户在该 knowledge_tag 下最新的 ai_generated 教程；历史数据 content_layer
+    为空时用现存正文兜底（个性化层是本特性新引入的，旧正文不含它，兜底不会重复）。
+    全过程只做确定性重组，不调用大模型，因此可随学习状态频繁触发。
+    返回演化结果（含 drifted 漂移标志）；无对应 AI 教程时返回 None。
+    """
+    import json as _json
+    from services.personalization_service import (
+        build_personalization_layer, compute_profile_fingerprint, has_profile_drift,
+    )
+
+    row = conn.execute(
+        "SELECT id, title, content, content_layer, profile_fingerprint FROM tutorial_documents"
+        " WHERE knowledge_tag = ? AND user_id = ? AND source_type = 'ai_generated'"
+        " ORDER BY id DESC LIMIT 1",
+        (knowledge_tag, user_id),
+    ).fetchone()
+    if not row:
+        return None
+
+    content_layer = row["content_layer"] or row["content"]
+    drifted = has_profile_drift(row["profile_fingerprint"], snapshot)
+    personalization_layer = build_personalization_layer(snapshot, row["title"] or knowledge_tag)
+    fingerprint = compute_profile_fingerprint(snapshot)
+    content = compose_tutorial_text(content_layer, personalization_layer)
+    snapshot_json = _json.dumps(snapshot, ensure_ascii=False) if snapshot else ""
+    conn.execute(
+        "UPDATE tutorial_documents SET content = ?, content_layer = ?, personalization_layer = ?,"
+        " profile_fingerprint = ?, profile_snapshot = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (content, content_layer, personalization_layer, fingerprint, snapshot_json, row["id"]),
+    )
+    conn.commit()
+    return {
+        "tutorial_id": row["id"],
+        "knowledge_tag": knowledge_tag,
+        "title": row["title"],
+        "content": content,
+        "content_layer": content_layer,
+        "personalization_layer": personalization_layer,
+        "profile_fingerprint": fingerprint,
+        "drifted": drifted,
+        "source_type": "ai_generated",
+    }
 
 
 def _inject_cached_images(content: str, allowed_hashes: set = None) -> str:

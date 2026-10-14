@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from auth import get_current_user
-from schemas import APIResponse, LearningPathGenerateRequest, PathProgressUpdateRequest, TaskUpdate, TaskQuizRequest, DiagnosticTestRequest, TutorialSaveRequest, TutorialGenerateRequest
+from schemas import APIResponse, LearningPathGenerateRequest, PathProgressUpdateRequest, TaskUpdate, TaskQuizRequest, DiagnosticTestRequest, TutorialSaveRequest, TutorialGenerateRequest, TutorialEvolveRequest
 from services import learning_service, resource_service
 from database import get_db
 import json
@@ -74,6 +74,14 @@ async def get_learning_resource(knowledge: str = "", current_user: dict = Depend
     try:
         result = resource_service.get_local_material(knowledge, user_id=current_user["id"])
         if result and result.get("found"):
+            # #31 分层演化：对比落库画像指纹与当前画像，标注教程是否已随学习状态漂移
+            try:
+                from services.personalization_service import get_profile_snapshot, has_profile_drift
+                result["profile_drift"] = has_profile_drift(
+                    result.get("profile_fingerprint"), get_profile_snapshot(current_user["id"])
+                )
+            except Exception:
+                result["profile_drift"] = False
             return APIResponse(data=result)
         # 如果没找到本地资料，返回fallback内容
         return APIResponse(data=result)
@@ -1158,6 +1166,8 @@ async def generate_tutorial(req: TutorialGenerateRequest, current_user: dict = D
             "existing": True,
             "generated_at": existing.get("created_at"),
             "profile_snapshot": snapshot,
+            "profile_fingerprint": existing.get("profile_fingerprint", ""),
+            "profile_drift": False,
             "message": "已生成（库中已有，本次未调用大模型）",
         })
 
@@ -1218,19 +1228,29 @@ async def generate_tutorial(req: TutorialGenerateRequest, current_user: dict = D
             return APIResponse(code=500, message=f"AI 生成失败: {response}", data=None)
 
         # 保存生成的内容到数据库
-        # #31：同时落画像快照，记录"基于你此刻状态生成"，供 UI 标注与按最新状态重生成
+        # #31：分层落库——大模型输出为正文层(content_layer)，另按画像确定性生成个性化层，
+        # 两者拼接为展示用 content；并落画像快照与指纹，供 UI 标注与后续"随学习状态演化"。
         try:
-            from services.personalization_service import get_profile_snapshot
+            from services.personalization_service import (
+                get_profile_snapshot, build_personalization_layer, compute_profile_fingerprint,
+            )
             snapshot = get_profile_snapshot(current_user["id"])
+            content_layer = response
+            personalization_layer = build_personalization_layer(snapshot, req.topic)
+            fingerprint = compute_profile_fingerprint(snapshot)
         except Exception:
             snapshot = None
+            content_layer = response
+            personalization_layer = ""
+            fingerprint = ""
         snapshot_json = json.dumps(snapshot, ensure_ascii=False) if snapshot else ""
+        content = resource_service.compose_tutorial_text(content_layer, personalization_layer)
 
         conn = get_db()
         try:
             cursor = conn.execute(
-                "INSERT INTO tutorial_documents (knowledge_tag, title, content, source_type, user_id, parent_id, profile_snapshot) VALUES (?, ?, ?, 'ai_generated', ?, NULL, ?)",
-                (req.knowledge_tag, req.topic, response, current_user["id"], snapshot_json)
+                "INSERT INTO tutorial_documents (knowledge_tag, title, content, content_layer, personalization_layer, profile_fingerprint, source_type, user_id, parent_id, profile_snapshot) VALUES (?, ?, ?, ?, ?, ?, 'ai_generated', ?, NULL, ?)",
+                (req.knowledge_tag, req.topic, content, content_layer, personalization_layer, fingerprint, current_user["id"], snapshot_json)
             )
             tutorial_id = cursor.lastrowid
             conn.commit()
@@ -1241,12 +1261,41 @@ async def generate_tutorial(req: TutorialGenerateRequest, current_user: dict = D
             "tutorial_id": tutorial_id,
             "knowledge_tag": req.knowledge_tag,
             "title": req.topic,
-            "content": response,
+            "content": content,
             "source_type": "ai_generated",
             "existing": False,
             "generated_at": snapshot.get("generated_at") if snapshot else None,
             "profile_snapshot": snapshot,
+            "profile_fingerprint": fingerprint,
+            "profile_drift": False,
             "message": "AI 教程已生成并保存"
         })
     except Exception as e:
         return APIResponse(code=500, message=f"AI 生成教程失败: {str(e)}", data=None)
+
+
+@router.post("/tutorial/evolve", response_model=APIResponse)
+async def evolve_tutorial(req: TutorialEvolveRequest, current_user: dict = Depends(get_current_user)):
+    """#31 教程随学习动态演化：只按最新学习状态重算个性化层，正文层稳定复用。
+
+    不调用大模型——正文层一旦生成即长期复用，只有随画像变化的个性化提示被重算，
+    因此可随学习进度低成本地频繁演化。返回 drifted 标志表示本次是否发生了画像漂移。
+    """
+    try:
+        from services.personalization_service import get_profile_snapshot
+        snapshot = get_profile_snapshot(current_user["id"])
+        conn = get_db()
+        try:
+            result = resource_service.evolve_ai_tutorial(
+                conn, current_user["id"], req.knowledge_tag, snapshot
+            )
+        finally:
+            conn.close()
+        if not result:
+            return APIResponse(code=404, message="未找到可演化的 AI 教程（请先生成）", data=None)
+        result["generated_at"] = snapshot.get("generated_at") if snapshot else None
+        result["profile_snapshot"] = snapshot
+        result["message"] = "已随最新学习状态更新个性化导读"
+        return APIResponse(data=result)
+    except Exception as e:
+        return APIResponse(code=500, message=f"教程演化失败: {str(e)}", data=None)

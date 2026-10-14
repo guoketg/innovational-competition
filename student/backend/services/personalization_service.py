@@ -1194,6 +1194,64 @@ def get_profile_snapshot(user_id: int) -> dict:
     }
 
 
+def compute_profile_fingerprint(snapshot: Optional[dict]) -> str:
+    """画像指纹（#31 分层演化）：把快照中真正影响个性化层的关键项压成短哈希。
+
+    只取 mastery_level 与排序后的 weak_tags——这两项决定个性化导读的措辞；
+    全局掌握度是连续值，微小波动不应触发演化，故不参与指纹。
+    无快照（或无有效项）时返回空串，表示「无法判定漂移」。
+    """
+    if not snapshot:
+        return ""
+    level = str(snapshot.get("mastery_level") or "")
+    weak = sorted(str(t) for t in (snapshot.get("weak_tags") or []))
+    if not level and not weak:
+        return ""
+    raw = json.dumps({"level": level, "weak": weak}, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
+
+
+def has_profile_drift(stored_fingerprint: str, snapshot: Optional[dict]) -> bool:
+    """漂移判定（#31）：当前指纹与落库指纹不一致即视为学习状态已演化。
+
+    落库指纹为空（历史数据未回填指纹）时一律返回 False，避免把旧教程误标为过期。
+    """
+    if not stored_fingerprint:
+        return False
+    return stored_fingerprint != compute_profile_fingerprint(snapshot)
+
+
+def build_personalization_layer(snapshot: Optional[dict], topic: str = "") -> str:
+    """个性化层（#31 分层演化）：由画像快照确定性生成的「学习提示」，不调用大模型。
+
+    与 content_layer（稳定的知识正文）解耦：正文一旦生成即长期复用，本层随学习
+    状态重算，从而实现「教程随学习动态演化」而无需整篇重生成。同一快照必得同一文本。
+    """
+    lines = ["## 🧭 个性化学习提示", ""]
+    lines.append("> 本篇知识正文保持稳定，本节提示会随你的最新掌握情况自动更新。")
+    lines.append("")
+    snapshot = snapshot or {}
+    level = str(snapshot.get("mastery_level") or "暂无证据")
+    weak = [str(t) for t in (snapshot.get("weak_tags") or []) if str(t).strip()]
+    lines.append(f"- **当前掌握状态**：{level}")
+
+    if level == "待加强":
+        lines.append("- **学习节奏建议**：先从基础概念与最小示例入手，每学完一节立刻动手复现一遍。")
+    elif level == "中档":
+        lines.append("- **学习节奏建议**：重点吃透易混点与典型场景，用对比练习巩固理解。")
+    elif level == "已掌握":
+        lines.append("- **学习节奏建议**：基础部分可快速略过，优先关注框架 API、工程取舍与边界情况。")
+    else:
+        lines.append("- **学习节奏建议**：建议先完成一次诊断测试或练习，系统会据此进一步细化本篇导读。")
+
+    if weak:
+        lines.append("- **优先复习**：" + "、".join(weak[:5]))
+    else:
+        lines.append("- **优先复习**：暂无薄弱项记录，保持当前节奏即可。")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def get_memory_overview(user_id: int) -> dict:
     expired_events = cleanup_stale_memories(user_id)
     conn = get_db()

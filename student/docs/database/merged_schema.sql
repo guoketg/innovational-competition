@@ -344,6 +344,9 @@ CREATE TABLE tutorial_documents (
     parent_id           INTEGER,                        -- 用户修改种子文档时指向原始种子
     curriculum_version  TEXT DEFAULT '',
     profile_snapshot    TEXT DEFAULT '',                -- 生成时画像快照（#31：掌握度分档等）
+    content_layer       TEXT DEFAULT '',                -- 正文层（#31：稳定复用的知识正文）
+    personalization_layer TEXT DEFAULT '',              -- 个性化层（#31：随画像重算的学习提示）
+    profile_fingerprint TEXT DEFAULT '',                -- 画像指纹（#31：判定学习状态是否漂移）
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     updated_at          TIMESTAMPTZ DEFAULT NOW()
 );
