@@ -5,14 +5,17 @@ chosen/rejected 改写为三工具调用 JSON（give_hint / give_answer / modify
 新增 tool_decision 字段；layer / source / family 不变。
 不涉工具的场景（概念直答、G 层通用）保留纯文本对，防学成「凡事必调工具」。
 
-映射：
-  P/A/X round1   chosen=give_hint(level,text)          rejected=give_answer(code,缺why)
-                 或 modify_code(patch,首轮=违规)       tool_decision=hint_vs_answer|hint_vs_modify
-  P/A round2     chosen=give_answer(code,why) 或       rejected=give_hint(释放条件已满足=违规)
-                 modify_code(patch,why) 轮换           tool_decision=answer_vs_hint|modify_vs_hint
-  C attempt      同 round2                             同上
-  C/A concept    纯文本保留                            tool_decision=text_only
-  G              纯文本保留                            tool_decision=text_only
+映射（请求轴唯一化，plan §3.10 数据要求 v2）：
+  先由 services.request_classifier 判定学生本回合请求语义（modify / hint / none
+  + 工具性逃生门），再按"该不该动手"定方向，不再以轮次作合法性依据：
+    should_act（明确请求改码 或 逃生门）→ chosen=modify_code(patch,why)   rejected=give_hint(死拦)   modify_vs_hint
+    未请求但 release_expected（round2 / C 层）→ chosen=give_answer(code,why)  rejected=give_hint(过度引导)  answer_vs_hint
+    未请求且未到释放   → chosen=give_hint(level,text)  rejected=modify_code(patch,why)   hint_vs_modify
+    G / concept / sycophancy → 纯文本保留（text_only）
+  码/讲解来源随对型而变：round1 的参考实现在 rejected（泄题侧，chosen 是引导）；
+  round2/C 的参考实现在 chosen（讲解式答案侧，rejected 是过度引导）。
+  这修复了原"round1 一律 modify_code→rejected"（224 对带病样本：学生明确索要代改
+  却被标成该拒绝的行为）。
 
 质检（查表，build_dpo_pairs.validate_tool_call）：
   chosen 侧零违规；rejected 侧至少命中一条违规（否则方向反了）。
@@ -26,7 +29,6 @@ chosen/rejected 改写为三工具调用 JSON（give_hint / give_answer / modify
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 from pathlib import Path
@@ -38,6 +40,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from build_dpo_pairs import (  # noqa: E402
+    build_tool_context,
     make_tool_call,
     parse_tool_call,
     strip_code,
@@ -69,17 +72,11 @@ def clean_why(text: str) -> str:
     return out.strip()
 
 
-def alt(seed: str) -> bool:
-    """确定性轮换：同 seed 恒定，避免每次转换漂移。"""
-    return int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16) % 2 == 0
-
-
 def convert_row(row: dict, stats: dict) -> dict | None:
     layer = row.get("layer")
     subtype = row.get("subtype") or ""
     rnd = int(row.get("round") or 0)
     chosen, rejected = row["chosen"], row["rejected"]
-    seed = f"{row.get('family')}|{layer}|{rnd}|{subtype}|{row.get('lang')}|{len(chosen)}"
 
     # 不涉工具场景：概念直答 + G 层通用 + A 层反谄媚 → 纯文本保留
     if layer == "G" or subtype in ("concept", "sycophancy"):
@@ -89,38 +86,44 @@ def convert_row(row: dict, stats: dict) -> dict | None:
         return out
 
     release_expected = rnd == 2 or layer == "C"  # round2 / C：学生已展示尝试，释放条件已满足
+    ctx = build_tool_context(row["prompt"], round_no=rnd, release_expected=release_expected)
+    should_act = ctx["requested"] or ctx["tool_context"]
 
+    # 码 / 讲解的来源随对型而变：round1 参考实现在 rejected（泄题侧，chosen 是引导）；
+    # round2/C 参考实现在 chosen（讲解式答案侧，rejected 是过度引导）。
     if release_expected:
-        # chosen：给码（give_answer / modify_code 轮换，均带 why=讲解）
-        why = clean_why(strip_code(chosen))
-        code = extract_code(chosen)
-        if alt(seed):
-            chosen_tool = "modify_code"
-            chosen_call = {"tool": chosen_tool, "args": {"patch": code, "why": why}}
-            decision = "modify_vs_hint"
-        else:
-            chosen_tool = "give_answer"
-            chosen_call = {"tool": chosen_tool, "args": {"code": code, "why": why}}
-            decision = "answer_vs_hint"
-        # rejected：过度引导的 hint（释放后仍 hint = 违规）
-        rejected_call = {"tool": "give_hint", "args": {"level": 1, "text": clean_why(strip_code(rejected))}}
+        hint_text = rejected.strip()
+        ref_code = extract_code(chosen)
+        ref_prose = clean_why(strip_code(chosen))
     else:
-        # round1（含 bypass/X）：chosen=引导 hint；rejected=泄题（缺 why 的 answer 或首轮 modify）
-        level = int(row.get("hint_level") or 1)
-        chosen_call = {"tool": "give_hint", "args": {"level": level, "text": chosen.strip()}}
-        code = extract_code(rejected)
-        if alt(seed):
-            rejected_call = {"tool": "modify_code", "args": {"patch": code}}
-            decision = "hint_vs_modify"
-        else:
-            rejected_call = {"tool": "give_answer", "args": {"code": code}}
-            decision = "hint_vs_answer"
+        hint_text = chosen.strip()
+        ref_code = extract_code(rejected)
+        ref_prose = clean_why(strip_code(rejected))
+    # 部分 round1 泄题侧是纯代码（无散文），why 退化用引导语——引导常已点出根因，语义可接受。
+    why = ref_prose or clean_why(strip_code(hint_text))
+    level = min(max(int(row.get("hint_level") or 1), 1), 3)
+
+    if should_act:
+        # 学生明确索要代改 / 走逃生门 → 正当代改（modify_code），死拦为过度拦截
+        chosen_call = {"tool": "modify_code", "args": {"patch": ref_code, "why": why}}
+        rejected_call = {"tool": "give_hint", "args": {"level": 1, "text": hint_text}}
+        decision = "modify_vs_hint"
+    elif release_expected:
+        # 未请求但已到释放（round2/C）→ 给讲解式答案，过度引导为违规
+        chosen_call = {"tool": "give_answer", "args": {"code": ref_code, "why": why}}
+        rejected_call = {"tool": "give_hint", "args": {"level": 1, "text": hint_text}}
+        decision = "answer_vs_hint"
+    else:
+        # 未请求且未到释放（round1）→ 只给引导，主动代改即核心违规
+        chosen_call = {"tool": "give_hint", "args": {"level": level, "text": hint_text}}
+        rejected_call = {"tool": "modify_code", "args": {"patch": ref_code, "why": why}}
+        decision = "hint_vs_modify"
 
     # 查表质检：chosen 零违规；rejected 至少一条违规
     c_obj = parse_tool_call(make_tool_call(**chosen_call))  # 结构自检
     r_obj = parse_tool_call(make_tool_call(**rejected_call))
-    c_bad = validate_tool_call(c_obj, rnd, release_expected) if c_obj else ["chosen 结构非法"]
-    r_bad = validate_tool_call(r_obj, rnd, release_expected) if r_obj else ["rejected 结构非法"]
+    c_bad = validate_tool_call(c_obj, ctx) if c_obj else ["chosen 结构非法"]
+    r_bad = validate_tool_call(r_obj, ctx) if r_obj else ["rejected 结构非法"]
     if c_bad:
         stats["dropped_chosen_violation"] += 1
         stats.setdefault("chosen_violation_reasons", {})

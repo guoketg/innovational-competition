@@ -45,13 +45,63 @@ SKIP_PARTS = {".venv", "__pycache__", ".git", ".pytest_cache", ".cache"}
 TUTOR_HISTORY_LIMIT = 12
 logger = logging.getLogger(__name__)
 
-# #29 行为通道护栏：AI 直改学生工作区（写文件/建目录）被拦时，回灌给模型的拒绝说明。
-# 与内容通道（文本护栏）共用同一释放阀，杜绝"绕过文本护栏、直接调工具把答案写进代码"。
+# #36/#29 行为通道护栏（方案 C，2026-10-14）：请求轴唯一化——放过不该拦的、拦住不该放的。
+#   * 学生本回合明确要求代改 → 提示 1 次后放行（改不改由本回合请求决定）；
+#   * 工具性使用（显式声明"工作项目/内部脚本/快速任务"）→ 逃生门直接放行、不提示；
+#   * 未提出任何改码请求却调写工具 → 拦截（核心违规 = 未请求主动改）。
+# 释放阀三条件降级为"免提示"加速通道，不再单独构成放行依据。
 _TOOL_GUARD_DENY_MESSAGE = (
-    "【防泄题护栏·工具拦截】本次调用被拒绝：当前未达到直接改写学生工作区的条件。"
-    "请不要直接写入/覆盖学生的代码，改为用提问和提示引导他从下一步该做什么开始思考。"
-    "当学生自己贴出尝试代码、或已多轮尝试、或该关掌握度达标后，系统才会放行直接改写。"
+    "【行为通道护栏·工具拦截】本次调用被拒绝：学生本回合没有提出任何改码请求，"
+    "不得主动改写学生代码。请改为用提问和提示引导他自己动手（从下一步该做什么开始）。"
+    "若学生明确要求你代改（「帮我改/直接给我正确代码」），系统会在提示他一次后放行。"
 )
+# 学生明确索要代改、但免提示阀未满足时，回灌给模型的"提示 1 次"说明（同会话同关卡至多一次）。
+_TOOL_GUARD_WARN_MESSAGE = (
+    "【行为通道护栏·提示】学生本回合明确要求你代改，已按请求放行；"
+    "请在本次回复开头提醒他一次：如果你继续让我改代码，就会学不到知识点。"
+)
+# 同会话同关卡最多提示 1 次；进程内记录即可（重启后重新计数，符合"告知代价"语义）。
+_tool_guard_warned: set[tuple[str, str]] = set()
+_tool_guard_warned_lock = threading.Lock()
+
+
+def _mark_tool_guard_warned(user_id, exercise_id) -> bool:
+    """记录"提示 1 次"；返回 True 表示这是本会话本关卡的首次提示（应下发提示）。"""
+    key = (str(user_id), str(exercise_id))
+    with _tool_guard_warned_lock:
+        if key in _tool_guard_warned:
+            return False
+        _tool_guard_warned.add(key)
+        return True
+
+
+def _select_intent_judge():
+    """选择行为通道意图判定器 → ``(judge_fn, judge_name)``。
+
+    * 默认（``TOOL_GUARD_JUDGE`` 未设 / 非 jev）：规则版 ``judge_intent``
+      —— 零成本、零网络依赖；
+    * ``TOOL_GUARD_JUDGE=jev``：走 Jev（OpenRouter Decisions API），需
+      ``OPENROUTER_API_KEY``；缺失或初始化失败则回落规则版。
+
+    Jev 的**运行时失败回落**（无密钥 / 超时 / HTTP 非 200 / 解析失败）由
+    ``JevIntentJudge.judge`` 内部统一退回规则版并在 evidence 记 ``jev_fallback:<reason>``，
+    此处只负责能否构造出 Jev 判定器，不阻断主流程。
+    """
+    from services.request_classifier import judge_intent
+
+    if (os.getenv("TOOL_GUARD_JUDGE", "rule") or "rule").strip().lower() == "jev":
+        try:
+            from services.jev_judge import JevIntentJudge
+
+            judge = JevIntentJudge()
+            if judge.api_key:
+                return judge.judge, "jev"
+            logger.warning("TOOL_GUARD_JUDGE=jev 但未配置 OPENROUTER_API_KEY，回落规则版判定器")
+        except Exception as exc:  # noqa: BLE001 —— 初始化失败不应阻断主流程
+            logger.warning("Jev 判定器初始化失败(%s)，回落规则版判定器", exc)
+    return judge_intent, "rule"
+
+
 TRACK_CONFIG = {
     "1": {
         # 四个阶段都是数据结构与算法：只用标准库，因此 packages / imports 都为空。
@@ -2661,10 +2711,38 @@ async def ask_assistant_streaming(
         GuardVerdict, GuardedStreamFilter, REGEN_FEEDBACK, apply_guard, evaluate_release,
         load_guard_references, log_guard_event,
     )
-    # 时机释放阀：学生贴了自己的代码 / 已被拦多轮 → 流式与持久化兜底都放行
+    from services.request_classifier import classify_request, decide_channel
+    # 内容通道释放阀：学生贴了自己的代码 / 已被拦多轮 → 文本侧放行（仅内容通道用）
     _stream_release, _stream_release_reason = evaluate_release(
         user_id, exercise_id, question,
     )
+    # 行为通道（方案 C + Jev 三原语路由）：请求轴独立决策，与内容通道解耦——
+    #   工具性逃生门 → 放行；明确改码请求 → 放行；未请求 → 拦截；
+    #   明确请求但免提示阀未满足 → 提示 1 次后放行；
+    #   低置信（伪装可疑 / 无法判定）→ 保守回落学习模式，不采信其声明。
+    #   判定器可切换：默认规则版；TOOL_GUARD_JUDGE=jev 且配了 OPENROUTER_API_KEY 时走
+    #   Jev（API，失败自动回落规则版）。
+    _judge_fn, _judge_name = _select_intent_judge()
+    _req_signal = classify_request(question)
+    _judgment = _judge_fn(question)
+    _allow_write, _warn_once, _write_reason = decide_channel(
+        _judgment, valve_released=_stream_release,
+    )
+    _write_metrics = {
+        "request_kind": _req_signal.kind,
+        "scope_narrowed": _req_signal.scope_narrowed,
+        "has_urgency": _req_signal.has_urgency,
+        "tool_context": _req_signal.declares_tool_context,
+        "valve_released": bool(_stream_release),
+        "reason": _write_reason or "",
+        "judge": _judge_name,
+        "choice": _judgment.choice,
+        "intent_confidence": round(_judgment.score, 3),
+        "noul_score": round(_judgment.noul_score, 3),
+        "fallback": _judgment.fallback,
+        "ask_explicit": _judgment.ask_explicit,
+        "evidence": list(_judgment.evidence),
+    }
     guard_filter = GuardedStreamFilter(
         load_guard_references(exercise_id),
         release=_stream_release,
@@ -2785,15 +2863,15 @@ async def ask_assistant_streaming(
                         "write_project_file", "create_project_directory",
                     }
 
-                    # #29 行为通道护栏：AI 直改学生代码（写文件/建目录）与内容通道共用
-                    # 同一释放阀（evaluate_release）。未释放时拒绝执行，改为引导，杜绝
-                    # "绕过文本护栏、直接调工具把答案写进学生代码"。
-                    if mutating_tool and not _stream_release:
+                    # #36 行为通道护栏（方案 C）：请求轴独立决策——
+                    #   逃生门/明确改码请求 → 放行；未请求 → 拦截（核心违规=未请求主动改）；
+                    #   明确请求但免提示阀未满足 → 先提示 1 次（同会话同关卡至多一次）再放行。
+                    if mutating_tool and not _allow_write:
                         yield _json.dumps({
                             "type": "tool_result",
                             "tool": tool_name,
                             "status": "blocked",
-                            "detail": "护栏拦截：未达释放条件，拒绝直接改写学生代码",
+                            "detail": "护栏拦截：学生未请求代改，拒绝主动改写学生代码",
                             "preview": "",
                             "workspace_changed": False,
                         }, ensure_ascii=False) + "\n"
@@ -2801,18 +2879,36 @@ async def ask_assistant_streaming(
                             "tool": tool_name,
                             "label": f"调用 {tool_name}",
                             "status": "blocked",
-                            "detail": "护栏拦截：未达释放条件",
+                            "detail": "护栏拦截：未请求主动改",
                         })
                         log_guard_event(
-                            GuardVerdict(blocked=True, severity="full", reasons=["tool_write_blocked"]),
+                            GuardVerdict(blocked=True, severity="full",
+                                         reasons=["unrequested_modify"], metrics=_write_metrics),
                             {"channel": "tool_guard", "exercise": exercise_id, "user": user_id,
-                             "tool": tool_name},
+                             "tool": tool_name, "reason": _write_reason or "unrequested_modify"},
                         )
                         # 回灌拒绝说明，让模型转向引导式教学而非直接改代码
                         llm_messages.append(ToolMessage(
                             content=_TOOL_GUARD_DENY_MESSAGE, tool_call_id=tool_call_id,
                         ))
                         continue
+
+                    # 明确请求但免提示阀未满足：放行前提示 1 次（同会话同关卡至多一次）
+                    warn_this_call = (
+                        mutating_tool and _warn_once
+                        and _mark_tool_guard_warned(user_id, exercise_id)
+                    )
+                    if warn_this_call:
+                        yield _json.dumps({
+                            "type": "guard", "blocked": False, "severity": "info",
+                            "reasons": ["tool_warn_once"], "metrics": _write_metrics,
+                        }, ensure_ascii=False) + "\n"
+                        log_guard_event(
+                            GuardVerdict(blocked=False, severity="info",
+                                         reasons=["tool_warn_once"], metrics=_write_metrics),
+                            {"channel": "tool_guard", "exercise": exercise_id, "user": user_id,
+                             "tool": tool_name, "reason": _write_reason or "student_request"},
+                        )
 
                     try:
                         result = _execute_lab_tool(tool_name, tool_args, user_id, exercise_id)
@@ -2838,7 +2934,11 @@ async def ask_assistant_streaming(
 
                     # Use the same valid ID for ToolMessage
                     # 发给 AI 前脱敏工具结果，防止 read_project_file 等返回文件里的真实 Key 外泄
-                    llm_messages.append(ToolMessage(content=redact_secrets(result), tool_call_id=tool_call_id))
+                    # 首次代改提示随工具结果回灌，让模型自然带出"提示 1 次"。
+                    _tool_content = redact_secrets(result)
+                    if warn_this_call:
+                        _tool_content = _TOOL_GUARD_WARN_MESSAGE + "\n\n" + _tool_content
+                    llm_messages.append(ToolMessage(content=_tool_content, tool_call_id=tool_call_id))
 
                 continue  # Another round for LLM to process tool results
 

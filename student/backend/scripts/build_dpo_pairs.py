@@ -49,6 +49,7 @@ from evaluate_direct_code_rate import (  # noqa: E402
     load_cases,
 )
 from services.answer_guard_service import evaluate, extract_code_blocks  # noqa: E402
+from services.request_classifier import classify_request  # noqa: E402
 
 DEFAULT_DATASET_DIR = BACKEND / "data" / "eval" / "socratic_debugging_benchmark" / "evaluation_dataset"
 DEFAULT_OUT_DIR = BACKEND / "data" / "dpo"
@@ -59,6 +60,9 @@ R1_RECALL_OK = 0.6        # rejected 入池：命中线上 R1 阈值
 R1_RECALL_CLEAN = 0.2     # chosen 合格上限
 MIN_CODE_LINES = 5        # chosen（round1）禁止出现的代码块规模
 R2_ROUND2_MIN_LINES = 5   # round2/C chosen 至少要有完整规模的代码块
+# 请求收窄（"只改第 N 行/这一处"）时，patch 非空行数超过该值即判越权修改
+# （scope_overreach）。数据侧无学生真实文件，用改动规模作近似判据。
+SCOPE_NARROW_MAX_PATCH_LINES = 12
 
 # CodeLab 13 关 -> 9 训练 / 4 held-out（下标 3/6/9/12，确定性分组）
 def _split_levels(levels: list[str]) -> tuple[list[str], list[str]]:
@@ -577,30 +581,84 @@ def parse_tool_call(raw: str) -> dict | None:
     return obj
 
 
-def validate_tool_call(obj: dict, round_no: int, release_expected: bool) -> list[str]:
-    """查表规则（plan §3.10），返回违规清单，空 = 合法。
+def last_user_text(prompt) -> str:
+    """取 prompt（messages 列表 / 纯文本）里学生本回合的消息文本。
 
-    release_expected=True 表示该轮已满足 give_answer 释放条件
-    （round≥2 学生已展示尝试 / 概念直答）——此时仍给 hint 即"该给码时仍引导"。
+    多轮样本把历史放在前面，学生本轮在最后一条（见 build_prompt_messages），
+    请求语义只看本回合，故取最后一条 user 消息。
+    """
+    if isinstance(prompt, list) and prompt:
+        for msg in reversed(prompt):
+            if msg.get("role") == "user":
+                return str(msg.get("content") or "")
+        return str(prompt[-1].get("content") or "")
+    return str(prompt or "")
+
+
+def build_tool_context(prompt, *, round_no: int, release_expected: bool) -> dict:
+    """构造 ``validate_tool_call`` 的四元组上下文（请求轴唯一化）。
+
+    语义来自共享模块 ``services.request_classifier``，数据侧与运行侧口径一致。
+    """
+    sig = classify_request(last_user_text(prompt))
+    return {
+        "round": round_no,
+        "requested": sig.kind == "modify",
+        "tool_context": sig.declares_tool_context,
+        "release_expected": release_expected,
+        "request_scope": "narrow" if sig.scope_narrowed else "full",
+    }
+
+
+def _patch_significant_lines(patch: str) -> int:
+    return len([ln for ln in str(patch or "").splitlines() if ln.strip()])
+
+
+def validate_tool_call(obj: dict, ctx: dict) -> list[str]:
+    """查表规则 v2（plan §3.10 ⑤），返回违规清单，空 = 合法。
+
+    四元组判据：**请求语义 ∧ 意图上下文 ∧ patch 范围 ∧ 附 why**。
+    ctx 字段（由 ``build_tool_context`` 生成）:
+      requested        学生本回合是否明确提出改码请求（classify_request）
+      tool_context     是否命中工具性使用逃生门（应放行）
+      release_expected 时机释放条件是否已满足（round≥2 / C 层）
+      request_scope    "narrow"（点了具体范围）| "full"
+
+    已删除 v1 的 ``round_no==1 → modify_code 违规`` 绝对禁令：别人拿模型当改码
+    工具本无理由禁止，合法性只看"学生是否开口要改"。
     """
     tool, args = obj["tool"], obj["args"]
     bad: list[str] = []
+    requested = bool(ctx.get("requested"))
+    tool_context = bool(ctx.get("tool_context"))
+    release_expected = bool(ctx.get("release_expected"))
+    narrow = ctx.get("request_scope") == "narrow"
+    should_act = requested or tool_context  # 该被允许直接给码/代改
+
     if tool == "give_hint":
         level = args.get("level")
         if not isinstance(level, int) or not 1 <= level <= 3:
             bad.append("give_hint level 非法(=4 重述问题)")
         if not has_hint_action(str(args.get("text") or "")):
             bad.append("give_hint 无动作(空洞引导)")
-        if release_expected:
-            bad.append("give_hint 释放条件已满足仍引导")
+        if should_act:
+            # 学生已明确请求（含催促/范围收窄）或走逃生门，却只给引导 = 过度拦截
+            bad.append("该给码却只引导(过度拦截)")
+        elif release_expected:
+            # 仅当学生未请求改码时，"释放后仍引导"才构成 rejected
+            bad.append("give_hint 释放条件已满足仍引导(过度引导)")
     elif tool == "give_answer":
         if not str(args.get("why") or "").strip():
             bad.append("give_answer 缺 why")
     elif tool == "modify_code":
         if not str(args.get("why") or "").strip():
             bad.append("modify_code 缺 why")
-        if round_no == 1:
-            bad.append("modify_code 出现在首轮")
+        if not should_act:
+            # 核心违规：学生未提出任何改码请求，却调写工具直接改
+            bad.append("未请求主动改")
+        if narrow and _patch_significant_lines(args.get("patch")) > SCOPE_NARROW_MAX_PATCH_LINES:
+            # 请求只收窄到一处，patch 却大面积重写 = 越权修改
+            bad.append("scope_overreach 越权修改")
     return bad
 
 

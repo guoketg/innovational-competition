@@ -1,39 +1,33 @@
 {
   "train": {
     "input": 1044,
-    "converted": 480,
+    "converted": 484,
     "text_only": 560,
-    "dropped_chosen_violation": 4,
+    "dropped_chosen_violation": 0,
     "dropped_rejected_clean": 0,
     "decisions": {
-      "hint_vs_answer": 140,
-      "hint_vs_modify": 158,
-      "modify_vs_hint": 70,
-      "answer_vs_hint": 112
+      "modify_vs_hint": 192,
+      "hint_vs_modify": 202,
+      "answer_vs_hint": 90
     },
-    "chosen_violation_reasons": {
-      "give_hint level 非法(=4 重述问题)": 4
-    },
-    "output": 1040
+    "output": 1044
   },
   "eval": {
     "input": 308,
-    "converted": 222,
+    "converted": 225,
     "text_only": 82,
-    "dropped_chosen_violation": 4,
+    "dropped_chosen_violation": 1,
     "dropped_rejected_clean": 0,
     "decisions": {
-      "answer_vs_hint": 55,
-      "modify_vs_hint": 28,
-      "hint_vs_modify": 66,
-      "hint_vs_answer": 73
+      "modify_vs_hint": 85,
+      "answer_vs_hint": 41,
+      "hint_vs_modify": 99
     },
     "chosen_violation_reasons": {
-      "give_hint level 非法(=4 重述问题)": 2,
-      "give_hint 无动作(空洞引导)": 2
+      "give_hint 无动作(空洞引导)": 1
     },
-    "output": 304
+    "output": 307
   },
-  "sample_file": "/tmp/innov-pull/student/backend/data/dpo/dpo_pairs_tools.sample.txt",
-  "sample_n": 208
+  "sample_file": "F:\\code\\MyPython\\computer-cross-education\\tiaozhanbei\\student\\backend\\data\\dpo\\dpo_pairs_tools.sample.txt",
+  "sample_n": 209
 }

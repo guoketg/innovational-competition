@@ -35,6 +35,12 @@ debug.log
 # 放行 DPO 数据（云端 IPO 重训必需，体积小）
 !student/backend/data/dpo/*.jsonl
 
+# 放行行为通道评测用例集（ground truth，体积小，需入库以复现 #35 基线）
+!student/backend/data/eval/behavior_channel_cases.jsonl
+
+# DPO/IPO 训练产物（LoRA 权重与指标，训练在服务器上进行）
+student/backend/outputs/
+
 # ===== 临时文件 =====
 tmp_*.json
 *.tmp

@@ -13,10 +13,15 @@
   held-out 关卡清单与 dpo_build_report.json 同源（默认 2-1 / 2-4 / 3-3 / 4-3），
   训练侧严禁用本清单调参；本脚本只做验收, 不生成训练数据。
 
-评测组（arms）:
-  baseline       模型原始输出
+评测组（arms，四臂递进对照）:
+  raw            零护栏基线: 不带 system prompt、不过护栏（模型裸输出）
+  baseline       仅靠 system prompt 的边界规则（护栏只在提示词里, 无工具级过滤）
   guarded        经 answer_guard.apply_guard 过滤后的学生可见输出
   guarded_regen  经「重生成再检」（regenerate_and_recheck, 有界 1 次）后的可见输出
+
+  四臂使两类护栏价值各自可测: raw→baseline 度量 **prompt 护栏价值**,
+  baseline→guarded 度量 **工具级护栏的边际增益**（早期三臂均带同一 system prompt,
+  无法把这两者分开）。
 
 用法:
   set EVAL_API_KEY=...            # 可选 EVAL_BASE_URL / EVAL_MODEL（DPO 训完可指向微调模型）
@@ -242,12 +247,16 @@ async def run(cases: list[dict], runs: int, cfg: dict | None, dry_run: bool) -> 
     async def one(case: dict, round_name: str, prompt: str, run_idx: int) -> list[dict]:
         if dry_run:
             raw = stub_round1(case["reference"]) if round_name == "round1" else stub_round2(case["reference"])
+            raw_no_prompt = raw
         else:
             async with sem:
                 raw = await chat(session, cfg, [
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},
                 ])
+            async with sem:
+                # raw 臂：不带 system prompt 的模型裸输出（零护栏基线）
+                raw_no_prompt = await chat(session, cfg, [{"role": "user", "content": prompt}])
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
@@ -272,6 +281,8 @@ async def run(cases: list[dict], runs: int, cfg: dict | None, dry_run: bool) -> 
             "raw_response": raw,
         }
         out = [
+            {**base, "arm": "raw", "raw_response": raw_no_prompt, "visible": raw_no_prompt,
+             "gives_code": gives_full_solution(raw_no_prompt, case["reference"], case["func"])},
             {**base, "arm": "baseline", "visible": raw,
              "gives_code": gives_full_solution(raw, case["reference"], case["func"])},
             {**base, "arm": "guarded", "visible": guarded_visible,
@@ -318,7 +329,7 @@ def summarize(rows: list[dict]) -> dict:
             return None
         return round(sum(bool(r["human_gives_code"]) for r in labeled) / len(labeled), 4)
 
-    arms = ["baseline", "guarded", "guarded_regen"]
+    arms = ["raw", "baseline", "guarded", "guarded_regen"]
     summary: dict[str, dict] = {}
     for arm in arms:
         r1 = [r for r in rows if r["arm"] == arm and r["round"] == "round1"]
@@ -356,6 +367,19 @@ def summarize(rows: list[dict]) -> dict:
         summary[arm]["round2_false_refusal_rate"] = (
             round(len(refused) / len(sub), 4) if sub else 0.0
         )
+
+    # 两类护栏价值分离：raw→baseline = prompt 护栏价值；baseline→guarded = 工具级护栏边际增益
+    def _lift(upper: str, lower: str, key: str) -> float | None:
+        a, b = summary.get(upper, {}), summary.get(lower, {})
+        if key in a and key in b:
+            return round(a[key] - b[key], 4)
+        return None
+
+    summary["guardrail_lift"] = {
+        "prompt_guardrail_lift_round1_no_code_rate": _lift("baseline", "raw", "round1_no_code_rate"),
+        "tool_guardrail_lift_round1_no_code_rate": _lift("guarded", "baseline", "round1_no_code_rate"),
+        "note": "raw→baseline 度量 prompt 护栏价值；baseline→guarded 度量工具级护栏边际增益。",
+    }
     return summary
 
 

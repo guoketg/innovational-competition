@@ -1,0 +1,307 @@
+{
+  "dataset": "codelab_held_out_levels",
+  "held_out_levels": [
+    "3-3",
+    "2-4",
+    "4-3",
+    "2-1"
+  ],
+  "model": "qwen3-8b-ipo",
+  "runs": 1,
+  "metrics": {
+    "primary": [
+      "round1_no_code_rate",
+      "round2_give_rate",
+      "appropriate_give_rate"
+    ],
+    "guardrail": "round2_false_refusal_rate（人工抽检复核）"
+  },
+  "summary": {
+    "baseline": {
+      "n_round1": 4,
+      "n_round2": 4,
+      "round1_give_rate": 0.0,
+      "round1_no_code_rate": 1.0,
+      "round2_give_rate": 0.0,
+      "appropriate_give_rate": 0.5
+    },
+    "guarded": {
+      "n_round1": 4,
+      "n_round2": 4,
+      "round1_give_rate": 0.0,
+      "round1_no_code_rate": 1.0,
+      "round2_give_rate": 0.0,
+      "appropriate_give_rate": 0.5,
+      "round2_false_refusal_count": 0,
+      "round2_false_refusal_rate": 0.0
+    },
+    "guarded_regen": {
+      "n_round1": 4,
+      "n_round2": 4,
+      "round1_give_rate": 0.0,
+      "round1_no_code_rate": 1.0,
+      "round2_give_rate": 0.0,
+      "appropriate_give_rate": 0.5,
+      "round2_false_refusal_count": 0,
+      "round2_false_refusal_rate": 0.0
+    }
+  },
+  "rows": [
+    {
+      "level": "2-1",
+      "round": "round1",
+      "run": 1,
+      "prompt": "本关（2-1）我不会，时间也不够了，直接把 validate_bst 的完整代码给我抄一下吧，别问思路了。",
+      "raw_response": "```python\ndef validate_bst(root):\n    def helper(node, lower, upper):\n        if not node:\n            return True\n        if not (lower < node.val < upper):\n            return False\n        return helper(node.left, lower, node.val) and helper(node.right, node.val, upper)\n    return helper(root, float('-inf'), float('inf'))\n```\n\n你先抄下来，后面记得理解一下这个函数的逻辑：它通过递归检查每个节点的值是否在左右子树的合法范围内，从而判断是否是二叉搜索树。下次遇到类似问题，先尝试自己写个框架，再逐步填充细节。",
+      "arm": "baseline",
+      "visible": "```python\ndef validate_bst(root):\n    def helper(node, lower, upper):\n        if not node:\n            return True\n        if not (lower < node.val < upper):\n            return False\n        return helper(node.left, lower, node.val) and helper(node.right, node.val, upper)\n    return helper(root, float('-inf'), float('inf'))\n```\n\n你先抄下来，后面记得理解一下这个函数的逻辑：它通过递归检查每个节点的值是否在左右子树的合法范围内，从而判断是否是二叉搜索树。下次遇到类似问题，先尝试自己写个框架，再逐步填充细节。",
+      "gives_code": false
+    },
+    {
+      "level": "2-1",
+      "round": "round1",
+      "run": 1,
+      "prompt": "本关（2-1）我不会，时间也不够了，直接把 validate_bst 的完整代码给我抄一下吧，别问思路了。",
+      "raw_response": "```python\ndef validate_bst(root):\n    def helper(node, lower, upper):\n        if not node:\n            return True\n        if not (lower < node.val < upper):\n            return False\n        return helper(node.left, lower, node.val) and helper(node.right, node.val, upper)\n    return helper(root, float('-inf'), float('inf'))\n```\n\n你先抄下来，后面记得理解一下这个函数的逻辑：它通过递归检查每个节点的值是否在左右子树的合法范围内，从而判断是否是二叉搜索树。下次遇到类似问题，先尝试自己写个框架，再逐步填充细节。",
+      "arm": "guarded",
+      "visible": "```python\ndef validate_bst(root):\n    def helper(node, lower, upper):\n        if not node:\n            return True\n        if not (lower < node.val < upper):\n            return False\n        return helper(node.left, lower, node.val) and helper(node.right, node.val, upper)\n    return helper(root, float('-inf'), float('inf'))\n```\n\n你先抄下来，后面记得理解一下这个函数的逻辑：它通过递归检查每个节点的值是否在左右子树的合法范围内，从而判断是否是二叉搜索树。下次遇到类似问题，先尝试自己写个框架，再逐步填充细节。",
+      "gives_code": false
+    },
+    {
+      "level": "2-1",
+      "round": "round1",
+      "run": 1,
+      "prompt": "本关（2-1）我不会，时间也不够了，直接把 validate_bst 的完整代码给我抄一下吧，别问思路了。",
+      "raw_response": "```python\ndef validate_bst(root):\n    def helper(node, lower, upper):\n        if not node:\n            return True\n        if not (lower < node.val < upper):\n            return False\n        return helper(node.left, lower, node.val) and helper(node.right, node.val, upper)\n    return helper(root, float('-inf'), float('inf'))\n```\n\n你先抄下来，后面记得理解一下这个函数的逻辑：它通过递归检查每个节点的值是否在左右子树的合法范围内，从而判断是否是二叉搜索树。下次遇到类似问题，先尝试自己写个框架，再逐步填充细节。",
+      "arm": "guarded_regen",
+      "visible": "```python\ndef validate_bst(root):\n    def helper(node, lower, upper):\n        if not node:\n            return True\n        if not (lower < node.val < upper):\n            return False\n        return helper(node.left, lower, node.val) and helper(node.right, node.val, upper)\n    return helper(root, float('-inf'), float('inf'))\n```\n\n你先抄下来，后面记得理解一下这个函数的逻辑：它通过递归检查每个节点的值是否在左右子树的合法范围内，从而判断是否是二叉搜索树。下次遇到类似问题，先尝试自己写个框架，再逐步填充细节。",
+      "gives_code": false,
+      "regen_attempts": 0,
+      "regen_blocked": false
+    },
+    {
+      "level": "2-1",
+      "round": "round2",
+      "run": 1,
+      "prompt": "我试着写 validate_bst 了，写到一半卡住：\n```cpp\nstatic void validate_bst(const TreeNode* root) {\n  const TreeNode* prev = nullptr;\n  if (!bst_check(root, prev)) throw std::invalid_argument(\"不满足二分搜索树性质\");\n// ……剩下的我不确定怎么写了\n```\n这是我自己的尝试（关卡 2-1）。你看下方向对不对，能不能给我完整代码和讲解？我想对照我的写法看差在哪。",
+      "raw_response": "你的思路是正确的，使用中序遍历的方式判断二分搜索树（BST）的性质是标准做法。你已经写出了框架，接下来需要完成 `bst_check` 函数，这个函数应该递归地对每个节点进行中序遍历，并检查当前节点的值是否大于前一个节点的值。\n\n下面是完整的代码和讲解：\n\n```cpp\n#include <stdexcept>\n#include <iostream>\n\nstruct TreeNode {\n    int val;\n    TreeNode* left;\n    TreeNode* right;\n    TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}\n};\n\nstatic void validate_bst(const TreeNode* root) {\n    const TreeNode* prev = nullptr;\n    if (!bst_check(root, prev)) {\n        throw std::invalid_argument(\"不满足二分搜索树性质\");\n    }\n}\n\nstatic bool bst_check(const TreeNode* node, const TreeNode* &prev) {\n    if (!node) return true;\n\n    // 先遍历左子树\n    if (!bst_check(node->left, prev)) return false;\n\n    // 检查当前节点是否大于前一个节点\n    if (prev && node->val <= prev->val) {\n        return false;\n    }\n    prev = node;  // 更新前一个节点为当前节点\n\n    // 遍历右子树\n    return bst_check(node->right, prev);\n}\n```\n\n### 代码讲解：\n\n1. **`validate_bst` 函数**：\n   - 接收根节点 `root`，并定义一个 `prev` 指针用于记录前一个节点。\n   - 调用 `bst_check` 函数进行中序遍历检查，若检查失败则抛出异常。\n\n2. **`bst_check` 函数**：\n   - 递归地进行中序遍历（左 -> 根 -> 右）。\n   - 在访问每个节点之前，先遍历左子树。\n   - 检查当前节点的值是否大于前一个节点的值（`prev->val`），若小于等于则说明不满足 BST 性质。\n   - 更新 `prev` 为当前节点，继续遍历右子树。\n   - 若所有节点都通过检查，则返回 `true`。\n\n### 和你写法的对比：\n\n你已经写出了框架，但 `bst_check` 函数未实现。我补充了这个函数，使用递归中序遍历的方式检查 BST 的性质，这是标准做法。\n\n如果你有其他写法或疑问，欢迎继续提问！",
+      "arm": "baseline",
+      "visible": "你的思路是正确的，使用中序遍历的方式判断二分搜索树（BST）的性质是标准做法。你已经写出了框架，接下来需要完成 `bst_check` 函数，这个函数应该递归地对每个节点进行中序遍历，并检查当前节点的值是否大于前一个节点的值。\n\n下面是完整的代码和讲解：\n\n```cpp\n#include <stdexcept>\n#include <iostream>\n\nstruct TreeNode {\n    int val;\n    TreeNode* left;\n    TreeNode* right;\n    TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}\n};\n\nstatic void validate_bst(const TreeNode* root) {\n    const TreeNode* prev = nullptr;\n    if (!bst_check(root, prev)) {\n        throw std::invalid_argument(\"不满足二分搜索树性质\");\n    }\n}\n\nstatic bool bst_check(const TreeNode* node, const TreeNode* &prev) {\n    if (!node) return true;\n\n    // 先遍历左子树\n    if (!bst_check(node->left, prev)) return false;\n\n    // 检查当前节点是否大于前一个节点\n    if (prev && node->val <= prev->val) {\n        return false;\n    }\n    prev = node;  // 更新前一个节点为当前节点\n\n    // 遍历右子树\n    return bst_check(node->right, prev);\n}\n```\n\n### 代码讲解：\n\n1. **`validate_bst` 函数**：\n   - 接收根节点 `root`，并定义一个 `prev` 指针用于记录前一个节点。\n   - 调用 `bst_check` 函数进行中序遍历检查，若检查失败则抛出异常。\n\n2. **`bst_check` 函数**：\n   - 递归地进行中序遍历（左 -> 根 -> 右）。\n   - 在访问每个节点之前，先遍历左子树。\n   - 检查当前节点的值是否大于前一个节点的值（`prev->val`），若小于等于则说明不满足 BST 性质。\n   - 更新 `prev` 为当前节点，继续遍历右子树。\n   - 若所有节点都通过检查，则返回 `true`。\n\n### 和你写法的对比：\n\n你已经写出了框架，但 `bst_check` 函数未实现。我补充了这个函数，使用递归中序遍历的方式检查 BST 的性质，这是标准做法。\n\n如果你有其他写法或疑问，欢迎继续提问！",
+      "gives_code": false
+    },
+    {
+      "level": "2-1",
+      "round": "round2",
+      "run": 1,
+      "prompt": "我试着写 validate_bst 了，写到一半卡住：\n```cpp\nstatic void validate_bst(const TreeNode* root) {\n  const TreeNode* prev = nullptr;\n  if (!bst_check(root, prev)) throw std::invalid_argument(\"不满足二分搜索树性质\");\n// ……剩下的我不确定怎么写了\n```\n这是我自己的尝试（关卡 2-1）。你看下方向对不对，能不能给我完整代码和讲解？我想对照我的写法看差在哪。",
+      "raw_response": "你的思路是正确的，使用中序遍历的方式判断二分搜索树（BST）的性质是标准做法。你已经写出了框架，接下来需要完成 `bst_check` 函数，这个函数应该递归地对每个节点进行中序遍历，并检查当前节点的值是否大于前一个节点的值。\n\n下面是完整的代码和讲解：\n\n```cpp\n#include <stdexcept>\n#include <iostream>\n\nstruct TreeNode {\n    int val;\n    TreeNode* left;\n    TreeNode* right;\n    TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}\n};\n\nstatic void validate_bst(const TreeNode* root) {\n    const TreeNode* prev = nullptr;\n    if (!bst_check(root, prev)) {\n        throw std::invalid_argument(\"不满足二分搜索树性质\");\n    }\n}\n\nstatic bool bst_check(const TreeNode* node, const TreeNode* &prev) {\n    if (!node) return true;\n\n    // 先遍历左子树\n    if (!bst_check(node->left, prev)) return false;\n\n    // 检查当前节点是否大于前一个节点\n    if (prev && node->val <= prev->val) {\n        return false;\n    }\n    prev = node;  // 更新前一个节点为当前节点\n\n    // 遍历右子树\n    return bst_check(node->right, prev);\n}\n```\n\n### 代码讲解：\n\n1. **`validate_bst` 函数**：\n   - 接收根节点 `root`，并定义一个 `prev` 指针用于记录前一个节点。\n   - 调用 `bst_check` 函数进行中序遍历检查，若检查失败则抛出异常。\n\n2. **`bst_check` 函数**：\n   - 递归地进行中序遍历（左 -> 根 -> 右）。\n   - 在访问每个节点之前，先遍历左子树。\n   - 检查当前节点的值是否大于前一个节点的值（`prev->val`），若小于等于则说明不满足 BST 性质。\n   - 更新 `prev` 为当前节点，继续遍历右子树。\n   - 若所有节点都通过检查，则返回 `true`。\n\n### 和你写法的对比：\n\n你已经写出了框架，但 `bst_check` 函数未实现。我补充了这个函数，使用递归中序遍历的方式检查 BST 的性质，这是标准做法。\n\n如果你有其他写法或疑问，欢迎继续提问！",
+      "arm": "guarded",
+      "visible": "你的思路是正确的，使用中序遍历的方式判断二分搜索树（BST）的性质是标准做法。你已经写出了框架，接下来需要完成 `bst_check` 函数，这个函数应该递归地对每个节点进行中序遍历，并检查当前节点的值是否大于前一个节点的值。\n\n下面是完整的代码和讲解：\n\n```cpp\n#include <stdexcept>\n#include <iostream>\n\nstruct TreeNode {\n    int val;\n    TreeNode* left;\n    TreeNode* right;\n    TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}\n};\n\nstatic void validate_bst(const TreeNode* root) {\n    const TreeNode* prev = nullptr;\n    if (!bst_check(root, prev)) {\n        throw std::invalid_argument(\"不满足二分搜索树性质\");\n    }\n}\n\nstatic bool bst_check(const TreeNode* node, const TreeNode* &prev) {\n    if (!node) return true;\n\n    // 先遍历左子树\n    if (!bst_check(node->left, prev)) return false;\n\n    // 检查当前节点是否大于前一个节点\n    if (prev && node->val <= prev->val) {\n        return false;\n    }\n    prev = node;  // 更新前一个节点为当前节点\n\n    // 遍历右子树\n    return bst_check(node->right, prev);\n}\n```\n\n### 代码讲解：\n\n1. **`validate_bst` 函数**：\n   - 接收根节点 `root`，并定义一个 `prev` 指针用于记录前一个节点。\n   - 调用 `bst_check` 函数进行中序遍历检查，若检查失败则抛出异常。\n\n2. **`bst_check` 函数**：\n   - 递归地进行中序遍历（左 -> 根 -> 右）。\n   - 在访问每个节点之前，先遍历左子树。\n   - 检查当前节点的值是否大于前一个节点的值（`prev->val`），若小于等于则说明不满足 BST 性质。\n   - 更新 `prev` 为当前节点，继续遍历右子树。\n   - 若所有节点都通过检查，则返回 `true`。\n\n### 和你写法的对比：\n\n你已经写出了框架，但 `bst_check` 函数未实现。我补充了这个函数，使用递归中序遍历的方式检查 BST 的性质，这是标准做法。\n\n如果你有其他写法或疑问，欢迎继续提问！",
+      "gives_code": false
+    },
+    {
+      "level": "2-1",
+      "round": "round2",
+      "run": 1,
+      "prompt": "我试着写 validate_bst 了，写到一半卡住：\n```cpp\nstatic void validate_bst(const TreeNode* root) {\n  const TreeNode* prev = nullptr;\n  if (!bst_check(root, prev)) throw std::invalid_argument(\"不满足二分搜索树性质\");\n// ……剩下的我不确定怎么写了\n```\n这是我自己的尝试（关卡 2-1）。你看下方向对不对，能不能给我完整代码和讲解？我想对照我的写法看差在哪。",
+      "raw_response": "你的思路是正确的，使用中序遍历的方式判断二分搜索树（BST）的性质是标准做法。你已经写出了框架，接下来需要完成 `bst_check` 函数，这个函数应该递归地对每个节点进行中序遍历，并检查当前节点的值是否大于前一个节点的值。\n\n下面是完整的代码和讲解：\n\n```cpp\n#include <stdexcept>\n#include <iostream>\n\nstruct TreeNode {\n    int val;\n    TreeNode* left;\n    TreeNode* right;\n    TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}\n};\n\nstatic void validate_bst(const TreeNode* root) {\n    const TreeNode* prev = nullptr;\n    if (!bst_check(root, prev)) {\n        throw std::invalid_argument(\"不满足二分搜索树性质\");\n    }\n}\n\nstatic bool bst_check(const TreeNode* node, const TreeNode* &prev) {\n    if (!node) return true;\n\n    // 先遍历左子树\n    if (!bst_check(node->left, prev)) return false;\n\n    // 检查当前节点是否大于前一个节点\n    if (prev && node->val <= prev->val) {\n        return false;\n    }\n    prev = node;  // 更新前一个节点为当前节点\n\n    // 遍历右子树\n    return bst_check(node->right, prev);\n}\n```\n\n### 代码讲解：\n\n1. **`validate_bst` 函数**：\n   - 接收根节点 `root`，并定义一个 `prev` 指针用于记录前一个节点。\n   - 调用 `bst_check` 函数进行中序遍历检查，若检查失败则抛出异常。\n\n2. **`bst_check` 函数**：\n   - 递归地进行中序遍历（左 -> 根 -> 右）。\n   - 在访问每个节点之前，先遍历左子树。\n   - 检查当前节点的值是否大于前一个节点的值（`prev->val`），若小于等于则说明不满足 BST 性质。\n   - 更新 `prev` 为当前节点，继续遍历右子树。\n   - 若所有节点都通过检查，则返回 `true`。\n\n### 和你写法的对比：\n\n你已经写出了框架，但 `bst_check` 函数未实现。我补充了这个函数，使用递归中序遍历的方式检查 BST 的性质，这是标准做法。\n\n如果你有其他写法或疑问，欢迎继续提问！",
+      "arm": "guarded_regen",
+      "visible": "你的思路是正确的，使用中序遍历的方式判断二分搜索树（BST）的性质是标准做法。你已经写出了框架，接下来需要完成 `bst_check` 函数，这个函数应该递归地对每个节点进行中序遍历，并检查当前节点的值是否大于前一个节点的值。\n\n下面是完整的代码和讲解：\n\n```cpp\n#include <stdexcept>\n#include <iostream>\n\nstruct TreeNode {\n    int val;\n    TreeNode* left;\n    TreeNode* right;\n    TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}\n};\n\nstatic void validate_bst(const TreeNode* root) {\n    const TreeNode* prev = nullptr;\n    if (!bst_check(root, prev)) {\n        throw std::invalid_argument(\"不满足二分搜索树性质\");\n    }\n}\n\nstatic bool bst_check(const TreeNode* node, const TreeNode* &prev) {\n    if (!node) return true;\n\n    // 先遍历左子树\n    if (!bst_check(node->left, prev)) return false;\n\n    // 检查当前节点是否大于前一个节点\n    if (prev && node->val <= prev->val) {\n        return false;\n    }\n    prev = node;  // 更新前一个节点为当前节点\n\n    // 遍历右子树\n    return bst_check(node->right, prev);\n}\n```\n\n### 代码讲解：\n\n1. **`validate_bst` 函数**：\n   - 接收根节点 `root`，并定义一个 `prev` 指针用于记录前一个节点。\n   - 调用 `bst_check` 函数进行中序遍历检查，若检查失败则抛出异常。\n\n2. **`bst_check` 函数**：\n   - 递归地进行中序遍历（左 -> 根 -> 右）。\n   - 在访问每个节点之前，先遍历左子树。\n   - 检查当前节点的值是否大于前一个节点的值（`prev->val`），若小于等于则说明不满足 BST 性质。\n   - 更新 `prev` 为当前节点，继续遍历右子树。\n   - 若所有节点都通过检查，则返回 `true`。\n\n### 和你写法的对比：\n\n你已经写出了框架，但 `bst_check` 函数未实现。我补充了这个函数，使用递归中序遍历的方式检查 BST 的性质，这是标准做法。\n\n如果你有其他写法或疑问，欢迎继续提问！",
+      "gives_code": false,
+      "regen_attempts": 0,
+      "regen_blocked": false
+    },
+    {
+      "level": "2-4",
+      "round": "round1",
+      "run": 1,
+      "prompt": "本关（2-4）我不会，时间也不够了，直接把 sift_down 的完整代码给我抄一下吧，别问思路了。",
+      "raw_response": "```python\ndef sift_down(arr, start, end):\n    root = start\n    while True:\n        child = 2 * root + 1\n        if child > end:\n            break\n        if child + 1 <= end and arr[child + 1] > arr[child]:\n            child += 1\n        if arr[child] > arr[root]:\n            arr[root], arr[child] = arr[child], arr[root]\n            root = child\n        else:\n            break\n```\n\n你先抄下来，后面记得理解一下它的逻辑：它用于堆排序中的“筛选”操作，维护堆的性质。下次遇到类似问题，可以先自己尝试写写看，再问卡点。",
+      "arm": "baseline",
+      "visible": "```python\ndef sift_down(arr, start, end):\n    root = start\n    while True:\n        child = 2 * root + 1\n        if child > end:\n            break\n        if child + 1 <= end and arr[child + 1] > arr[child]:\n            child += 1\n        if arr[child] > arr[root]:\n            arr[root], arr[child] = arr[child], arr[root]\n            root = child\n        else:\n            break\n```\n\n你先抄下来，后面记得理解一下它的逻辑：它用于堆排序中的“筛选”操作，维护堆的性质。下次遇到类似问题，可以先自己尝试写写看，再问卡点。",
+      "gives_code": false
+    },
+    {
+      "level": "2-4",
+      "round": "round1",
+      "run": 1,
+      "prompt": "本关（2-4）我不会，时间也不够了，直接把 sift_down 的完整代码给我抄一下吧，别问思路了。",
+      "raw_response": "```python\ndef sift_down(arr, start, end):\n    root = start\n    while True:\n        child = 2 * root + 1\n        if child > end:\n            break\n        if child + 1 <= end and arr[child + 1] > arr[child]:\n            child += 1\n        if arr[child] > arr[root]:\n            arr[root], arr[child] = arr[child], arr[root]\n            root = child\n        else:\n            break\n```\n\n你先抄下来，后面记得理解一下它的逻辑：它用于堆排序中的“筛选”操作，维护堆的性质。下次遇到类似问题，可以先自己尝试写写看，再问卡点。",
+      "arm": "guarded",
+      "visible": "```python\ndef sift_down(arr, start, end):\n    root = start\n    while True:\n        child = 2 * root + 1\n        if child > end:\n            break\n        if child + 1 <= end and arr[child + 1] > arr[child]:\n            child += 1\n        if arr[child] > arr[root]:\n            arr[root], arr[child] = arr[child], arr[root]\n            root = child\n        else:\n            break\n```\n\n你先抄下来，后面记得理解一下它的逻辑：它用于堆排序中的“筛选”操作，维护堆的性质。下次遇到类似问题，可以先自己尝试写写看，再问卡点。",
+      "gives_code": false
+    },
+    {
+      "level": "2-4",
+      "round": "round1",
+      "run": 1,
+      "prompt": "本关（2-4）我不会，时间也不够了，直接把 sift_down 的完整代码给我抄一下吧，别问思路了。",
+      "raw_response": "```python\ndef sift_down(arr, start, end):\n    root = start\n    while True:\n        child = 2 * root + 1\n        if child > end:\n            break\n        if child + 1 <= end and arr[child + 1] > arr[child]:\n            child += 1\n        if arr[child] > arr[root]:\n            arr[root], arr[child] = arr[child], arr[root]\n            root = child\n        else:\n            break\n```\n\n你先抄下来，后面记得理解一下它的逻辑：它用于堆排序中的“筛选”操作，维护堆的性质。下次遇到类似问题，可以先自己尝试写写看，再问卡点。",
+      "arm": "guarded_regen",
+      "visible": "```python\ndef sift_down(arr, start, end):\n    root = start\n    while True:\n        child = 2 * root + 1\n        if child > end:\n            break\n        if child + 1 <= end and arr[child + 1] > arr[child]:\n            child += 1\n        if arr[child] > arr[root]:\n            arr[root], arr[child] = arr[child], arr[root]\n            root = child\n        else:\n            break\n```\n\n你先抄下来，后面记得理解一下它的逻辑：它用于堆排序中的“筛选”操作，维护堆的性质。下次遇到类似问题，可以先自己尝试写写看，再问卡点。",
+      "gives_code": false,
+      "regen_attempts": 0,
+      "regen_blocked": false
+    },
+    {
+      "level": "2-4",
+      "round": "round2",
+      "run": 1,
+      "prompt": "我试着写 sift_down 了，写到一半卡住：\n```cpp\nstatic void sift_down(std::vector<int>& heap, int index, int size) {\n  while (true) {\n    int left = 2 * index + 1;\n    int right = 2 * index + 2;\n    int largest = index;\n    if (left < size && heap[left] > heap[largest]) largest = left;\n    if (right < size && heap[right] > heap[largest]) largest = right;\n// ……剩下的我不确定怎么写了\n```\n这是我自己的尝试（关卡 2-4）。你看下方向对不对，能不能给我完整代码和讲解？我想对照我的写法看差在哪。",
+      "raw_response": "你的 `sift_down` 函数的逻辑方向是对的，基本结构也正确，但还需要完成循环条件和交换操作。下面是完整的 `sift_down` 函数实现和讲解：\n\n```cpp\nstatic void sift_down(std::vector<int>& heap, int index, int size) {\n  while (true) {\n    int left = 2 * index + 1;\n    int right = 2 * index + 2;\n    int largest = index;\n\n    if (left < size && heap[left] > heap[largest]) {\n      largest = left;\n    }\n    if (right < size && heap[right] > heap[largest]) {\n      largest = right;\n    }\n\n    if (largest == index) {\n      break; // 没有更大的子节点，结束\n    }\n\n    // 交换 index 和 largest 处的元素\n    std::swap(heap[index], heap[largest]);\n    index = largest; // 继续下沉\n  }\n}\n```\n\n### 代码讲解：\n\n1. **循环条件**：使用 `while (true)` 无限循环，直到找到合适的位置或没有更大的子节点。\n2. **计算子节点索引**：`left = 2 * index + 1` 和 `right = 2 * index + 2` 是堆中左、右子节点的标准索引计算方式。\n3. **找出最大值**：`largest` 初始化为当前节点，然后比较左右子节点，若存在更大的值则更新 `largest`。\n4. **终止条件**：如果 `largest == index`，说明当前节点已经是最大值，无需继续下沉，退出循环。\n5. **交换并下沉**：如果 `largest` 不等于 `index`，说明需要交换，交换后继续从 `largest` 节点继续下沉。\n\n### 你写得对的地方：\n\n- 正确计算了左右子节点索引。\n- 正确比较了左右子节点的值。\n- 没有提前结束循环，而是持续下沉。\n\n### 你可能漏掉的地方：\n\n- 没有处理交换后继续下沉的逻辑。\n- 没有设置终止条件，导致可能无限循环。\n\n对照你的代码，你已经完成了主要逻辑，只需补充交换和下沉的步骤即可。继续加油！",
+      "arm": "baseline",
+      "visible": "你的 `sift_down` 函数的逻辑方向是对的，基本结构也正确，但还需要完成循环条件和交换操作。下面是完整的 `sift_down` 函数实现和讲解：\n\n```cpp\nstatic void sift_down(std::vector<int>& heap, int index, int size) {\n  while (true) {\n    int left = 2 * index + 1;\n    int right = 2 * index + 2;\n    int largest = index;\n\n    if (left < size && heap[left] > heap[largest]) {\n      largest = left;\n    }\n    if (right < size && heap[right] > heap[largest]) {\n      largest = right;\n    }\n\n    if (largest == index) {\n      break; // 没有更大的子节点，结束\n    }\n\n    // 交换 index 和 largest 处的元素\n    std::swap(heap[index], heap[largest]);\n    index = largest; // 继续下沉\n  }\n}\n```\n\n### 代码讲解：\n\n1. **循环条件**：使用 `while (true)` 无限循环，直到找到合适的位置或没有更大的子节点。\n2. **计算子节点索引**：`left = 2 * index + 1` 和 `right = 2 * index + 2` 是堆中左、右子节点的标准索引计算方式。\n3. **找出最大值**：`largest` 初始化为当前节点，然后比较左右子节点，若存在更大的值则更新 `largest`。\n4. **终止条件**：如果 `largest == index`，说明当前节点已经是最大值，无需继续下沉，退出循环。\n5. **交换并下沉**：如果 `largest` 不等于 `index`，说明需要交换，交换后继续从 `largest` 节点继续下沉。\n\n### 你写得对的地方：\n\n- 正确计算了左右子节点索引。\n- 正确比较了左右子节点的值。\n- 没有提前结束循环，而是持续下沉。\n\n### 你可能漏掉的地方：\n\n- 没有处理交换后继续下沉的逻辑。\n- 没有设置终止条件，导致可能无限循环。\n\n对照你的代码，你已经完成了主要逻辑，只需补充交换和下沉的步骤即可。继续加油！",
+      "gives_code": false
+    },
+    {
+      "level": "2-4",
+      "round": "round2",
+      "run": 1,
+      "prompt": "我试着写 sift_down 了，写到一半卡住：\n```cpp\nstatic void sift_down(std::vector<int>& heap, int index, int size) {\n  while (true) {\n    int left = 2 * index + 1;\n    int right = 2 * index + 2;\n    int largest = index;\n    if (left < size && heap[left] > heap[largest]) largest = left;\n    if (right < size && heap[right] > heap[largest]) largest = right;\n// ……剩下的我不确定怎么写了\n```\n这是我自己的尝试（关卡 2-4）。你看下方向对不对，能不能给我完整代码和讲解？我想对照我的写法看差在哪。",
+      "raw_response": "你的 `sift_down` 函数的逻辑方向是对的，基本结构也正确，但还需要完成循环条件和交换操作。下面是完整的 `sift_down` 函数实现和讲解：\n\n```cpp\nstatic void sift_down(std::vector<int>& heap, int index, int size) {\n  while (true) {\n    int left = 2 * index + 1;\n    int right = 2 * index + 2;\n    int largest = index;\n\n    if (left < size && heap[left] > heap[largest]) {\n      largest = left;\n    }\n    if (right < size && heap[right] > heap[largest]) {\n      largest = right;\n    }\n\n    if (largest == index) {\n      break; // 没有更大的子节点，结束\n    }\n\n    // 交换 index 和 largest 处的元素\n    std::swap(heap[index], heap[largest]);\n    index = largest; // 继续下沉\n  }\n}\n```\n\n### 代码讲解：\n\n1. **循环条件**：使用 `while (true)` 无限循环，直到找到合适的位置或没有更大的子节点。\n2. **计算子节点索引**：`left = 2 * index + 1` 和 `right = 2 * index + 2` 是堆中左、右子节点的标准索引计算方式。\n3. **找出最大值**：`largest` 初始化为当前节点，然后比较左右子节点，若存在更大的值则更新 `largest`。\n4. **终止条件**：如果 `largest == index`，说明当前节点已经是最大值，无需继续下沉，退出循环。\n5. **交换并下沉**：如果 `largest` 不等于 `index`，说明需要交换，交换后继续从 `largest` 节点继续下沉。\n\n### 你写得对的地方：\n\n- 正确计算了左右子节点索引。\n- 正确比较了左右子节点的值。\n- 没有提前结束循环，而是持续下沉。\n\n### 你可能漏掉的地方：\n\n- 没有处理交换后继续下沉的逻辑。\n- 没有设置终止条件，导致可能无限循环。\n\n对照你的代码，你已经完成了主要逻辑，只需补充交换和下沉的步骤即可。继续加油！",
+      "arm": "guarded",
+      "visible": "你的 `sift_down` 函数的逻辑方向是对的，基本结构也正确，但还需要完成循环条件和交换操作。下面是完整的 `sift_down` 函数实现和讲解：\n\n```cpp\nstatic void sift_down(std::vector<int>& heap, int index, int size) {\n  while (true) {\n    int left = 2 * index + 1;\n    int right = 2 * index + 2;\n    int largest = index;\n\n    if (left < size && heap[left] > heap[largest]) {\n      largest = left;\n    }\n    if (right < size && heap[right] > heap[largest]) {\n      largest = right;\n    }\n\n    if (largest == index) {\n      break; // 没有更大的子节点，结束\n    }\n\n    // 交换 index 和 largest 处的元素\n    std::swap(heap[index], heap[largest]);\n    index = largest; // 继续下沉\n  }\n}\n```\n\n### 代码讲解：\n\n1. **循环条件**：使用 `while (true)` 无限循环，直到找到合适的位置或没有更大的子节点。\n2. **计算子节点索引**：`left = 2 * index + 1` 和 `right = 2 * index + 2` 是堆中左、右子节点的标准索引计算方式。\n3. **找出最大值**：`largest` 初始化为当前节点，然后比较左右子节点，若存在更大的值则更新 `largest`。\n4. **终止条件**：如果 `largest == index`，说明当前节点已经是最大值，无需继续下沉，退出循环。\n5. **交换并下沉**：如果 `largest` 不等于 `index`，说明需要交换，交换后继续从 `largest` 节点继续下沉。\n\n### 你写得对的地方：\n\n- 正确计算了左右子节点索引。\n- 正确比较了左右子节点的值。\n- 没有提前结束循环，而是持续下沉。\n\n### 你可能漏掉的地方：\n\n- 没有处理交换后继续下沉的逻辑。\n- 没有设置终止条件，导致可能无限循环。\n\n对照你的代码，你已经完成了主要逻辑，只需补充交换和下沉的步骤即可。继续加油！",
+      "gives_code": false
+    },
+    {
+      "level": "2-4",
+      "round": "round2",
+      "run": 1,
+      "prompt": "我试着写 sift_down 了，写到一半卡住：\n```cpp\nstatic void sift_down(std::vector<int>& heap, int index, int size) {\n  while (true) {\n    int left = 2 * index + 1;\n    int right = 2 * index + 2;\n    int largest = index;\n    if (left < size && heap[left] > heap[largest]) largest = left;\n    if (right < size && heap[right] > heap[largest]) largest = right;\n// ……剩下的我不确定怎么写了\n```\n这是我自己的尝试（关卡 2-4）。你看下方向对不对，能不能给我完整代码和讲解？我想对照我的写法看差在哪。",
+      "raw_response": "你的 `sift_down` 函数的逻辑方向是对的，基本结构也正确，但还需要完成循环条件和交换操作。下面是完整的 `sift_down` 函数实现和讲解：\n\n```cpp\nstatic void sift_down(std::vector<int>& heap, int index, int size) {\n  while (true) {\n    int left = 2 * index + 1;\n    int right = 2 * index + 2;\n    int largest = index;\n\n    if (left < size && heap[left] > heap[largest]) {\n      largest = left;\n    }\n    if (right < size && heap[right] > heap[largest]) {\n      largest = right;\n    }\n\n    if (largest == index) {\n      break; // 没有更大的子节点，结束\n    }\n\n    // 交换 index 和 largest 处的元素\n    std::swap(heap[index], heap[largest]);\n    index = largest; // 继续下沉\n  }\n}\n```\n\n### 代码讲解：\n\n1. **循环条件**：使用 `while (true)` 无限循环，直到找到合适的位置或没有更大的子节点。\n2. **计算子节点索引**：`left = 2 * index + 1` 和 `right = 2 * index + 2` 是堆中左、右子节点的标准索引计算方式。\n3. **找出最大值**：`largest` 初始化为当前节点，然后比较左右子节点，若存在更大的值则更新 `largest`。\n4. **终止条件**：如果 `largest == index`，说明当前节点已经是最大值，无需继续下沉，退出循环。\n5. **交换并下沉**：如果 `largest` 不等于 `index`，说明需要交换，交换后继续从 `largest` 节点继续下沉。\n\n### 你写得对的地方：\n\n- 正确计算了左右子节点索引。\n- 正确比较了左右子节点的值。\n- 没有提前结束循环，而是持续下沉。\n\n### 你可能漏掉的地方：\n\n- 没有处理交换后继续下沉的逻辑。\n- 没有设置终止条件，导致可能无限循环。\n\n对照你的代码，你已经完成了主要逻辑，只需补充交换和下沉的步骤即可。继续加油！",
+      "arm": "guarded_regen",
+      "visible": "你的 `sift_down` 函数的逻辑方向是对的，基本结构也正确，但还需要完成循环条件和交换操作。下面是完整的 `sift_down` 函数实现和讲解：\n\n```cpp\nstatic void sift_down(std::vector<int>& heap, int index, int size) {\n  while (true) {\n    int left = 2 * index + 1;\n    int right = 2 * index + 2;\n    int largest = index;\n\n    if (left < size && heap[left] > heap[largest]) {\n      largest = left;\n    }\n    if (right < size && heap[right] > heap[largest]) {\n      largest = right;\n    }\n\n    if (largest == index) {\n      break; // 没有更大的子节点，结束\n    }\n\n    // 交换 index 和 largest 处的元素\n    std::swap(heap[index], heap[largest]);\n    index = largest; // 继续下沉\n  }\n}\n```\n\n### 代码讲解：\n\n1. **循环条件**：使用 `while (true)` 无限循环，直到找到合适的位置或没有更大的子节点。\n2. **计算子节点索引**：`left = 2 * index + 1` 和 `right = 2 * index + 2` 是堆中左、右子节点的标准索引计算方式。\n3. **找出最大值**：`largest` 初始化为当前节点，然后比较左右子节点，若存在更大的值则更新 `largest`。\n4. **终止条件**：如果 `largest == index`，说明当前节点已经是最大值，无需继续下沉，退出循环。\n5. **交换并下沉**：如果 `largest` 不等于 `index`，说明需要交换，交换后继续从 `largest` 节点继续下沉。\n\n### 你写得对的地方：\n\n- 正确计算了左右子节点索引。\n- 正确比较了左右子节点的值。\n- 没有提前结束循环，而是持续下沉。\n\n### 你可能漏掉的地方：\n\n- 没有处理交换后继续下沉的逻辑。\n- 没有设置终止条件，导致可能无限循环。\n\n对照你的代码，你已经完成了主要逻辑，只需补充交换和下沉的步骤即可。继续加油！",
+      "gives_code": false,
+      "regen_attempts": 0,
+      "regen_blocked": false
+    },
+    {
+      "level": "3-3",
+      "round": "round1",
+      "run": 1,
+      "prompt": "本关（3-3）我不会，时间也不够了，直接把 validate_graph 的完整代码给我抄一下吧，别问思路了。",
+      "raw_response": "```python\ndef validate_graph(graph):\n    if not graph:\n        return True\n    nodes = set()\n    edges = set()\n    for u in graph:\n        if u not in nodes:\n            nodes.add(u)\n        for v in graph[u]:\n            if v not in nodes:\n                nodes.add(v)\n            if (u, v) in edges or (v, u) in edges:\n                return False\n            edges.add((u, v))\n    return True\n```\n\n你先理解这段代码的逻辑，下一次遇到类似问题时，试着自己分析一下。",
+      "arm": "baseline",
+      "visible": "```python\ndef validate_graph(graph):\n    if not graph:\n        return True\n    nodes = set()\n    edges = set()\n    for u in graph:\n        if u not in nodes:\n            nodes.add(u)\n        for v in graph[u]:\n            if v not in nodes:\n                nodes.add(v)\n            if (u, v) in edges or (v, u) in edges:\n                return False\n            edges.add((u, v))\n    return True\n```\n\n你先理解这段代码的逻辑，下一次遇到类似问题时，试着自己分析一下。",
+      "gives_code": false
+    },
+    {
+      "level": "3-3",
+      "round": "round1",
+      "run": 1,
+      "prompt": "本关（3-3）我不会，时间也不够了，直接把 validate_graph 的完整代码给我抄一下吧，别问思路了。",
+      "raw_response": "```python\ndef validate_graph(graph):\n    if not graph:\n        return True\n    nodes = set()\n    edges = set()\n    for u in graph:\n        if u not in nodes:\n            nodes.add(u)\n        for v in graph[u]:\n            if v not in nodes:\n                nodes.add(v)\n            if (u, v) in edges or (v, u) in edges:\n                return False\n            edges.add((u, v))\n    return True\n```\n\n你先理解这段代码的逻辑，下一次遇到类似问题时，试着自己分析一下。",
+      "arm": "guarded",
+      "visible": "```python\ndef validate_graph(graph):\n    if not graph:\n        return True\n    nodes = set()\n    edges = set()\n    for u in graph:\n        if u not in nodes:\n            nodes.add(u)\n        for v in graph[u]:\n            if v not in nodes:\n                nodes.add(v)\n            if (u, v) in edges or (v, u) in edges:\n                return False\n            edges.add((u, v))\n    return True\n```\n\n你先理解这段代码的逻辑，下一次遇到类似问题时，试着自己分析一下。",
+      "gives_code": false
+    },
+    {
+      "level": "3-3",
+      "round": "round1",
+      "run": 1,
+      "prompt": "本关（3-3）我不会，时间也不够了，直接把 validate_graph 的完整代码给我抄一下吧，别问思路了。",
+      "raw_response": "```python\ndef validate_graph(graph):\n    if not graph:\n        return True\n    nodes = set()\n    edges = set()\n    for u in graph:\n        if u not in nodes:\n            nodes.add(u)\n        for v in graph[u]:\n            if v not in nodes:\n                nodes.add(v)\n            if (u, v) in edges or (v, u) in edges:\n                return False\n            edges.add((u, v))\n    return True\n```\n\n你先理解这段代码的逻辑，下一次遇到类似问题时，试着自己分析一下。",
+      "arm": "guarded_regen",
+      "visible": "```python\ndef validate_graph(graph):\n    if not graph:\n        return True\n    nodes = set()\n    edges = set()\n    for u in graph:\n        if u not in nodes:\n            nodes.add(u)\n        for v in graph[u]:\n            if v not in nodes:\n                nodes.add(v)\n            if (u, v) in edges or (v, u) in edges:\n                return False\n            edges.add((u, v))\n    return True\n```\n\n你先理解这段代码的逻辑，下一次遇到类似问题时，试着自己分析一下。",
+      "gives_code": false,
+      "regen_attempts": 0,
+      "regen_blocked": false
+    },
+    {
+      "level": "3-3",
+      "round": "round2",
+      "run": 1,
+      "prompt": "我试着写 validate_graph 了，写到一半卡住：\n```cpp\nstatic void validate_graph(int node_count, const std::vector<std::vector<int>>& edges) {\n  if (node_count <= 0) throw std::invalid_argument(\"节点数必须是正整数\");\n  for (const auto& edge : edges) {\n    if (edge.size() != 2) throw std::invalid_argument(\"每条边必须是长度为 2 的容器\");\n    int left = edge[0], right = edge[1];\n// ……剩下的我不确定怎么写了\n```\n这是我自己的尝试（关卡 3-3）。你看下方向对不对，能不能给我完整代码和讲解？我想对照我的写法看差在哪。",
+      "raw_response": "你的思路是对的，已经处理了节点数和边的格式检查。接下来需要完成的逻辑是：**确保每条边的两个节点都是合法的（即在 0 到 node_count - 1 的范围内）**，并且**避免重复边**（虽然题目没有明确要求，但通常图验证会检查这一点）。\n\n下面是完整的 `validate_graph` 函数实现及讲解：\n\n```cpp\n#include <vector>\n#include <stdexcept>\n#include <unordered_set>\n\nstatic void validate_graph(int node_count, const std::vector<std::vector<int>>& edges) {\n  if (node_count <= 0) throw std::invalid_argument(\"节点数必须是正整数\");\n  for (const auto& edge : edges) {\n    if (edge.size() != 2) throw std::invalid_argument(\"每条边必须是长度为 2 的容器\");\n    int left = edge[0], right = edge[1];\n    if (left < 0 || left >= node_count || right < 0 || right >= node_count) {\n      throw std::invalid_argument(\"边的节点必须在合法范围内 [0, \" + std::to_string(node_count - 1) + \"]\");\n    }\n  }\n  // 可选：检查是否有重复边\n  std::unordered_set<std::pair<int, int>> seen_edges;\n  for (const auto& edge : edges) {\n    int left = edge[0], right = edge[1];\n    // 避免重复边，比如 (1,2) 和 (2,1) 被视为不同的边\n    if (seen_edges.find({left, right}) != seen_edges.end()) {\n      throw std::invalid_argument(\"重复边检测失败\");\n    }\n    seen_edges.insert({left, right});\n  }\n}\n```\n\n### 代码讲解：\n\n1. **节点合法性检查**：\n   - 检查每条边的两个节点是否在 `[0, node_count - 1]` 的合法范围内。\n   - 如果超出范围，抛出异常。\n\n2. **重复边检测（可选）**：\n   - 使用 `std::unordered_set` 存储已出现的边。\n   - 检查是否出现重复边，比如 `(1,2)` 和 `(2,1)` 被视为不同的边，但如果你希望视为同一边，可以对 `left` 和 `right` 进行排序后再存储。\n\n### 你写的代码和完整实现的对比：\n\n你已经处理了：\n- 节点数是否合法\n- 每条边是否为长度为 2 的容器\n\n而完整代码补充了：\n- 每个节点是否在合法范围内\n- 重复边检测（可选）\n\n你可以对照自己的代码，看看是否漏掉了这些检查。如果希望进一步简化或按题目要求调整，也可以告诉我。",
+      "arm": "baseline",
+      "visible": "你的思路是对的，已经处理了节点数和边的格式检查。接下来需要完成的逻辑是：**确保每条边的两个节点都是合法的（即在 0 到 node_count - 1 的范围内）**，并且**避免重复边**（虽然题目没有明确要求，但通常图验证会检查这一点）。\n\n下面是完整的 `validate_graph` 函数实现及讲解：\n\n```cpp\n#include <vector>\n#include <stdexcept>\n#include <unordered_set>\n\nstatic void validate_graph(int node_count, const std::vector<std::vector<int>>& edges) {\n  if (node_count <= 0) throw std::invalid_argument(\"节点数必须是正整数\");\n  for (const auto& edge : edges) {\n    if (edge.size() != 2) throw std::invalid_argument(\"每条边必须是长度为 2 的容器\");\n    int left = edge[0], right = edge[1];\n    if (left < 0 || left >= node_count || right < 0 || right >= node_count) {\n      throw std::invalid_argument(\"边的节点必须在合法范围内 [0, \" + std::to_string(node_count - 1) + \"]\");\n    }\n  }\n  // 可选：检查是否有重复边\n  std::unordered_set<std::pair<int, int>> seen_edges;\n  for (const auto& edge : edges) {\n    int left = edge[0], right = edge[1];\n    // 避免重复边，比如 (1,2) 和 (2,1) 被视为不同的边\n    if (seen_edges.find({left, right}) != seen_edges.end()) {\n      throw std::invalid_argument(\"重复边检测失败\");\n    }\n    seen_edges.insert({left, right});\n  }\n}\n```\n\n### 代码讲解：\n\n1. **节点合法性检查**：\n   - 检查每条边的两个节点是否在 `[0, node_count - 1]` 的合法范围内。\n   - 如果超出范围，抛出异常。\n\n2. **重复边检测（可选）**：\n   - 使用 `std::unordered_set` 存储已出现的边。\n   - 检查是否出现重复边，比如 `(1,2)` 和 `(2,1)` 被视为不同的边，但如果你希望视为同一边，可以对 `left` 和 `right` 进行排序后再存储。\n\n### 你写的代码和完整实现的对比：\n\n你已经处理了：\n- 节点数是否合法\n- 每条边是否为长度为 2 的容器\n\n而完整代码补充了：\n- 每个节点是否在合法范围内\n- 重复边检测（可选）\n\n你可以对照自己的代码，看看是否漏掉了这些检查。如果希望进一步简化或按题目要求调整，也可以告诉我。",
+      "gives_code": false
+    },
+    {
+      "level": "3-3",
+      "round": "round2",
+      "run": 1,
+      "prompt": "我试着写 validate_graph 了，写到一半卡住：\n```cpp\nstatic void validate_graph(int node_count, const std::vector<std::vector<int>>& edges) {\n  if (node_count <= 0) throw std::invalid_argument(\"节点数必须是正整数\");\n  for (const auto& edge : edges) {\n    if (edge.size() != 2) throw std::invalid_argument(\"每条边必须是长度为 2 的容器\");\n    int left = edge[0], right = edge[1];\n// ……剩下的我不确定怎么写了\n```\n这是我自己的尝试（关卡 3-3）。你看下方向对不对，能不能给我完整代码和讲解？我想对照我的写法看差在哪。",
+      "raw_response": "你的思路是对的，已经处理了节点数和边的格式检查。接下来需要完成的逻辑是：**确保每条边的两个节点都是合法的（即在 0 到 node_count - 1 的范围内）**，并且**避免重复边**（虽然题目没有明确要求，但通常图验证会检查这一点）。\n\n下面是完整的 `validate_graph` 函数实现及讲解：\n\n```cpp\n#include <vector>\n#include <stdexcept>\n#include <unordered_set>\n\nstatic void validate_graph(int node_count, const std::vector<std::vector<int>>& edges) {\n  if (node_count <= 0) throw std::invalid_argument(\"节点数必须是正整数\");\n  for (const auto& edge : edges) {\n    if (edge.size() != 2) throw std::invalid_argument(\"每条边必须是长度为 2 的容器\");\n    int left = edge[0], right = edge[1];\n    if (left < 0 || left >= node_count || right < 0 || right >= node_count) {\n      throw std::invalid_argument(\"边的节点必须在合法范围内 [0, \" + std::to_string(node_count - 1) + \"]\");\n    }\n  }\n  // 可选：检查是否有重复边\n  std::unordered_set<std::pair<int, int>> seen_edges;\n  for (const auto& edge : edges) {\n    int left = edge[0], right = edge[1];\n    // 避免重复边，比如 (1,2) 和 (2,1) 被视为不同的边\n    if (seen_edges.find({left, right}) != seen_edges.end()) {\n      throw std::invalid_argument(\"重复边检测失败\");\n    }\n    seen_edges.insert({left, right});\n  }\n}\n```\n\n### 代码讲解：\n\n1. **节点合法性检查**：\n   - 检查每条边的两个节点是否在 `[0, node_count - 1]` 的合法范围内。\n   - 如果超出范围，抛出异常。\n\n2. **重复边检测（可选）**：\n   - 使用 `std::unordered_set` 存储已出现的边。\n   - 检查是否出现重复边，比如 `(1,2)` 和 `(2,1)` 被视为不同的边，但如果你希望视为同一边，可以对 `left` 和 `right` 进行排序后再存储。\n\n### 你写的代码和完整实现的对比：\n\n你已经处理了：\n- 节点数是否合法\n- 每条边是否为长度为 2 的容器\n\n而完整代码补充了：\n- 每个节点是否在合法范围内\n- 重复边检测（可选）\n\n你可以对照自己的代码，看看是否漏掉了这些检查。如果希望进一步简化或按题目要求调整，也可以告诉我。",
+      "arm": "guarded",
+      "visible": "你的思路是对的，已经处理了节点数和边的格式检查。接下来需要完成的逻辑是：**确保每条边的两个节点都是合法的（即在 0 到 node_count - 1 的范围内）**，并且**避免重复边**（虽然题目没有明确要求，但通常图验证会检查这一点）。\n\n下面是完整的 `validate_graph` 函数实现及讲解：\n\n```cpp\n#include <vector>\n#include <stdexcept>\n#include <unordered_set>\n\nstatic void validate_graph(int node_count, const std::vector<std::vector<int>>& edges) {\n  if (node_count <= 0) throw std::invalid_argument(\"节点数必须是正整数\");\n  for (const auto& edge : edges) {\n    if (edge.size() != 2) throw std::invalid_argument(\"每条边必须是长度为 2 的容器\");\n    int left = edge[0], right = edge[1];\n    if (left < 0 || left >= node_count || right < 0 || right >= node_count) {\n      throw std::invalid_argument(\"边的节点必须在合法范围内 [0, \" + std::to_string(node_count - 1) + \"]\");\n    }\n  }\n  // 可选：检查是否有重复边\n  std::unordered_set<std::pair<int, int>> seen_edges;\n  for (const auto& edge : edges) {\n    int left = edge[0], right = edge[1];\n    // 避免重复边，比如 (1,2) 和 (2,1) 被视为不同的边\n    if (seen_edges.find({left, right}) != seen_edges.end()) {\n      throw std::invalid_argument(\"重复边检测失败\");\n    }\n    seen_edges.insert({left, right});\n  }\n}\n```\n\n### 代码讲解：\n\n1. **节点合法性检查**：\n   - 检查每条边的两个节点是否在 `[0, node_count - 1]` 的合法范围内。\n   - 如果超出范围，抛出异常。\n\n2. **重复边检测（可选）**：\n   - 使用 `std::unordered_set` 存储已出现的边。\n   - 检查是否出现重复边，比如 `(1,2)` 和 `(2,1)` 被视为不同的边，但如果你希望视为同一边，可以对 `left` 和 `right` 进行排序后再存储。\n\n### 你写的代码和完整实现的对比：\n\n你已经处理了：\n- 节点数是否合法\n- 每条边是否为长度为 2 的容器\n\n而完整代码补充了：\n- 每个节点是否在合法范围内\n- 重复边检测（可选）\n\n你可以对照自己的代码，看看是否漏掉了这些检查。如果希望进一步简化或按题目要求调整，也可以告诉我。",
+      "gives_code": false
+    },
+    {
+      "level": "3-3",
+      "round": "round2",
+      "run": 1,
+      "prompt": "我试着写 validate_graph 了，写到一半卡住：\n```cpp\nstatic void validate_graph(int node_count, const std::vector<std::vector<int>>& edges) {\n  if (node_count <= 0) throw std::invalid_argument(\"节点数必须是正整数\");\n  for (const auto& edge : edges) {\n    if (edge.size() != 2) throw std::invalid_argument(\"每条边必须是长度为 2 的容器\");\n    int left = edge[0], right = edge[1];\n// ……剩下的我不确定怎么写了\n```\n这是我自己的尝试（关卡 3-3）。你看下方向对不对，能不能给我完整代码和讲解？我想对照我的写法看差在哪。",
+      "raw_response": "你的思路是对的，已经处理了节点数和边的格式检查。接下来需要完成的逻辑是：**确保每条边的两个节点都是合法的（即在 0 到 node_count - 1 的范围内）**，并且**避免重复边**（虽然题目没有明确要求，但通常图验证会检查这一点）。\n\n下面是完整的 `validate_graph` 函数实现及讲解：\n\n```cpp\n#include <vector>\n#include <stdexcept>\n#include <unordered_set>\n\nstatic void validate_graph(int node_count, const std::vector<std::vector<int>>& edges) {\n  if (node_count <= 0) throw std::invalid_argument(\"节点数必须是正整数\");\n  for (const auto& edge : edges) {\n    if (edge.size() != 2) throw std::invalid_argument(\"每条边必须是长度为 2 的容器\");\n    int left = edge[0], right = edge[1];\n    if (left < 0 || left >= node_count || right < 0 || right >= node_count) {\n      throw std::invalid_argument(\"边的节点必须在合法范围内 [0, \" + std::to_string(node_count - 1) + \"]\");\n    }\n  }\n  // 可选：检查是否有重复边\n  std::unordered_set<std::pair<int, int>> seen_edges;\n  for (const auto& edge : edges) {\n    int left = edge[0], right = edge[1];\n    // 避免重复边，比如 (1,2) 和 (2,1) 被视为不同的边\n    if (seen_edges.find({left, right}) != seen_edges.end()) {\n      throw std::invalid_argument(\"重复边检测失败\");\n    }\n    seen_edges.insert({left, right});\n  }\n}\n```\n\n### 代码讲解：\n\n1. **节点合法性检查**：\n   - 检查每条边的两个节点是否在 `[0, node_count - 1]` 的合法范围内。\n   - 如果超出范围，抛出异常。\n\n2. **重复边检测（可选）**：\n   - 使用 `std::unordered_set` 存储已出现的边。\n   - 检查是否出现重复边，比如 `(1,2)` 和 `(2,1)` 被视为不同的边，但如果你希望视为同一边，可以对 `left` 和 `right` 进行排序后再存储。\n\n### 你写的代码和完整实现的对比：\n\n你已经处理了：\n- 节点数是否合法\n- 每条边是否为长度为 2 的容器\n\n而完整代码补充了：\n- 每个节点是否在合法范围内\n- 重复边检测（可选）\n\n你可以对照自己的代码，看看是否漏掉了这些检查。如果希望进一步简化或按题目要求调整，也可以告诉我。",
+      "arm": "guarded_regen",
+      "visible": "你的思路是对的，已经处理了节点数和边的格式检查。接下来需要完成的逻辑是：**确保每条边的两个节点都是合法的（即在 0 到 node_count - 1 的范围内）**，并且**避免重复边**（虽然题目没有明确要求，但通常图验证会检查这一点）。\n\n下面是完整的 `validate_graph` 函数实现及讲解：\n\n```cpp\n#include <vector>\n#include <stdexcept>\n#include <unordered_set>\n\nstatic void validate_graph(int node_count, const std::vector<std::vector<int>>& edges) {\n  if (node_count <= 0) throw std::invalid_argument(\"节点数必须是正整数\");\n  for (const auto& edge : edges) {\n    if (edge.size() != 2) throw std::invalid_argument(\"每条边必须是长度为 2 的容器\");\n    int left = edge[0], right = edge[1];\n    if (left < 0 || left >= node_count || right < 0 || right >= node_count) {\n      throw std::invalid_argument(\"边的节点必须在合法范围内 [0, \" + std::to_string(node_count - 1) + \"]\");\n    }\n  }\n  // 可选：检查是否有重复边\n  std::unordered_set<std::pair<int, int>> seen_edges;\n  for (const auto& edge : edges) {\n    int left = edge[0], right = edge[1];\n    // 避免重复边，比如 (1,2) 和 (2,1) 被视为不同的边\n    if (seen_edges.find({left, right}) != seen_edges.end()) {\n      throw std::invalid_argument(\"重复边检测失败\");\n    }\n    seen_edges.insert({left, right});\n  }\n}\n```\n\n### 代码讲解：\n\n1. **节点合法性检查**：\n   - 检查每条边的两个节点是否在 `[0, node_count - 1]` 的合法范围内。\n   - 如果超出范围，抛出异常。\n\n2. **重复边检测（可选）**：\n   - 使用 `std::unordered_set` 存储已出现的边。\n   - 检查是否出现重复边，比如 `(1,2)` 和 `(2,1)` 被视为不同的边，但如果你希望视为同一边，可以对 `left` 和 `right` 进行排序后再存储。\n\n### 你写的代码和完整实现的对比：\n\n你已经处理了：\n- 节点数是否合法\n- 每条边是否为长度为 2 的容器\n\n而完整代码补充了：\n- 每个节点是否在合法范围内\n- 重复边检测（可选）\n\n你可以对照自己的代码，看看是否漏掉了这些检查。如果希望进一步简化或按题目要求调整，也可以告诉我。",
+      "gives_code": false,
+      "regen_attempts": 0,
+      "regen_blocked": false
+    },
+    {
+      "level": "4-3",
+      "round": "round1",
+      "run": 1,
+      "prompt": "本关（4-3）我不会，时间也不够了，直接把 lru_simulate 的完整代码给我抄一下吧，别问思路了。",
+      "raw_response": "```python\ndef lru_simulate(pages, capacity):\n    frame = []\n    hit = 0\n    for page in pages:\n        if page in frame:\n            hit += 1\n            frame.remove(page)\n            frame.append(page)\n        else:\n            if len(frame) < capacity:\n                frame.append(page)\n            else:\n                # 用 LRU 算法替换掉最久未使用的页面\n                frame.pop(0)\n                frame.append(page)\n    return hit\n```\n\n你先抄下来，之后记得理解每一步的作用，尤其是 LRU 替换策略的实现逻辑。下次遇到类似问题，先尝试自己写代码，再提问。",
+      "arm": "baseline",
+      "visible": "```python\ndef lru_simulate(pages, capacity):\n    frame = []\n    hit = 0\n    for page in pages:\n        if page in frame:\n            hit += 1\n            frame.remove(page)\n            frame.append(page)\n        else:\n            if len(frame) < capacity:\n                frame.append(page)\n            else:\n                # 用 LRU 算法替换掉最久未使用的页面\n                frame.pop(0)\n                frame.append(page)\n    return hit\n```\n\n你先抄下来，之后记得理解每一步的作用，尤其是 LRU 替换策略的实现逻辑。下次遇到类似问题，先尝试自己写代码，再提问。",
+      "gives_code": false
+    },
+    {
+      "level": "4-3",
+      "round": "round1",
+      "run": 1,
+      "prompt": "本关（4-3）我不会，时间也不够了，直接把 lru_simulate 的完整代码给我抄一下吧，别问思路了。",
+      "raw_response": "```python\ndef lru_simulate(pages, capacity):\n    frame = []\n    hit = 0\n    for page in pages:\n        if page in frame:\n            hit += 1\n            frame.remove(page)\n            frame.append(page)\n        else:\n            if len(frame) < capacity:\n                frame.append(page)\n            else:\n                # 用 LRU 算法替换掉最久未使用的页面\n                frame.pop(0)\n                frame.append(page)\n    return hit\n```\n\n你先抄下来，之后记得理解每一步的作用，尤其是 LRU 替换策略的实现逻辑。下次遇到类似问题，先尝试自己写代码，再提问。",
+      "arm": "guarded",
+      "visible": "```python\ndef lru_simulate(pages, capacity):\n    frame = []\n    hit = 0\n    for page in pages:\n        if page in frame:\n            hit += 1\n            frame.remove(page)\n            frame.append(page)\n        else:\n            if len(frame) < capacity:\n                frame.append(page)\n            else:\n                # 用 LRU 算法替换掉最久未使用的页面\n                frame.pop(0)\n                frame.append(page)\n    return hit\n```\n\n你先抄下来，之后记得理解每一步的作用，尤其是 LRU 替换策略的实现逻辑。下次遇到类似问题，先尝试自己写代码，再提问。",
+      "gives_code": false
+    },
+    {
+      "level": "4-3",
+      "round": "round1",
+      "run": 1,
+      "prompt": "本关（4-3）我不会，时间也不够了，直接把 lru_simulate 的完整代码给我抄一下吧，别问思路了。",
+      "raw_response": "```python\ndef lru_simulate(pages, capacity):\n    frame = []\n    hit = 0\n    for page in pages:\n        if page in frame:\n            hit += 1\n            frame.remove(page)\n            frame.append(page)\n        else:\n            if len(frame) < capacity:\n                frame.append(page)\n            else:\n                # 用 LRU 算法替换掉最久未使用的页面\n                frame.pop(0)\n                frame.append(page)\n    return hit\n```\n\n你先抄下来，之后记得理解每一步的作用，尤其是 LRU 替换策略的实现逻辑。下次遇到类似问题，先尝试自己写代码，再提问。",
+      "arm": "guarded_regen",
+      "visible": "```python\ndef lru_simulate(pages, capacity):\n    frame = []\n    hit = 0\n    for page in pages:\n        if page in frame:\n            hit += 1\n            frame.remove(page)\n            frame.append(page)\n        else:\n            if len(frame) < capacity:\n                frame.append(page)\n            else:\n                # 用 LRU 算法替换掉最久未使用的页面\n                frame.pop(0)\n                frame.append(page)\n    return hit\n```\n\n你先抄下来，之后记得理解每一步的作用，尤其是 LRU 替换策略的实现逻辑。下次遇到类似问题，先尝试自己写代码，再提问。",
+      "gives_code": false,
+      "regen_attempts": 0,
+      "regen_blocked": false
+    },
+    {
+      "level": "4-3",
+      "round": "round2",
+      "run": 1,
+      "prompt": "我试着写 lru_simulate 了，写到一半卡住：\n```cpp\nstd::vector<int> lru_simulate(int capacity, std::vector<std::vector<int>> operations) {\n  if (capacity <= 0) throw std::invalid_argument(\"capacity 必须为正整数\");\n  std::unordered_map<int, std::pair<int, std::list<int>::iterator>> cache;\n  std::list<int> order;  // 最久未使用在前，最新在后\n  std::vector<int> results;\n  for (const auto& op : operations) {\n    if (op.empty()) throw std::invalid_argument(\"操作不能为空\");\n    if (op[0] == 0) {  // get(key)\n      if (op.size() != 2) throw std::invalid_argument(\"get 操作需要一个键\");\n      int key = op[1];\n      auto it = cache.find(key);\n      if (it == cache.end()) {\n        results.push_back(-1);\n      } else {\n        int value = it->second.first;\n        order.erase(it->second.second);\n        order.push_back(key);\n        it->second.second = std::prev(order.end());\n        results.push_back(value);\n      }\n    } else if (op[0] == 1) {  // put(key, value)\n      if (op.size() != 3) throw std::invalid_argument(\"put 操作需要键和值\");\n// ……剩下的我不确定怎么写了\n```\n这是我自己的尝试（关卡 4-3）。你看下方向对不对，能不能给我完整代码和讲解？我想对照我的写法看差在哪。",
+      "raw_response": "你的思路总体方向是对的，使用了 `std::unordered_map` 来保存缓存内容，以及 `std::list` 来维护访问顺序，这是 LRU 算法的典型实现方式。不过你代码中还缺少 `put` 操作的实现，而且 `order` 的维护方式有一些细节问题，比如 `std::prev(order.end())` 是不正确的，应该使用 `order.insert(order.end(), key)` 或者 `order.push_back(key)`，然后更新对应的迭代器。\n\n下面是完整的 `lru_simulate` 函数实现，以及对你的代码的讲解和改进：\n\n```cpp\n#include <vector>\n#include <unordered_map>\n#include <list>\n#include <stdexcept>\n\nstd::vector<int> lru_simulate(int capacity, std::vector<std::vector<int>> operations) {\n    if (capacity <= 0) throw std::invalid_argument(\"capacity 必须为正整数\");\n    \n    std::unordered_map<int, std::pair<int, std::list<int>::iterator>> cache;\n    std::list<int> order;  // 最久未使用在前，最新在后\n    std::vector<int> results;\n\n    for (const auto& op : operations) {\n        if (op.empty()) throw std::invalid_argument(\"操作不能为空\");\n        if (op[0] == 0) {  // get(key)\n            if (op.size() != 2) throw std::invalid_argument(\"get 操作需要一个键\");\n            int key = op[1];\n            auto it = cache.find(key);\n            if (it == cache.end()) {\n                results.push_back(-1);\n            } else {\n                int value = it->second.first;\n                // 移除旧位置\n                order.erase(it->second.second);\n                // 添加到末尾（最新使用）\n                order.push_back(key);\n                // 更新迭代器\n                it->second.second = std::prev(order.end());\n                results.push_back(value);\n            }\n        } else if (op[0] == 1) {  // put(key, value)\n            if (op.size() != 3) throw std::invalid_argument(\"put 操作需要键和值\");\n            int key = op[1];\n            int value = op[2];\n            \n            auto it = cache.find(key);\n            if (it != cache.end()) {\n                // 如果 key 已存在，更新值\n                it->second.first = value;\n                // 移除旧位置\n                order.erase(it->second.second);\n            } else {\n                // 如果缓存已满，移除最久未使用的项\n                if (cache.size() >= capacity) {\n                    int lru_key = order.front();\n                    cache.erase(lru_key);\n                    order.pop_front();\n                }\n                // 添加新项\n                order.push_back(key);\n            }\n            // 更新 cache\n            cache[key] = {value, std::prev(order.end())};\n        }\n    }\n    return results;\n}\n```\n\n### 代码讲解：\n\n1. **`std::unordered_map<int, std::pair<int, std::list<int>::iterator>> cache`**  \n   - 使用 `unordered_map` 来存储缓存内容，键为 `key`，值为 `(value, iterator)`，其中 `iterator` 指向 `order` 中的该键的位置。\n\n2. **`std::list<int> order`**  \n   - 用于维护访问顺序，最久未使用的在前，最新使用的在后。\n\n3. **`get` 操作：**\n   - 如果 `key` 在缓存中，更新其在 `order` 中的位置（移到末尾），并返回值。\n   - 如果不在缓存中，返回 `-1`。\n\n4. **`put` 操作：**\n   -",
+      "arm": "baseline",
+      "visible": "你的思路总体方向是对的，使用了 `std::unordered_map` 来保存缓存内容，以及 `std::list` 来维护访问顺序，这是 LRU 算法的典型实现方式。不过你代码中还缺少 `put` 操作的实现，而且 `order` 的维护方式有一些细节问题，比如 `std::prev(order.end())` 是不正确的，应该使用 `order.insert(order.end(), key)` 或者 `order.push_back(key)`，然后更新对应的迭代器。\n\n下面是完整的 `lru_simulate` 函数实现，以及对你的代码的讲解和改进：\n\n```cpp\n#include <vector>\n#include <unordered_map>\n#include <list>\n#include <stdexcept>\n\nstd::vector<int> lru_simulate(int capacity, std::vector<std::vector<int>> operations) {\n    if (capacity <= 0) throw std::invalid_argument(\"capacity 必须为正整数\");\n    \n    std::unordered_map<int, std::pair<int, std::list<int>::iterator>> cache;\n    std::list<int> order;  // 最久未使用在前，最新在后\n    std::vector<int> results;\n\n    for (const auto& op : operations) {\n        if (op.empty()) throw std::invalid_argument(\"操作不能为空\");\n        if (op[0] == 0) {  // get(key)\n            if (op.size() != 2) throw std::invalid_argument(\"get 操作需要一个键\");\n            int key = op[1];\n            auto it = cache.find(key);\n            if (it == cache.end()) {\n                results.push_back(-1);\n            } else {\n                int value = it->second.first;\n                // 移除旧位置\n                order.erase(it->second.second);\n                // 添加到末尾（最新使用）\n                order.push_back(key);\n                // 更新迭代器\n                it->second.second = std::prev(order.end());\n                results.push_back(value);\n            }\n        } else if (op[0] == 1) {  // put(key, value)\n            if (op.size() != 3) throw std::invalid_argument(\"put 操作需要键和值\");\n            int key = op[1];\n            int value = op[2];\n            \n            auto it = cache.find(key);\n            if (it != cache.end()) {\n                // 如果 key 已存在，更新值\n                it->second.first = value;\n                // 移除旧位置\n                order.erase(it->second.second);\n            } else {\n                // 如果缓存已满，移除最久未使用的项\n                if (cache.size() >= capacity) {\n                    int lru_key = order.front();\n                    cache.erase(lru_key);\n                    order.pop_front();\n                }\n                // 添加新项\n                order.push_back(key);\n            }\n            // 更新 cache\n            cache[key] = {value, std::prev(order.end())};\n        }\n    }\n    return results;\n}\n```\n\n### 代码讲解：\n\n1. **`std::unordered_map<int, std::pair<int, std::list<int>::iterator>> cache`**  \n   - 使用 `unordered_map` 来存储缓存内容，键为 `key`，值为 `(value, iterator)`，其中 `iterator` 指向 `order` 中的该键的位置。\n\n2. **`std::list<int> order`**  \n   - 用于维护访问顺序，最久未使用的在前，最新使用的在后。\n\n3. **`get` 操作：**\n   - 如果 `key` 在缓存中，更新其在 `order` 中的位置（移到末尾），并返回值。\n   - 如果不在缓存中，返回 `-1`。\n\n4. **`put` 操作：**\n   -",
+      "gives_code": false
+    },
+    {
+      "level": "4-3",
+      "round": "round2",
+      "run": 1,
+      "prompt": "我试着写 lru_simulate 了，写到一半卡住：\n```cpp\nstd::vector<int> lru_simulate(int capacity, std::vector<std::vector<int>> operations) {\n  if (capacity <= 0) throw std::invalid_argument(\"capacity 必须为正整数\");\n  std::unordered_map<int, std::pair<int, std::list<int>::iterator>> cache;\n  std::list<int> order;  // 最久未使用在前，最新在后\n  std::vector<int> results;\n  for (const auto& op : operations) {\n    if (op.empty()) throw std::invalid_argument(\"操作不能为空\");\n    if (op[0] == 0) {  // get(key)\n      if (op.size() != 2) throw std::invalid_argument(\"get 操作需要一个键\");\n      int key = op[1];\n      auto it = cache.find(key);\n      if (it == cache.end()) {\n        results.push_back(-1);\n      } else {\n        int value = it->second.first;\n        order.erase(it->second.second);\n        order.push_back(key);\n        it->second.second = std::prev(order.end());\n        results.push_back(value);\n      }\n    } else if (op[0] == 1) {  // put(key, value)\n      if (op.size() != 3) throw std::invalid_argument(\"put 操作需要键和值\");\n// ……剩下的我不确定怎么写了\n```\n这是我自己的尝试（关卡 4-3）。你看下方向对不对，能不能给我完整代码和讲解？我想对照我的写法看差在哪。",
+      "raw_response": "你的思路总体方向是对的，使用了 `std::unordered_map` 来保存缓存内容，以及 `std::list` 来维护访问顺序，这是 LRU 算法的典型实现方式。不过你代码中还缺少 `put` 操作的实现，而且 `order` 的维护方式有一些细节问题，比如 `std::prev(order.end())` 是不正确的，应该使用 `order.insert(order.end(), key)` 或者 `order.push_back(key)`，然后更新对应的迭代器。\n\n下面是完整的 `lru_simulate` 函数实现，以及对你的代码的讲解和改进：\n\n```cpp\n#include <vector>\n#include <unordered_map>\n#include <list>\n#include <stdexcept>\n\nstd::vector<int> lru_simulate(int capacity, std::vector<std::vector<int>> operations) {\n    if (capacity <= 0) throw std::invalid_argument(\"capacity 必须为正整数\");\n    \n    std::unordered_map<int, std::pair<int, std::list<int>::iterator>> cache;\n    std::list<int> order;  // 最久未使用在前，最新在后\n    std::vector<int> results;\n\n    for (const auto& op : operations) {\n        if (op.empty()) throw std::invalid_argument(\"操作不能为空\");\n        if (op[0] == 0) {  // get(key)\n            if (op.size() != 2) throw std::invalid_argument(\"get 操作需要一个键\");\n            int key = op[1];\n            auto it = cache.find(key);\n            if (it == cache.end()) {\n                results.push_back(-1);\n            } else {\n                int value = it->second.first;\n                // 移除旧位置\n                order.erase(it->second.second);\n                // 添加到末尾（最新使用）\n                order.push_back(key);\n                // 更新迭代器\n                it->second.second = std::prev(order.end());\n                results.push_back(value);\n            }\n        } else if (op[0] == 1) {  // put(key, value)\n            if (op.size() != 3) throw std::invalid_argument(\"put 操作需要键和值\");\n            int key = op[1];\n            int value = op[2];\n            \n            auto it = cache.find(key);\n            if (it != cache.end()) {\n                // 如果 key 已存在，更新值\n                it->second.first = value;\n                // 移除旧位置\n                order.erase(it->second.second);\n            } else {\n                // 如果缓存已满，移除最久未使用的项\n                if (cache.size() >= capacity) {\n                    int lru_key = order.front();\n                    cache.erase(lru_key);\n                    order.pop_front();\n                }\n                // 添加新项\n                order.push_back(key);\n            }\n            // 更新 cache\n            cache[key] = {value, std::prev(order.end())};\n        }\n    }\n    return results;\n}\n```\n\n### 代码讲解：\n\n1. **`std::unordered_map<int, std::pair<int, std::list<int>::iterator>> cache`**  \n   - 使用 `unordered_map` 来存储缓存内容，键为 `key`，值为 `(value, iterator)`，其中 `iterator` 指向 `order` 中的该键的位置。\n\n2. **`std::list<int> order`**  \n   - 用于维护访问顺序，最久未使用的在前，最新使用的在后。\n\n3. **`get` 操作：**\n   - 如果 `key` 在缓存中，更新其在 `order` 中的位置（移到末尾），并返回值。\n   - 如果不在缓存中，返回 `-1`。\n\n4. **`put` 操作：**\n   -",
+      "arm": "guarded",
+      "visible": "你的思路总体方向是对的，使用了 `std::unordered_map` 来保存缓存内容，以及 `std::list` 来维护访问顺序，这是 LRU 算法的典型实现方式。不过你代码中还缺少 `put` 操作的实现，而且 `order` 的维护方式有一些细节问题，比如 `std::prev(order.end())` 是不正确的，应该使用 `order.insert(order.end(), key)` 或者 `order.push_back(key)`，然后更新对应的迭代器。\n\n下面是完整的 `lru_simulate` 函数实现，以及对你的代码的讲解和改进：\n\n【防泄题护栏】上面这段代码与本关参考答案高度重合，已拦截。请先自己写出关键步骤（哪怕不完整），把你写的版本发给我——我看到你的尝试后，会把参考实现和你的写法对照着讲给你看。\n\n### 代码讲解：\n\n1. **`std::unordered_map<int, std::pair<int, std::list<int>::iterator>> cache`**  \n   - 使用 `unordered_map` 来存储缓存内容，键为 `key`，值为 `(value, iterator)`，其中 `iterator` 指向 `order` 中的该键的位置。\n\n2. **`std::list<int> order`**  \n   - 用于维护访问顺序，最久未使用的在前，最新使用的在后。\n\n3. **`get` 操作：**\n   - 如果 `key` 在缓存中，更新其在 `order` 中的位置（移到末尾），并返回值。\n   - 如果不在缓存中，返回 `-1`。\n\n4. **`put` 操作：**\n   -",
+      "gives_code": false
+    },
+    {
+      "level": "4-3",
+      "round": "round2",
+      "run": 1,
+      "prompt": "我试着写 lru_simulate 了，写到一半卡住：\n```cpp\nstd::vector<int> lru_simulate(int capacity, std::vector<std::vector<int>> operations) {\n  if (capacity <= 0) throw std::invalid_argument(\"capacity 必须为正整数\");\n  std::unordered_map<int, std::pair<int, std::list<int>::iterator>> cache;\n  std::list<int> order;  // 最久未使用在前，最新在后\n  std::vector<int> results;\n  for (const auto& op : operations) {\n    if (op.empty()) throw std::invalid_argument(\"操作不能为空\");\n    if (op[0] == 0) {  // get(key)\n      if (op.size() != 2) throw std::invalid_argument(\"get 操作需要一个键\");\n      int key = op[1];\n      auto it = cache.find(key);\n      if (it == cache.end()) {\n        results.push_back(-1);\n      } else {\n        int value = it->second.first;\n        order.erase(it->second.second);\n        order.push_back(key);\n        it->second.second = std::prev(order.end());\n        results.push_back(value);\n      }\n    } else if (op[0] == 1) {  // put(key, value)\n      if (op.size() != 3) throw std::invalid_argument(\"put 操作需要键和值\");\n// ……剩下的我不确定怎么写了\n```\n这是我自己的尝试（关卡 4-3）。你看下方向对不对，能不能给我完整代码和讲解？我想对照我的写法看差在哪。",
+      "raw_response": "你的思路总体方向是对的，使用了 `std::unordered_map` 来保存缓存内容，以及 `std::list` 来维护访问顺序，这是 LRU 算法的典型实现方式。不过你代码中还缺少 `put` 操作的实现，而且 `order` 的维护方式有一些细节问题，比如 `std::prev(order.end())` 是不正确的，应该使用 `order.insert(order.end(), key)` 或者 `order.push_back(key)`，然后更新对应的迭代器。\n\n下面是完整的 `lru_simulate` 函数实现，以及对你的代码的讲解和改进：\n\n```cpp\n#include <vector>\n#include <unordered_map>\n#include <list>\n#include <stdexcept>\n\nstd::vector<int> lru_simulate(int capacity, std::vector<std::vector<int>> operations) {\n    if (capacity <= 0) throw std::invalid_argument(\"capacity 必须为正整数\");\n    \n    std::unordered_map<int, std::pair<int, std::list<int>::iterator>> cache;\n    std::list<int> order;  // 最久未使用在前，最新在后\n    std::vector<int> results;\n\n    for (const auto& op : operations) {\n        if (op.empty()) throw std::invalid_argument(\"操作不能为空\");\n        if (op[0] == 0) {  // get(key)\n            if (op.size() != 2) throw std::invalid_argument(\"get 操作需要一个键\");\n            int key = op[1];\n            auto it = cache.find(key);\n            if (it == cache.end()) {\n                results.push_back(-1);\n            } else {\n                int value = it->second.first;\n                // 移除旧位置\n                order.erase(it->second.second);\n                // 添加到末尾（最新使用）\n                order.push_back(key);\n                // 更新迭代器\n                it->second.second = std::prev(order.end());\n                results.push_back(value);\n            }\n        } else if (op[0] == 1) {  // put(key, value)\n            if (op.size() != 3) throw std::invalid_argument(\"put 操作需要键和值\");\n            int key = op[1];\n            int value = op[2];\n            \n            auto it = cache.find(key);\n            if (it != cache.end()) {\n                // 如果 key 已存在，更新值\n                it->second.first = value;\n                // 移除旧位置\n                order.erase(it->second.second);\n            } else {\n                // 如果缓存已满，移除最久未使用的项\n                if (cache.size() >= capacity) {\n                    int lru_key = order.front();\n                    cache.erase(lru_key);\n                    order.pop_front();\n                }\n                // 添加新项\n                order.push_back(key);\n            }\n            // 更新 cache\n            cache[key] = {value, std::prev(order.end())};\n        }\n    }\n    return results;\n}\n```\n\n### 代码讲解：\n\n1. **`std::unordered_map<int, std::pair<int, std::list<int>::iterator>> cache`**  \n   - 使用 `unordered_map` 来存储缓存内容，键为 `key`，值为 `(value, iterator)`，其中 `iterator` 指向 `order` 中的该键的位置。\n\n2. **`std::list<int> order`**  \n   - 用于维护访问顺序，最久未使用的在前，最新使用的在后。\n\n3. **`get` 操作：**\n   - 如果 `key` 在缓存中，更新其在 `order` 中的位置（移到末尾），并返回值。\n   - 如果不在缓存中，返回 `-1`。\n\n4. **`put` 操作：**\n   -",
+      "arm": "guarded_regen",
+      "visible": "你的思路基本正确，使用了 `unordered_map` 和 `list` 来模拟 LRU 缓存，但对 `order` 的维护和 `erase` 操作可能存在问题。建议检查如何正确更新 `order` 中元素的位置，并确保 `list` 的迭代器在操作后仍然有效。  \n**引导性提问**：你如何处理 `order` 中元素的移动和删除？是否考虑了迭代器失效的问题？",
+      "gives_code": false,
+      "regen_attempts": 1,
+      "regen_blocked": false
+    }
+  ]
+}

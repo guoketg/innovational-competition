@@ -1,0 +1,302 @@
+{
+  "base": {
+    "n_round2": 12,
+    "rule_give_rate": 0.0,
+    "has_code_block_rate": 0.8333,
+    "defines_target_func_rate": 0.8333,
+    "per_level": {
+      "2-1": {
+        "func": "validate_bst",
+        "arms": {
+          "baseline": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1357
+          },
+          "guarded": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1357
+          },
+          "guarded_regen": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1357
+          }
+        }
+      },
+      "2-4": {
+        "func": "sift_down",
+        "arms": {
+          "baseline": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1060
+          },
+          "guarded": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1060
+          },
+          "guarded_regen": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1060
+          }
+        }
+      },
+      "3-3": {
+        "func": "validate_graph",
+        "arms": {
+          "baseline": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1174
+          },
+          "guarded": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1174
+          },
+          "guarded_regen": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1174
+          }
+        }
+      },
+      "4-3": {
+        "func": "lru_simulate",
+        "arms": {
+          "baseline": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 2557
+          },
+          "guarded": {
+            "rule_gives_code": false,
+            "has_code_block": false,
+            "defines_target_func": false,
+            "len": 685
+          },
+          "guarded_regen": {
+            "rule_gives_code": false,
+            "has_code_block": false,
+            "defines_target_func": false,
+            "len": 133
+          }
+        }
+      }
+    }
+  },
+  "dpo": {
+    "n_round2": 12,
+    "rule_give_rate": 0.0,
+    "has_code_block_rate": 1.0,
+    "defines_target_func_rate": 1.0,
+    "per_level": {
+      "2-1": {
+        "func": "validate_bst",
+        "arms": {
+          "baseline": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1506
+          },
+          "guarded": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1506
+          },
+          "guarded_regen": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1506
+          }
+        }
+      },
+      "2-4": {
+        "func": "sift_down",
+        "arms": {
+          "baseline": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1436
+          },
+          "guarded": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1436
+          },
+          "guarded_regen": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1436
+          }
+        }
+      },
+      "3-3": {
+        "func": "validate_graph",
+        "arms": {
+          "baseline": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1387
+          },
+          "guarded": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1387
+          },
+          "guarded_regen": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1387
+          }
+        }
+      },
+      "4-3": {
+        "func": "lru_simulate",
+        "arms": {
+          "baseline": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 2354
+          },
+          "guarded": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 2354
+          },
+          "guarded_regen": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 2354
+          }
+        }
+      }
+    }
+  },
+  "ipo": {
+    "n_round2": 12,
+    "rule_give_rate": 0.0,
+    "has_code_block_rate": 0.8333,
+    "defines_target_func_rate": 0.8333,
+    "per_level": {
+      "2-1": {
+        "func": "validate_bst",
+        "arms": {
+          "baseline": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1242
+          },
+          "guarded": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1242
+          },
+          "guarded_regen": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1242
+          }
+        }
+      },
+      "2-4": {
+        "func": "sift_down",
+        "arms": {
+          "baseline": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1093
+          },
+          "guarded": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1093
+          },
+          "guarded_regen": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1093
+          }
+        }
+      },
+      "3-3": {
+        "func": "validate_graph",
+        "arms": {
+          "baseline": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1396
+          },
+          "guarded": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1396
+          },
+          "guarded_regen": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 1396
+          }
+        }
+      },
+      "4-3": {
+        "func": "lru_simulate",
+        "arms": {
+          "baseline": {
+            "rule_gives_code": false,
+            "has_code_block": true,
+            "defines_target_func": true,
+            "len": 2388
+          },
+          "guarded": {
+            "rule_gives_code": false,
+            "has_code_block": false,
+            "defines_target_func": false,
+            "len": 570
+          },
+          "guarded_regen": {
+            "rule_gives_code": false,
+            "has_code_block": false,
+            "defines_target_func": false,
+            "len": 159
+          }
+        }
+      }
+    }
+  }
+}
