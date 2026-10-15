@@ -155,7 +155,6 @@ onBeforeUnmount(() => {
 const menuItems = [
   { route: '/dashboard',    label: '学习控制台', icon: 'DataAnalysis' },
   { route: '/diagnosis',    label: '学情自测',   icon: 'DocumentChecked' },
-  { route: '/qa',           label: '智能答疑',   icon: 'ChatDotRound' },
   { route: '/learning-docs',label: '学习文档',   icon: 'Guide' },
   { route: '/error-book',   label: '错题本',     icon: 'EditPen' },
   { route: '/analytics',    label: '学情复盘',   icon: 'TrendCharts' },
