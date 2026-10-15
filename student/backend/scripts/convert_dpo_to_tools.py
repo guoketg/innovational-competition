@@ -19,7 +19,17 @@ chosen/rejected 改写为三工具调用 JSON（give_hint / give_answer / modify
 
 质检（查表，build_dpo_pairs.validate_tool_call）：
   chosen 侧零违规；rejected 侧至少命中一条违规（否则方向反了）。
+  无 bug 检查（plan §3.10 ⑤）：学生贴码与 verify_lab_content 参考解逐字等价
+  （确证无缺陷，忽略空白）时 chosen 不得为 modify_code（no_bug_no_touch）；
+  无法确证（变异体 / 自由代码 / 无贴码）不触发，宁可漏检不误杀。
 不合格对丢弃并计数。转换后 20% 人工抽检（--sample 输出抽样文件）。
+
+多轮样本原生轨迹升级：
+  真·多轮样本（round2，prompt 为 [user(r1), assistant(文本引导), user(r2)]）的
+  round1 引导文本表述不出"先读文件再决策"的调工具行为，故就地改写为原生工具轨迹
+  [user(r1), assistant(tool_calls=read_project_file), tool(学生代码), user(r2)]，
+  使行为通道（调工具 + 多轮）进入 DPO 训练分布。chosen/rejected 目标不变（保持
+  决策工具调用文本，训练脚本无需改动）。幂等：已升级样本重跑不变。
 
 用法：
   python scripts/convert_dpo_to_tools.py                 # train + eval 全量转换
@@ -30,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -66,10 +77,73 @@ def extract_code(text: str) -> str:
 
 def clean_why(text: str) -> str:
     """strip_code 移除围栏代码后正文会留下连续空行，压缩为单个空行。"""
-    import re
     out = re.sub(r"(?:[ \t]*\n){3,}", "\n\n", (text or "").strip())
     out = re.sub(r"[ \t]+\n", "\n", out)
     return out.strip()
+
+
+_FENCE_RE = re.compile(r"```([A-Za-z0-9_+-]*)\n(.*?)```", re.S)
+
+
+def _solution_file_for(fence_lang: str) -> str:
+    """围栏语言 → 工作区解答文件名（与 agent_lab_specs.LANGUAGE_SPECS 对齐）。"""
+    if (fence_lang or "").lower() in ("cpp", "c++", "cc", "cxx"):
+        return "solution.cpp"
+    return "solution.py"
+
+
+def _first_code_block(text: str) -> tuple[str, str]:
+    """返回 (围栏语言, 代码文本)；无围栏时返回 ("", 原文) 以便调用方跳过。"""
+    m = _FENCE_RE.search(text or "")
+    if m:
+        return m.group(1), m.group(2).strip()
+    return "", ""
+
+
+def upgrade_multiturn_trajectory(prompt) -> tuple[object, bool]:
+    """多轮样本历史 → 原生工具轨迹（plan §3.10，2026-10-14 定）。
+
+    文本通道的历史 [user(r1 含代码), assistant(纯文本引导), user(r2 追问)] 表述不出
+    "先读文件再决策"，故改写为原生工具轨迹：
+      [user(r1), assistant(tool_calls=read_project_file), tool(学生代码), user(r2)]
+    只有存在"无 tool_calls 的 assistant 文本消息"、且其之前的 user 消息带围栏代码时改写；
+    已升级样本再跑不变（幂等）。chosen/rejected 目标不改（仍为决策工具调用文本）。
+    """
+    if not isinstance(prompt, list):
+        return prompt, False
+    # 定位第一条无 tool_calls 的 assistant 文本消息（即 round1 的文本引导）
+    idx = None
+    for i, m in enumerate(prompt):
+        if isinstance(m, dict) and m.get("role") == "assistant" and not m.get("tool_calls"):
+            idx = i
+            break
+    if idx is None:
+        return prompt, False
+    # 取该 assistant 之前最近一条 user 消息里的围栏代码作为"文件内容"
+    fence_lang, code = "", ""
+    for m in reversed(prompt[:idx]):
+        if isinstance(m, dict) and m.get("role") == "user":
+            fence_lang, code = _first_code_block(str(m.get("content") or ""))
+            if code:
+                break
+    if not code:
+        return prompt, False
+    tool_call_id = "call_read_1"
+    read_msg = {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [{
+            "id": tool_call_id,
+            "type": "function",
+            "function": {
+                "name": "read_project_file",
+                "arguments": {"path": _solution_file_for(fence_lang)},
+            },
+        }],
+    }
+    tool_msg = {"role": "tool", "tool_call_id": tool_call_id,
+                "name": "read_project_file", "content": code}
+    return prompt[:idx] + [read_msg, tool_msg] + prompt[idx + 1:], True
 
 
 def convert_row(row: dict, stats: dict) -> dict | None:
@@ -78,9 +152,15 @@ def convert_row(row: dict, stats: dict) -> dict | None:
     rnd = int(row.get("round") or 0)
     chosen, rejected = row["chosen"], row["rejected"]
 
+    out = dict(row)
+    # 多轮样本：历史升级为原生工具轨迹（读取文件 → 追问 → 决策）
+    new_prompt, upgraded = upgrade_multiturn_trajectory(row.get("prompt"))
+    if upgraded:
+        out["prompt"] = new_prompt
+        stats["multiturn_upgraded"] = stats.get("multiturn_upgraded", 0) + 1
+
     # 不涉工具场景：概念直答 + G 层通用 + A 层反谄媚 → 纯文本保留
     if layer == "G" or subtype in ("concept", "sycophancy"):
-        out = dict(row)
         out["tool_decision"] = "text_only"
         stats["text_only"] += 1
         return out
@@ -134,7 +214,6 @@ def convert_row(row: dict, stats: dict) -> dict | None:
         stats["dropped_rejected_clean"] += 1
         return None
 
-    out = dict(row)
     out["chosen"] = json.dumps(chosen_call, ensure_ascii=False)
     out["rejected"] = json.dumps(rejected_call, ensure_ascii=False)
     out["tool_decision"] = decision
@@ -145,7 +224,7 @@ def convert_row(row: dict, stats: dict) -> dict | None:
 
 
 def convert_file(src_path: Path, dst_path: Path) -> dict:
-    stats: dict = {"input": 0, "converted": 0, "text_only": 0,
+    stats: dict = {"input": 0, "converted": 0, "text_only": 0, "multiturn_upgraded": 0,
                    "dropped_chosen_violation": 0, "dropped_rejected_clean": 0}
     rows_out: list[dict] = []
     for line in src_path.read_text(encoding="utf-8").splitlines():

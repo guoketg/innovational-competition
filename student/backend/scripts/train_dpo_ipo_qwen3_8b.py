@@ -12,8 +12,9 @@
 
 两种方法共用同一套数据、超参与代码路径，只有 loss_type / 产物目录 / 指标标签不同。
 数据为工具决策版偏好对（convert_dpo_to_tools.py 产出）：
-  dpo_pairs_tools.jsonl      训练集（1040 对）
-  dpo_eval_pairs_tools.jsonl 评估集（304 对）
+  dpo_pairs_tools.jsonl      训练集（1018 对）
+  dpo_eval_pairs_tools.jsonl 评估集（294 对）
+  （2026-10-15 no_bug_no_touch 质检生效：round2 确认型 39 对被质检丢弃，见 dpo_alignment_plan.md）
 格式：{"prompt": [messages], "chosen": str, "rejected": str}
 
 ================================================================================
@@ -91,7 +92,7 @@ MAX_COMPLETION_LENGTH = 1536  # completion max≈1312，不截断
 LORA_R = 16
 BATCH_SIZE = 1            # 33GB MIG 显存限制
 GRAD_ACCUM = 4            # 有效 batch_size = 4
-NUM_EPOCHS = 1            # 1040 条偏好对，1 epoch 足够，多 epoch 易过拟合
+NUM_EPOCHS = 1            # ~1000 条偏好对，1 epoch 足够，多 epoch 易过拟合
 LR = 1e-5                 # LoRA-DPO/IPO 常用 5e-6 ~ 2e-5
 BETA = 0.1                # DPO/IPO 正则系数（TRL 默认 0.1）
 

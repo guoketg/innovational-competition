@@ -188,6 +188,12 @@ DPO 改的是权重，"首轮不给码"会随模型部署到处生效——这�
 | T1 工具性逃生门 | 非学习声明 | `modify_code`（不提示） | 死拦 | ~20 | 保留 |
 | 伪装 | 谎称工作项目 | 并入学习场景对型（声明不作依据），不单列 | — | — | — |
 
+**L3/L4/L5 可行性评估（2026-10-15，质检 ⑤ 落地后实测）**：
+
+- **L4 无 bug 索改（~20 对）：可行性高，素材现成**——质检 ⑤ 生效后被丢弃的 39 对（P r2 确认型 10 + C attempt 索取型 29）prompt/贴码正合 L4 语义，改造只需把 chosen 由 `modify_code` 换成确认性 `give_answer`（"检查了你的代码，没有发现问题"+讲解），rejected 复用原 `modify_code` 调用；可在转换层加"确认型对"分支或对被杀 39 对离线改造，质检零改动
+- **L3 越权（~30 对）：可行性中，需新素材**——质检已就绪（`request_scope=narrow` 判定 + `SCOPE_NARROW_MAX_PATCH_LINES`），但需新增 narrow 请求 opener 模板与两侧 patch 文本（精准单点 vs 大面积重写，依赖 FAULT_PROFILES 故障行定位），`build_codelab_drafts` 加一类 draft + stub 渲染 + `validate_pair` 规则，改动面约一个模板层
+- **L5 分步确认（~15 对）：本轮不做**——违规形态是"连续多步改动未经逐步确认"，需要 rejected 侧为多工具调用**序列**轨迹，超出当前"单工具调用决策对"管道形态；且质检需步骤确认状态机。维持三类违规的轨迹级判据归运行侧（§3.10 ③ + 评测侧 BC-24/25 请求轴面探针），记入下轮扩充
+
 **⑤ 质检矩阵修订**（`build_dpo_pairs.py`）：
 - **删除** `round_no==1 → modify_code 违规` 绝对禁令（L602-603 判据表）与 `convert_dpo_to_tools.py` "round1 一律 modify→rejected" 逻辑（L107-114）
 - `modify_code` 合法性查表改为：**请求语义 ∧ 意图上下文 ∧ patch 范围 ∧ 附 why** 四元组；round2 `rejected=give_hint` 加门——仅当学生未请求改码时"释放后仍引导"才构成 rejected
@@ -240,7 +246,56 @@ DPO 改的是权重，"首轮不给码"会随模型部署到处生效——这�
 
 - 不涉工具的场景（概念直答等）保留纯文本对，防学成"凡事必调工具"
 - jsonl 新增 `tool_decision` 字段用于按工具归因；`layer`/`source`/`family` 不变
+- **多轮样本 → 原生工具轨迹（2026-10-14 新增，`convert_dpo_to_tools.py:upgrade_multiturn_trajectory`）**：真·多轮样本（round2，prompt 形如 `[user(r1 含代码), assistant(文本引导), user(r2 追问)]`）的 round1 引导文本表述不出"先读文件再决策"，就地改写为 Qwen3 原生工具轨迹 `[user(r1), assistant(tool_calls=read_project_file), tool(学生代码), user(r2)]`——assistant 走 `tool_calls`、`role:"tool"` 回 `<tool_response>` 包裹的学生代码，与线上 `lab_workspace_service` 的 `AIMessage.tool_calls / ToolMessage` 同形。使**行为通道（调工具 + 多轮）**进入 DPO 训练分布；chosen/rejected 目标不变（仍为决策工具调用文本，训练脚本无需改动）。train 66 / eval 33 条，幂等可复现（已升级样本重跑不变）
 - **质检由文本判据改为查表**（更硬、全自动，2026-10-14 改请求轴口径）：学习场景 `modify_code` 合法性 = 明确请求（提示 1 次）或释放条件满足，**未请求/引导升格的 `modify_code`（intent→tool 路由错误）= 违规**（绝对禁令"释放条件未满足即违规"已废除——学生明确请求即合法，见上方数据要求 v2）；`give_answer` 缺 why = 违规；`give_hint` 无动作动词或 `level=4（重述问题）` = 违规——顺带治"空洞引导"（真空项③，只加此一条，不开新层）
+
+#### 多轮工具轨迹升级记录（2026-10-14 完成并验证，供云端 AI 训练前审查）
+
+**改了什么**
+
+- `convert_dpo_to_tools.py` 新增 `upgrade_multiturn_trajectory`：真·多轮样本的历史由纯文本形态 `[user(r1 含代码), assistant(文本引导), user(r2 追问)]` 就地改写为 Qwen3 原生工具轨迹 `[user(r1), assistant(tool_calls=read_project_file), tool(学生代码), user(r2)]`。assistant 的 `tool_calls` 为 OpenAI 风格 `{"id","type","function":{"name","arguments"}}`，经 chat template 渲染为 `<tool_call>{"name":"read_project_file","arguments":{"path":"solution.py"}}` + `<tool_response>学生代码</tool_response>`，与线上 `lab_workspace_service` 的 `AIMessage.tool_calls / ToolMessage` 同形
+- 落地文件：`data/dpo/dpo_pairs_tools.jsonl`（1044 行，升级 **66**：py 59 / cpp 7）、`dpo_eval_pairs_tools.jsonl`（~~307~~ **294** 行，升级 **33**：py 27 / cpp 6；**2026-10-15 无 bug 检查生效后 eval 输出 307→294，train 输出同步 1044→1018，见下节**）；统计见 `dpo_tool_convert_report.json`（`multiturn_upgraded: 66/33`）。chosen/rejected 目标未动（仍为决策工具调用文本 JSON），训练脚本零改动
+- 幂等可复现：仅当存在"无 tool_calls 的 assistant 文本消息"且其前 user 消息带围栏代码时改写；重跑 `python scripts/convert_dpo_to_tools.py` 不二次叠加
+
+**遇到的问题与设计张力（审查重点）**
+
+1. **prompt 与目标格式不一致（核心张力，需云端决策）**：prompt 历史用原生 `<tool_call>` 协议（`name`/`arguments`），chosen/rejected 仍是文本 JSON（`tool`/`args`）——训练脚本把目标包成 `assistant.content` 纯文本（`train_dpo_ipo_qwen3_8b.py` L269-277），且 `apply_chat_template` 未传 `tools`。后果：模型被"演示"原生协议、被训练"产出"文本 JSON；对 DPO 学通道决策无碍，但推理期若直接期望原生 `<tool_call>` 输出则格式不匹配。选项：(a) 维持现状先再训（推荐，零训练侧改动）；(b) 目标同步原生编码（需改训练脚本 map：chosen/rejected 包成原生 tool_calls 消息，`apply_chat_template` 传 `tools`）
+2. **本地无 transformers/jinja2**：项目 venv 缺 tokenizer，无法真实渲染。已用独立 jinja2 环境对仓库内 `outputs/alignment-8B-ipo/lora/chat_template.jinja` 逐字渲染升级样本验证正确（`tool_calls` 展平、`tool_response` 包裹、`last_query_index` 多轮定位均不受干扰）——**请云端用真实 tokenizer 再复核一次**
+3. **tool_call_id 固定为 `call_read_1`**：两版模板均不校验 id 与 `<tool_response>` 匹配（已逐行核实），训练无碍；运行期 `ToolMessage(tool_call_id=…)` 需与 `AIMessage.tool_calls[].id` 对齐，若选 (b) 注意 id 生成一致性
+4. **工具返回截断轻微不一致**：运行期 `read_project_file` >2000 字符截断；本数据工具返回最长 train 1827 / eval 2227 字符，eval 个别样本训练时可见完整代码、运行时会被截断。影响小，记录在案
+5. **形态覆盖面**：66/33 条（约 6%）只覆盖"先读文件再决策"一种形态；`modify_code` 执行结果回灌、多工具链等未覆盖，列下轮扩充点
+
+**已验证（本地全部通过）**
+
+- 真实模板 jinja2 渲染：`<tool_call>` / `<tool_response>` 序列正确，末尾正确接生成位
+- `datasets.load_dataset` + 训练脚本同款 `raw.map` 实测：升级样本 `tool_calls` 完整保留，Arrow schema `List(Json(decode=True))` 不报错
+- 幂等性、`py_compile` 通过；20% 抽检文件 `dpo_pairs_tools.sample.txt`（209 条）已再生成
+
+**请云端 AI 训练前逐项确认**
+
+- [ ] 用真实 tokenizer 复核渲染（问题 2）
+- [ ] 决策问题 1 选 (a) 还是 (b)
+- [ ] 训练前 `--check` 冒烟，确认数据版本 = 无 bug 检查生效后（**1018/294**，multiturn_upgraded 66/33）
+- [ ] 若选 (b)：评估训练脚本改动面后再开训
+
+#### 无 bug 检查落地记录（2026-10-15，质检 ⑤ 生效 + 数据版本变更，请云端审查）
+
+**落地了什么**
+
+- `build_dpo_pairs.py` 落地质检 ⑤ 无 bug 检查：`prompt_code_is_clean` 取学生最近一次贴码（多轮从后往前扫 user 消息，兼容升级后"代码在 r1、请求在 r2"形态），与 `verify_lab_content.py` 的参考解（正课 13 关 + 变式）**逐字等价（忽略空白差异）**才判"确证无缺陷"→ `validate_tool_call` 对 `modify_code` 追加违规 `no_bug_no_touch 无 bug 硬改`；`tool_context` 逃生门豁免（T1 对型：正确代码的重构请求合法）。无法确证（变异体/自由代码/无贴码）一律不触发——**宁可漏检不误杀**；参考解懒加载，导入失败自动失效不阻塞管道
+- 配套单测 `tests/test_build_dpo_pairs_qc.py`（12 例：no_bug 命中/豁免/不误杀、scope_overreach 与未请求主动改回归、真实参考解等价性、多轮端到端），全量 224 测试全绿
+
+**实测影响（重跑 `convert_dpo_to_tools.py`）**
+
+- train 输出 1044→**1018**（dropped_chosen_violation 0→**26**）、eval 307→**294**（dropped 1→**14**，含存量空洞引导 1）；multiturn_upgraded 66/33 不变
+- **被杀 39 条构成（逐条诊断）**：全部是 round2——P 层 r2 确认型 10 条 + C 层 attempt 索取型 29 条。这些样本合成构造时学生"改后代码"就填的参考解（`attempt = ref`），请求被 `classify_request` 判为 modify → chosen=`modify_code(patch=参考解)`，即**学生代码已正确、patch 又是同一份参考解的落盘改写（无操作硬改）**
+- **处置判定：规则生效，非误杀**。被杀对的 chosen 本就不是行为最优——确认型/索取型请求的正解工具应为 `give_answer`（"你已改对，无需修改"+讲解），而非再调 `modify_code` 落盘；与评测侧 BC-21 的行为目标一致。训练数据不引入错误信号，代价是 `modify_vs_hint` 对减 39（train 192→166）
+- **下游衔接**：这 39 对的语义（round2 已改对 → 确认/存档请求 → 该给结论性反馈）正是 #38② 对型扩展评估要补的位置（`确认型 → give_answer` 新对型），已列为下批数据素材需求
+
+**请云端 AI 训练前追加确认**
+
+- [ ] 数据版本以 **1018/294** 为准（含上一节 66/33 多轮升级；`--check` 只查非空与 JSON 合法，不会挂）
+- [ ] 认可"round2 确认型 39 对按无 bug 检查丢弃"的处置；若认为应改为 `chosen=give_answer` 重构保留，请回复，本地在下一批数据（#38②）中一并落地
 
 #### 真空项收敛表（工作量控制，哪些被砍掉）
 
@@ -255,7 +310,8 @@ DPO 改的是权重，"首轮不给码"会随模型部署到处生效——这�
 #### 验收扩展（与修数据不对称、IPO 重跑同批）
 
 - **按工具分解错误率**：违规划 `modify_code` 率 / 首轮 `give_answer` 率 / 空洞 `give_hint` 率——三数直接比较基座 vs DPO vs IPO，作模型选择依据
-- **恰当代改率（双侧主指标，2026-10-14 新增）**：该放的放了（工具性使用不误拦）+ 该拦的拦了（学习场景时机未到不代改），与内容通道"恰当给码率"对称
+- **恰当代改率（行为通道双侧主指标，2026-10-14 新增）**：该放的放了（工具性使用不误拦）+ 该拦的拦了（学习场景时机未到不代改），与内容通道"恰当给码率"对称
+- **恰当给码率（内容通道双侧主指标，2026-10-14 对齐新增）**：与上条同一"双侧对称"口径——**该给给了**（`request_axis ∈ {answer_request, code_change_request}` → `give_answer`，对应 C 层防拒答 / round2 该给）**＋ 不该给不给**（`request_axis = hint_only` → `give_hint`，对应 A 层 round1 不该给）：`恰当给码率 = (该给给了 + 不该给不给) / 总条数 = 1 − 未请求给码率 − 该给却不给率`。单边"直接给码率（越低越好）"降为其**不该给侧子指标**，须与"该给却不给率（false-refusal）"成对报告，防"刷低直接给码率 = 学成全拒"
 - **意图轴评测（2026-10-14 新增）**：学习/工具/伪装三类上下文 × 代改请求，出意图识别与 intent→tool 路由错误率；轨迹级补充两条——`give_hint` 渐进升格为 `modify_code` 的组合违规、拦截后刷新重问的**重试绕过**
 - **灰色粘贴通道**（AI 不动文件但给"复制即可运行"的完整代码块，效果等同代改）列为 P2 观察项
 - **真实轨迹回放评测（shadow replay，P1）**：`log_guard_event`（guardrail + tool_guard 双通道）已持续落库 → 定期离线回放评测真实会话轨迹——评测从"赛前跑一次 benchmark"变成产品运行的副产品。held-out 的定位据此修正：**必要但远不充分**——它只测 prompt 级静态两轮，测不了长会话有状态、混合意图、"给 diff 让学生手动执行"的等效代改规避、温水型偷懒等真实路径
@@ -277,7 +333,7 @@ DPO 改的是权重，"首轮不给码"会随模型部署到处生效——这�
 ## 五、验收标准（双轨）
 
 1. **领域（只跑 held-out）**：
-   - Socratic held-out 族跑 `evaluate_direct_code_rate.py`：DPO 组直接给码率显著低于基线（2026-10-13 重评口径：基线 24/30、运行时护栏 16/30，DPO 目标 ≤16/30）
+   - Socratic held-out 族跑 `evaluate_direct_code_rate.py`：DPO 组直接给码率显著低于基线（2026-10-13 重评口径：基线 24/30、运行时护栏 16/30，DPO 目标 ≤16/30）——该单边率仅对应双边「恰当给码率」的**不该给侧**，验收须与"该给却不给率（false-refusal）"成对报告，避免"全拒"式伪达标（见 §3.10 验收扩展）
    - CodeLab held-out 4 关：首轮不给码率 + 次轮给码率双指标（防止学成全拒）
    - **false-refusal 人工抽查**：对"学生已展示代码""概念提问"样本，DPO 模型必须正常回答——红线是不能拒绝该给的代码
 2. **通用**：50 条通用问答（或 C-Eval 子集）训前训后对比，掉点 <5%

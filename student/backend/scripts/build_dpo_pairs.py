@@ -595,6 +595,53 @@ def last_user_text(prompt) -> str:
     return str(prompt or "")
 
 
+# 参考解源的规范化索引（懒加载缓存）；导入失败时为空列表 = 无 bug 检查自动失效。
+_reference_norm_index: list[str] | None = None
+
+
+def _reference_norm_index_get() -> list[str]:
+    global _reference_norm_index
+    if _reference_norm_index is None:
+        try:
+            from verify_lab_content import (  # noqa: PLC0415
+                REFERENCE_SOLUTIONS,
+                VARIANT_REFERENCE_SOLUTIONS,
+            )
+            pool = [*REFERENCE_SOLUTIONS.values(), *VARIANT_REFERENCE_SOLUTIONS.values()]
+        except Exception:  # noqa: BLE001
+            pool = []
+        _reference_norm_index = [re.sub(r"\s+", "", s) for s in pool if s]
+    return _reference_norm_index
+
+
+def last_student_code(prompt) -> str:
+    """取 prompt 中学生最近一次贴出的围栏代码块（无贴码返回空串）。
+
+    多轮样本代码贴在 r1、本轮请求在 r2（见 convert_dpo_to_tools.upgrade_multiturn_trajectory），
+    故从后往前扫 user 消息取最后一个代码块，而不是只看本轮。
+    """
+    if isinstance(prompt, list):
+        msgs = [m for m in prompt if isinstance(m, dict) and m.get("role") == "user"]
+    else:
+        msgs = [{"role": "user", "content": str(prompt or "")}]
+    for msg in reversed(msgs):
+        blocks = [b["code"] for b in extract_code_blocks(str(msg.get("content") or "")) if b.get("code")]
+        if blocks:
+            return blocks[-1]
+    return ""
+
+
+def prompt_code_is_clean(prompt) -> bool:
+    """学生贴码是否可**确证**为无缺陷：与任一参考解逐字等价（忽略空白差异）。
+
+    这是数据侧唯一可靠的"无缺陷"判据——带 bug 的变异体、学生自由书写代码
+    都无法由文本比对肯定地判为无 bug，一律返回 False（不触发无 bug 检查，
+    宁可漏检不误杀）。参考解来自 verify_lab_content（正课 + 变式）。
+    """
+    code = last_student_code(prompt)
+    return bool(code) and re.sub(r"\s+", "", code) in _reference_norm_index_get()
+
+
 def build_tool_context(prompt, *, round_no: int, release_expected: bool) -> dict:
     """构造 ``validate_tool_call`` 的四元组上下文（请求轴唯一化）。
 
@@ -607,6 +654,7 @@ def build_tool_context(prompt, *, round_no: int, release_expected: bool) -> dict
         "tool_context": sig.declares_tool_context,
         "release_expected": release_expected,
         "request_scope": "narrow" if sig.scope_narrowed else "full",
+        "prompt_code_clean": prompt_code_is_clean(prompt),
     }
 
 
@@ -623,6 +671,7 @@ def validate_tool_call(obj: dict, ctx: dict) -> list[str]:
       tool_context     是否命中工具性使用逃生门（应放行）
       release_expected 时机释放条件是否已满足（round≥2 / C 层）
       request_scope    "narrow"（点了具体范围）| "full"
+      prompt_code_clean 学生贴码与参考解逐字等价（确证无缺陷，plan §3.10 ⑤ 无 bug 检查）
 
     已删除 v1 的 ``round_no==1 → modify_code 违规`` 绝对禁令：别人拿模型当改码
     工具本无理由禁止，合法性只看"学生是否开口要改"。
@@ -659,6 +708,10 @@ def validate_tool_call(obj: dict, ctx: dict) -> list[str]:
         if narrow and _patch_significant_lines(args.get("patch")) > SCOPE_NARROW_MAX_PATCH_LINES:
             # 请求只收窄到一处，patch 却大面积重写 = 越权修改
             bad.append("scope_overreach 越权修改")
+        if ctx.get("prompt_code_clean") and not tool_context:
+            # 学生贴码与参考解逐字等价（确证无缺陷可改）→ 应说明无需修改，硬改即无 bug 硬改。
+            # 逃生门豁免：工具性使用允许按需改动（含正确代码的重构/改名请求，T1 对型）。
+            bad.append("no_bug_no_touch 无 bug 硬改")
     return bad
 
 

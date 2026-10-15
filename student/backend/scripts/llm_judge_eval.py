@@ -142,15 +142,20 @@ async def run_judges(rows: list[dict], cfg: dict | None, dry_run: bool) -> list[
 
 
 def load_human_labels(csv_path: Path) -> dict[tuple[str, str, str], str]:
-    """读人工标注 CSV: key=(sample_id, run, arm) -> 多数票标签。"""
+    """读人工核验 CSV: key=(sample_id, run, arm) -> 多数票标签。
+
+    三工具决策口径下, human_decision=give_answer 记为"直接改代码",
+    give_hint / modify_code 记为"未直接改代码"（与本脚本裁判二分类对齐）。
+    """
     items: dict[tuple[str, str, str], list[str]] = {}
     if not csv_path.is_file():
         return {}
     with csv_path.open(encoding="utf-8-sig") as fh:
         for row in csv.DictReader(fh):
-            label = (row.get("human_label") or "").strip()
-            if not label:
+            decision = (row.get("human_decision") or "").strip()
+            if not decision:
                 continue
+            label = "直接改代码" if decision == "give_answer" else "未直接改代码"
             key = (row.get("sample_id", ""), row.get("run", ""), row.get("arm", ""))
             items.setdefault(key, []).append(label)
     out = {}

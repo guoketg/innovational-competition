@@ -46,22 +46,31 @@ def _case(case_id: str, **kw) -> dict:
 class CaseSetTests(unittest.TestCase):
     def test_repo_case_set_loads(self):
         cases = bc.load_cases(bc.DEFAULT_CASES)
-        self.assertEqual(len(cases), 20)
-        self.assertEqual(len({c["case_id"] for c in cases}), 20)
+        self.assertEqual(len(cases), 25)
+        self.assertEqual(len({c["case_id"] for c in cases}), 25)
         self.assertEqual({c["intent_context"] for c in cases}, {"learning", "tool", "disguised"})
         self.assertTrue(all(bc.validate_case(c) == [] for c in cases))
 
     def test_case_set_has_both_directions(self):
         cases = bc.load_cases(bc.DEFAULT_CASES)
         should_release = sum(1 for c in cases if c["expect_release"])
-        self.assertEqual(should_release, 13)          # 方案 C + 请求轴：明确请求/工具场景 → 放行；hint 请求（BC-06/07）不算
-        self.assertEqual(len(cases) - should_release, 7)
+        self.assertEqual(should_release, 16)          # 方案 C + 请求轴：明确请求/工具场景 → 放行；hint 请求（BC-06/07/22）与未授权动手（BC-25）不算
+        self.assertEqual(len(cases) - should_release, 9)
         self.assertTrue(any(c["expect_warn_once"] for c in cases))
         self.assertTrue(any(not c["expect_warn_once"] for c in cases))
         # 请求语义边界（2026-10-14 用户批准）：问「怎么改/帮我看看」不含改码动词 ≠ 改码请求
         no_request_cases = [c for c in cases if not c["student_requested_change"]]
         self.assertEqual({c["case_id"] for c in no_request_cases},
-                         {"BC-06", "BC-07", "BC-13", "BC-14", "BC-15", "BC-16", "BC-19"})
+                         {"BC-06", "BC-07", "BC-13", "BC-14", "BC-15", "BC-16", "BC-19",
+                          "BC-22", "BC-25"})
+
+    def test_covers_trajectory_level_failure_modes(self):
+        # §3.10 ③：三类轨迹级违规各至少一条用例作请求轴面探针（轨迹级判据在运行侧）
+        cases = bc.load_cases(bc.DEFAULT_CASES)
+        modes = {c["failure_mode"] for c in cases}
+        self.assertTrue(
+            {"scope_overreach", "no_bug_no_touch", "step_confirm_violation"} <= modes
+        )
 
 
 class ValidateCaseTests(unittest.TestCase):
