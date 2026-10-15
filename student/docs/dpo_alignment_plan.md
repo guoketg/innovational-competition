@@ -183,14 +183,14 @@ DPO 改的是权重，"首轮不给码"会随模型部署到处生效——这�
 | L1 学习+明确请求（含催促/范围收窄） | 改码动词在 prompt | `modify_code`（附 why + 最小 patch，渲染层前置一句提示） | 死拦（纯 hint 拒绝动手） | ~60 | 224 对中 prompt 含请求者回填 |
 | L2 学习+未请求 | 无改码动词 | `give_hint` | `modify_code` | ~160 | 224 对中未请求者保留 |
 | L3 学习+请求但越权（新） | "只改第 8 行" | 最小 patch（仅动该行） | 全量重写 patch（命中 `scope_overreach`） | ~30 | 新增 |
-| L4 无 bug 索改（新） | 粘贴正确代码求改 | 说明无需修改（可附讲解） | 硬改（命中 `no_bug_no_touch`） | ~20 | 新增 |
+| L4 无 bug 索改（新） | 粘贴正确代码求改 | 说明无需修改（可附讲解） | 硬改（命中 `no_bug_no_touch`） | ~20 | ✅ 新增（2026-10-15 落地：存量 39 对转 `answer_vs_modify`） |
 | L5 分步确认（新） | "每改一处先问我" | 先给 diff 预览请求确认 | 直接落盘全改 | ~15 | 新增 |
 | T1 工具性逃生门 | 非学习声明 | `modify_code`（不提示） | 死拦 | ~20 | 保留 |
 | 伪装 | 谎称工作项目 | 并入学习场景对型（声明不作依据），不单列 | — | — | — |
 
 **L3/L4/L5 可行性评估（2026-10-15，质检 ⑤ 落地后实测）**：
 
-- **L4 无 bug 索改（~20 对）：可行性高，素材现成**——质检 ⑤ 生效后被丢弃的 39 对（P r2 确认型 10 + C attempt 索取型 29）prompt/贴码正合 L4 语义，改造只需把 chosen 由 `modify_code` 换成确认性 `give_answer`（"检查了你的代码，没有发现问题"+讲解），rejected 复用原 `modify_code` 调用；可在转换层加"确认型对"分支或对被杀 39 对离线改造，质检零改动
+- **L4 无 bug 索改（~20 对）：✅ 已落地（2026-10-15）**——质检 ⑤ 生效后被丢弃的 39 对（P r2 确认型 10 + C attempt 索取型 29）prompt/贴码正合 L4 语义，`convert_dpo_to_tools.py` 在转换层加"确认型对"分支（`should_act and prompt_code_clean and not tool_context`），chosen 换为确认性 `give_answer`（"检查了你的代码，没有发现问题"+讲解），rejected 复用原 `modify_code` 调用（硬改），新增 `decision=answer_vs_modify`；被杀 39 对全部回收（train 26 + eval 13），质检零改动。详见下方「L4 无 bug 索改落地记录」
 - **L3 越权（~30 对）：可行性中，需新素材**——质检已就绪（`request_scope=narrow` 判定 + `SCOPE_NARROW_MAX_PATCH_LINES`），但需新增 narrow 请求 opener 模板与两侧 patch 文本（精准单点 vs 大面积重写，依赖 FAULT_PROFILES 故障行定位），`build_codelab_drafts` 加一类 draft + stub 渲染 + `validate_pair` 规则，改动面约一个模板层
 - **L5 分步确认（~15 对）：本轮不做**——违规形态是"连续多步改动未经逐步确认"，需要 rejected 侧为多工具调用**序列**轨迹，超出当前"单工具调用决策对"管道形态；且质检需步骤确认状态机。维持三类违规的轨迹级判据归运行侧（§3.10 ③ + 评测侧 BC-24/25 请求轴面探针），记入下轮扩充
 
@@ -254,7 +254,7 @@ DPO 改的是权重，"首轮不给码"会随模型部署到处生效——这�
 **改了什么**
 
 - `convert_dpo_to_tools.py` 新增 `upgrade_multiturn_trajectory`：真·多轮样本的历史由纯文本形态 `[user(r1 含代码), assistant(文本引导), user(r2 追问)]` 就地改写为 Qwen3 原生工具轨迹 `[user(r1), assistant(tool_calls=read_project_file), tool(学生代码), user(r2)]`。assistant 的 `tool_calls` 为 OpenAI 风格 `{"id","type","function":{"name","arguments"}}`，经 chat template 渲染为 `<tool_call>{"name":"read_project_file","arguments":{"path":"solution.py"}}` + `<tool_response>学生代码</tool_response>`，与线上 `lab_workspace_service` 的 `AIMessage.tool_calls / ToolMessage` 同形
-- 落地文件：`data/dpo/dpo_pairs_tools.jsonl`（1044 行，升级 **66**：py 59 / cpp 7）、`dpo_eval_pairs_tools.jsonl`（~~307~~ **294** 行，升级 **33**：py 27 / cpp 6；**2026-10-15 无 bug 检查生效后 eval 输出 307→294，train 输出同步 1044→1018，见下节**）；统计见 `dpo_tool_convert_report.json`（`multiturn_upgraded: 66/33`）。chosen/rejected 目标未动（仍为决策工具调用文本 JSON），训练脚本零改动
+- 落地文件：`data/dpo/dpo_pairs_tools.jsonl`（**1044** 行，升级 **66**：py 59 / cpp 7）、`dpo_eval_pairs_tools.jsonl`（**307** 行，升级 **33**：py 27 / cpp 6）；统计见 `dpo_tool_convert_report.json`（`multiturn_upgraded: 66/33`）。（**数据版本说明**：2026-10-15 无 bug 检查曾使 eval 输出 307→294、train 1044→1018；同日 L4 无 bug 索改落地回收 39 对 → 恢复 train 1044 / eval 307，见下方「L4 无 bug 索改落地记录」）。chosen/rejected 目标未动（仍为决策工具调用文本 JSON），训练脚本零改动
 - 幂等可复现：仅当存在"无 tool_calls 的 assistant 文本消息"且其前 user 消息带围栏代码时改写；重跑 `python scripts/convert_dpo_to_tools.py` 不二次叠加
 
 **遇到的问题与设计张力（审查重点）**
@@ -275,7 +275,7 @@ DPO 改的是权重，"首轮不给码"会随模型部署到处生效——这�
 
 - [ ] 用真实 tokenizer 复核渲染（问题 2）
 - [ ] 决策问题 1 选 (a) 还是 (b)
-- [ ] 训练前 `--check` 冒烟，确认数据版本 = 无 bug 检查生效后（**1018/294**，multiturn_upgraded 66/33）
+- [ ] 训练前 `--check` 冒烟，确认数据版本 = 无 bug 检查 + L4 落地后（**1044/307**，multiturn_upgraded 66/33）
 - [ ] 若选 (b)：评估训练脚本改动面后再开训
 
 #### 无 bug 检查落地记录（2026-10-15，质检 ⑤ 生效 + 数据版本变更，请云端审查）
@@ -287,15 +287,42 @@ DPO 改的是权重，"首轮不给码"会随模型部署到处生效——这�
 
 **实测影响（重跑 `convert_dpo_to_tools.py`）**
 
-- train 输出 1044→**1018**（dropped_chosen_violation 0→**26**）、eval 307→**294**（dropped 1→**14**，含存量空洞引导 1）；multiturn_upgraded 66/33 不变
+- train 输出 1044→**1018**（dropped_chosen_violation 0→**26**）、eval 307→**294**（dropped 1→**14**，含存量空洞引导 1）；multiturn_upgraded 66/33 不变（**注**：同日 L4 无 bug 索改落地后这 39 对转为 `answer_vs_modify` 回收，train 恢复 **1044**、eval 恢复 **307**，见下节）
 - **被杀 39 条构成（逐条诊断）**：全部是 round2——P 层 r2 确认型 10 条 + C 层 attempt 索取型 29 条。这些样本合成构造时学生"改后代码"就填的参考解（`attempt = ref`），请求被 `classify_request` 判为 modify → chosen=`modify_code(patch=参考解)`，即**学生代码已正确、patch 又是同一份参考解的落盘改写（无操作硬改）**
 - **处置判定：规则生效，非误杀**。被杀对的 chosen 本就不是行为最优——确认型/索取型请求的正解工具应为 `give_answer`（"你已改对，无需修改"+讲解），而非再调 `modify_code` 落盘；与评测侧 BC-21 的行为目标一致。训练数据不引入错误信号，代价是 `modify_vs_hint` 对减 39（train 192→166）
 - **下游衔接**：这 39 对的语义（round2 已改对 → 确认/存档请求 → 该给结论性反馈）正是 #38② 对型扩展评估要补的位置（`确认型 → give_answer` 新对型），已列为下批数据素材需求
 
 **请云端 AI 训练前追加确认**
 
-- [ ] 数据版本以 **1018/294** 为准（含上一节 66/33 多轮升级；`--check` 只查非空与 JSON 合法，不会挂）
-- [ ] 认可"round2 确认型 39 对按无 bug 检查丢弃"的处置；若认为应改为 `chosen=give_answer` 重构保留，请回复，本地在下一批数据（#38②）中一并落地
+- [ ] 数据版本以 **1044/307** 为准（含 66/33 多轮升级 + L4 落地；`--check` 只查非空与 JSON 合法，不会挂）
+- [x] 已落地"39 对不丢弃、改 `chosen=give_answer` 重构保留"（2026-10-15，见下节「L4 无 bug 索改落地记录」）——上节的"按无 bug 检查丢弃"处置被本处置取代
+
+#### L4 无 bug 索改落地记录（2026-10-15，承接上节，请云端审查）
+
+**落地了什么**
+
+- `convert_dpo_to_tools.py` `convert_row` 新增 L4 分支（判据 `should_act and ctx.prompt_code_clean and not ctx.tool_context`）：学生**明确索改但贴码与参考解逐字等价**（确证无缺陷）时——
+  - chosen = `give_answer(code="", why=_NO_BUG_WHY)`（确认话术："我逐行检查了你贴出的代码，没有发现缺陷——当前实现已经是正确解，不需要修改。"，不落盘）
+  - rejected = `modify_code(patch=ref_code, why=...)`（硬改正确代码，命中 `no_bug_no_touch`）
+  - 新增 `decision=answer_vs_modify`，`stats.no_bug_confirmation` 计数
+  - `tool_context` 逃生门豁免（T1 对型：正确代码的重构请求合法）；非 clean 贴码（变异体/自由代码/无贴码）走原 `modify_vs_hint` 分支不触发
+- **chosen.why 只保留确认话术，不拼接 ref_prose**：`ref_prose` 是 round2 相对带病 round1 的"改了什么"修复叙述（如"把 `>=` 改成 `>`"），与"无需修改"自相矛盾（首版曾出现"没有发现缺陷"+"把 `>=` 改成 `>`"并存），故确认侧 why 只用 `_NO_BUG_WHY`
+- 单测 `tests/test_convert_dpo_to_tools.py`（3 例）：clean 索改命中 L4（断言 `tool_decision=answer_vs_modify`、chosen.tool=give_answer、why 含"没有发现"且**不含** ref_prose 泄露）；逃生门豁免（`tool_context` → 仍 `modify_vs_hint`）；非 clean 代码不触发；`convert_row` 此前无测试
+
+**实测影响（重跑 `convert_dpo_to_tools.py --sample 0.2`）**
+
+- train 1018→**1044**（`no_bug_confirmation 26`、`dropped_chosen_violation 26→0`）、eval 294→**307**（`no_bug_confirmation 13`、`dropped 14→1`，仅剩存量空洞引导 1）；新增 decision `answer_vs_modify`（train 26 / eval 13），`modify_vs_hint` 回收 39（train 166 / eval 72）；multiturn_upgraded 66/33 不变
+- 全量测试从 `student/backend` 运行 230 测全绿；产物 `dpo_pairs_tools.jsonl`（1044）/ `dpo_eval_pairs_tools.jsonl`（307）/ `dpo_pairs_tools.sample.txt`（209）/ `dpo_tool_convert_report.json` 已重生成
+
+**可复现命令**（cwd = `student/backend`）
+
+- 生成：`..\..\venv\Scripts\python.exe scripts\convert_dpo_to_tools.py --sample 0.2`
+- 测试：`..\..\venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"`（230 OK）
+
+**请云端 AI 训练前确认**
+
+- [ ] 数据版本以 **1044/307** 为准（含 `answer_vs_modify` 26/13）
+- [ ] 认可 L4 确认侧 `chosen.why` 只用确认话术（不拼接修复叙述 ref_prose）
 
 #### 真空项收敛表（工作量控制，哪些被砍掉）
 

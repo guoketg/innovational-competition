@@ -9,9 +9,15 @@ chosen/rejected 改写为三工具调用 JSON（give_hint / give_answer / modify
   先由 services.request_classifier 判定学生本回合请求语义（modify / hint / none
   + 工具性逃生门），再按"该不该动手"定方向，不再以轮次作合法性依据：
     should_act（明确请求改码 或 逃生门）→ chosen=modify_code(patch,why)   rejected=give_hint(死拦)   modify_vs_hint
+    请求改码但贴码=参考解（无 bug 索改，L4）→ chosen=give_answer(说明无需修改)  rejected=modify_code(硬改)  answer_vs_modify
     未请求但 release_expected（round2 / C 层）→ chosen=give_answer(code,why)  rejected=give_hint(过度引导)  answer_vs_hint
     未请求且未到释放   → chosen=give_hint(level,text)  rejected=modify_code(patch,why)   hint_vs_modify
     G / concept / sycophancy → 纯文本保留（text_only）
+
+  L4 无 bug 索改（plan §3.10 ④，2026-10-15 落地）：学生索改但贴码与参考解逐字等价
+  （确证无缺陷，prompt_code_is_clean）时，正解工具是 give_answer（"没有发现问题，无需修改"
+  + 讲解），而非再调 modify_code 落盘硬改——硬改正确代码即 no_bug_no_touch 违规。
+  逃生门（tool_context）豁免：工具性使用允许按需改动正确代码（T1 对型）。
   码/讲解来源随对型而变：round1 的参考实现在 rejected（泄题侧，chosen 是引导）；
   round2/C 的参考实现在 chosen（讲解式答案侧，rejected 是过度引导）。
   这修复了原"round1 一律 modify_code→rejected"（224 对带病样本：学生明确索要代改
@@ -60,6 +66,9 @@ from build_dpo_pairs import (  # noqa: E402
 from services.answer_guard_service import extract_code_blocks  # noqa: E402
 
 DEFAULT_OUT_DIR = BACKEND / "data" / "dpo"
+
+# L4 无 bug 索改的确认话术（plan §3.10 ④）：学生贴码=参考解时说明无需修改。
+_NO_BUG_WHY = "我逐行检查了你贴出的代码，没有发现缺陷——当前实现已经是正确解，不需要修改。"
 
 
 def extract_code(text: str) -> str:
@@ -183,7 +192,16 @@ def convert_row(row: dict, stats: dict) -> dict | None:
     why = ref_prose or clean_why(strip_code(hint_text))
     level = min(max(int(row.get("hint_level") or 1), 1), 3)
 
-    if should_act:
+    if should_act and ctx.get("prompt_code_clean") and not ctx.get("tool_context"):
+        # L4 无 bug 索改（plan §3.10 ④）：学生索改但贴码=参考解（确证无缺陷）→
+        # 正解是说明无需修改（give_answer，不落盘），硬改该代码即 no_bug_no_touch 违规。
+        # why 只用确认话术：ref_prose 是"改了什么"的修复叙述（相对 round1 带病码），
+        # 与"无需修改"自相矛盾，不得附在确认侧（截图中曾出现"没有发现缺陷"+"把>=改成>"并存）。
+        chosen_call = {"tool": "give_answer", "args": {"code": "", "why": _NO_BUG_WHY}}
+        rejected_call = {"tool": "modify_code", "args": {"patch": ref_code, "why": why}}
+        decision = "answer_vs_modify"
+        stats["no_bug_confirmation"] = stats.get("no_bug_confirmation", 0) + 1
+    elif should_act:
         # 学生明确索要代改 / 走逃生门 → 正当代改（modify_code），死拦为过度拦截
         chosen_call = {"tool": "modify_code", "args": {"patch": ref_code, "why": why}}
         rejected_call = {"tool": "give_hint", "args": {"level": 1, "text": hint_text}}
@@ -225,7 +243,8 @@ def convert_row(row: dict, stats: dict) -> dict | None:
 
 def convert_file(src_path: Path, dst_path: Path) -> dict:
     stats: dict = {"input": 0, "converted": 0, "text_only": 0, "multiturn_upgraded": 0,
-                   "dropped_chosen_violation": 0, "dropped_rejected_clean": 0}
+                   "dropped_chosen_violation": 0, "dropped_rejected_clean": 0,
+                   "no_bug_confirmation": 0}
     rows_out: list[dict] = []
     for line in src_path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
