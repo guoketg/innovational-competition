@@ -783,18 +783,36 @@ def aggregate_human_xlsx(path: Path) -> dict:
     return _aggregate_rows(_read_human_xlsx(path))
 
 
+# 人工 ok 标签的常见错别字归一（回填容错, 不改判值）
+_OK_LABEL_FIXES = {"该栏": "该拦"}
+
+
 def _aggregate_rows(rows) -> dict:
+    rows = list(rows)
     items: dict[str, list[tuple[str, str, str]]] = {}
     auto_keys: dict[str, tuple[str, str]] = {}
+    # 单人快速回填常省略 annotator（甚至零星行把标注语误填进署名列）:
+    # 多数有效行未署名即视为单人回填, 零星署名按手误忽略; 多人场景必然逐行署名不受影响
+    valid = [
+        r for r in rows
+        if (r.get("human_decision") or "").strip() or (r.get("human_ok") or "").strip()
+    ]
+    signed = sum(1 for r in valid if (r.get("annotator") or "").strip())
+    anonymous = bool(valid) and signed * 2 < len(valid)
     for row in rows:
-        key = f"{row.get('sample_id', '')}|{row.get('run', '')}|{row.get('arm', '')}"
+        # key 必须含请求轴: 同题同 run 同 arm 会按双轴各抽一行, 漏轴会撞 key
+        key = (
+            f"{row.get('sample_id', '')}|{row.get('run', '')}"
+            f"|{row.get('arm', '')}|{row.get('request_axis', '')}"
+        )
         auto_keys[key] = (
             (row.get("auto_decision") or "").strip(),
             (row.get("auto_ok") or "").strip(),
         )
-        annotator = (row.get("annotator") or "").strip()
+        annotator = "annotator_1" if anonymous else (row.get("annotator") or "").strip()
         decision = (row.get("human_decision") or "").strip()
         ok = (row.get("human_ok") or "").strip()
+        ok = _OK_LABEL_FIXES.get(ok, ok)
         if not annotator or (not decision and not ok):
             continue
         items.setdefault(key, []).append((annotator, decision, ok))

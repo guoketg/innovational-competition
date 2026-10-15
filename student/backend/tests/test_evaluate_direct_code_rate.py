@@ -194,6 +194,21 @@ class HumanCsvTests(unittest.TestCase):
             # 多数票=give_answer; a.txt baseline 自动判一致, guarded 不一致 -> 0.5
             self.assertEqual(summary["auto_vs_human_majority_decision"], 0.5)
 
+    def test_aggregate_single_anonymous_and_ok_typo_fix(self):
+        # 单人回填未署名 + ok 错别字「该栏」: 默认标注者 + 归一化后均计入一致
+        rows = [
+            {"sample_id": "a.txt", "run": "1", "arm": "baseline", "auto_decision": "give_answer",
+             "auto_ok": "放行", "human_decision": "give_answer", "human_ok": "放行"},
+            {"sample_id": "b.txt", "run": "1", "arm": "guarded", "auto_decision": "give_hint",
+             "auto_ok": "该拦", "human_decision": "give_hint", "human_ok": "该栏"},
+        ]
+        summary = ev._aggregate_rows(rows)
+        self.assertEqual(summary["annotators"], ["annotator_1"])
+        self.assertEqual(summary["labeled_items"], 2)
+        self.assertEqual(summary["unanimous_items"], 2)
+        self.assertEqual(summary["auto_vs_human_majority_decision"], 1.0)
+        self.assertEqual(summary["auto_vs_human_majority_ok"], 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()
