@@ -155,7 +155,7 @@ def run_integration_with_real_api(
     app_code: str | None = None,
     api_key: str = "",
     base_url: str = "https://api.deepseek.com",
-    model_name: str = "deepseek-v4-pro",
+    model_name: str = "deepseek-flash",
     timeout: int = 30,
 ) -> dict:
     """使用用户真实 API Key 运行集成测试。
@@ -346,7 +346,7 @@ def main():
         app_code = app_path.read_text(encoding="utf-8") if app_path.is_file() else ""
         api_key = os.environ.get("DEEPSEEK_API_KEY", "")
         base_url = os.environ.get("LLM_BASE_URL", "https://api.deepseek.com")
-        model = os.environ.get("LLM_MODEL", "deepseek-v4-pro")
+        model = os.environ.get("LLM_MODEL", "deepseek-flash")
         result = run_integration_with_real_api(exercise_id, Path.cwd(), code, app_code, api_key, base_url, model)
         if args.json:
             print(json.dumps(result, ensure_ascii=False, indent=2))

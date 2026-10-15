@@ -107,7 +107,7 @@ def _build_llm(user_id: int, temperature: float = 0.7, max_tokens: int = 4096,
     base_url = user_config.get("base_url", "https://api.openai.com")
 
     # DeepSeek 原生 reasoning：仅 deepseek-reasoner 支持
-    # deepseek-v4-pro 等思考模型默认开启 thinking，可能返回 reasoning_content
+    # 部分思考模型默认开启 thinking，可能返回 reasoning_content
     # 调用方可传入 extra_body={"thinking": {"type": "disabled"}} 关闭
     _extra_body = extra_body  # use caller-provided extra_body if given
     if _extra_body is None and deep_thinking and "deepseek" in str(base_url).lower() and "reasoner" in model_name.lower():

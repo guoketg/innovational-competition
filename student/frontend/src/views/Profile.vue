@@ -534,15 +534,15 @@ const llmForm = reactive({
 })
 const modelSuggestions = {
   openai: ['gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo', 'o1-mini', 'o1-preview'],
-  deepseek: ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-reasoner'],
-  custom: ['gpt-4o', 'deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-reasoner', 'qwen-turbo', 'glm-4']
+  deepseek: ['deepseek-flash', 'deepseek-v4-flash', 'deepseek-reasoner'],
+  custom: ['gpt-4o', 'deepseek-flash', 'deepseek-v4-flash', 'deepseek-reasoner', 'qwen-turbo', 'glm-4']
 }
 const currentModelSuggestions = computed(() => modelSuggestions[llmForm.provider] || modelSuggestions.custom)
 
 function onProviderChange(provider) {
   const presets = {
     openai: { base_url: 'https://api.openai.com', model_name: 'gpt-4o' },
-    deepseek: { base_url: 'https://api.deepseek.com', model_name: 'deepseek-v4-pro' },
+    deepseek: { base_url: 'https://api.deepseek.com', model_name: 'deepseek-flash' },
     custom: { base_url: '', model_name: '' }
   }
   const preset = presets[provider]
@@ -555,7 +555,7 @@ function onProviderChange(provider) {
 function quickSetupDeepSeek() {
   llmForm.provider = 'deepseek'
   llmForm.base_url = 'https://api.deepseek.com'
-  llmForm.model_name = 'deepseek-v4-pro'
+  llmForm.model_name = 'deepseek-flash'
   ElMessage.success('已切换到DeepSeek配置，请输入您的API Key后保存')
 }
 
@@ -637,7 +637,7 @@ async function handleSaveDeepSeek() {
       provider: 'deepseek',
       api_key: deepseekApiKey.value.trim(),
       base_url: 'https://api.deepseek.com',
-      model_name: 'deepseek-v4-pro',
+      model_name: 'deepseek-flash',
       temperature: 0.7,
       max_tokens: 4096,
       image_api_key: ''
