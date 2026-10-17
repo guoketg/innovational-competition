@@ -1,8 +1,0 @@
-**/node_modules
-**/__pycache__
-**/*.pyc
-**/dist
-**/.git
-.gitignore
-README.md
-pdf

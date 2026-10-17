@@ -1,4 +1,4 @@
-# 从算法内核到顶会方法：智码助学技术蓝图
+﻿# 从算法内核到顶会方法：智码助学技术蓝图
 
 > 配套文档：[参赛可行性分析](competition_fit_analysis.md) ｜ [文献综述](socratic_programming_tutor_literature_review.md)
 > 目标：把这个项目从"提示词技巧 + 教育应用"抬升到"**有算法内核、有对齐方法、有评测科学、可发论文**"的层次。
@@ -12,7 +12,7 @@
 | 决议 | 对象 | 理由 |
 |------|------|------|
 | ✅ **继续做深** | E4 输出护栏（✅ qa_router `/ask` + `/ask/stream` 双链路已接入，含输入侧关卡识别；下一步：升级为"重生成再检"） | 全蓝图唯一有对照数字的组件（deepseek-chat 30 题双口径：规则口径基线直给 24/30 → 护栏后 16/30；LLM 裁判口径 28/30 → 24/30；触发 12/30，长代码 3→0，规则-裁判一致 48/60） |
-| ✅ **正在做** | E4-DPO 权重层对齐（数据管道已建成，见 [dpo_alignment_plan.md](../student/docs/dpo_alignment_plan.md)） | 测评泄露/false-refusal/时机边界三个死因均已解法 |
+| ✅ **正在做** | E4-DPO 权重层对齐（数据管道已建成，见 [dpo_alignment_plan.md](../docs/dpo_alignment_plan.md)） | 测评泄露/false-refusal/时机边界三个死因均已解法 |
 | ✅ **保持现状** | E3 规则版教学动作（6 moves 分层策略）+ 六步编排闭环 | 可审计、可演示；分层结构已对应蓝图 SayCan 式高低分离 |
 | ✅ **保持现状** | 评测脚本族（A/B 对照 + 自动指标 + 人工核验） | 性价比最高，论文方法论骨架 |
 | 🔧 **打折落地** | E1 → 保留启发式掌握度，**✅ 已落地：hint_level 改为掌握度驱动**（stage_mastery/mastery_hint_level，不训 BKT/DKT/AKT，无数据无收益） | 一句话改动接上"脚手架密度自适应"卖点，投入产出比最高 |
@@ -231,7 +231,7 @@
 
 **建议**：竞赛作品瞄准 **L2**，把 **L3 的 1–2 个点**（如"形式化不泄题保证"或"模拟学生红队"）做成亮点写进申报书的"技术架构创新"。
 
-> **决议（§0.0）修正**：L3 亮点取"**形式化不泄题保证**"（输出护栏 + DPO，已有对照数字）；"模拟学生红队"不做（见 E5 决议）。当前实际位置：L1 全部达标，L2 约完成一半（E3/E4 规则版已实现，E1/E2 以启发式/规则版代替模型化），缺口 = DPO 训练（数据管道已建成，871 对质检通过；训练暂缓）+ 护栏"重生成再检"推广（CodeLab held-out 三臂已有 guarded_regen 初检，见 `student/backend/data/eval/codelab_heldout_report.json`）。~~hint_level 掌握度驱动~~已落地（stage_mastery/mastery_hint_level，2026-10）。
+> **决议（§0.0）修正**：L3 亮点取"**形式化不泄题保证**"（输出护栏 + DPO，已有对照数字）；"模拟学生红队"不做（见 E5 决议）。当前实际位置：L1 全部达标，L2 约完成一半（E3/E4 规则版已实现，E1/E2 以启发式/规则版代替模型化），缺口 = DPO 训练（数据管道已建成，871 对质检通过；训练暂缓）+ 护栏"重生成再检"推广（CodeLab held-out 三臂已有 guarded_regen 初检，见 `backend/data/eval/codelab_heldout_report.json`）。~~hint_level 掌握度驱动~~已落地（stage_mastery/mastery_hint_level，2026-10）。
 
 ---
 

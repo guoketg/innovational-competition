@@ -1,4 +1,4 @@
-# PPT 重点结构（竞赛/评奖包装版）
+﻿# PPT 重点结构（竞赛/评奖包装版）
 
 > 素材就绪度与制作进度见 [进度表.md](进度表.md) §三（P1–P4/P5–P9/P12–P14 数据已就绪可直接开画；P10 第三指标、P11 截图待补）。
 >
@@ -155,9 +155,9 @@
 | 泄漏 0.000 / 违规 0.000 / 讲解 1.0 / hint 分布 {0:666,1:191,2:5,3:5,4:4} | `backend/data/dpo/dpo_quality_audit.json` |
 | CodeLab 四臂（raw/baseline/guarded/guarded_regen）round1 不给码 1.0 / round2 给码 0.1667（规则下界，人工抽检 0.5，runs=3；raw 臂实跑待补） | `backend/data/eval/codelab_heldout_report.json` |
 | 恰当给码率 0.5834（=（1.0 + 0.1667）/2，规则下界；人工口径待 30 条标注回填） | `codelab_heldout_report.json` → `summary`（P10 第 5 条指标） |
-| 4887 RAG 分块（PDF 2402 + MD 1885 + QA 600） | `student/CLAUDE.md:87` |
+| 4887 RAG 分块（PDF 2402 + MD 1885 + QA 600） | `CLAUDE.md` → RAG 知识库引擎 / 当前向量库状态 |
 | CodeLab 13 关（9/4 隔离） | `backend/scripts/build_dpo_pairs.py:63` / `dpo_build_report.json` |
 | 时机释放阀三条件（贴码 ≥3 行 / 被拦 ≥2 轮 / 掌握度 ≥0.7），36 条单测全过 | `answer_guard_service.py` → `evaluate_release`（2026-10-13 落地，进度表 #9） |
-| C++ 判题器已知限制修复（fresh_result 二次调用/map 参数序列化等），新增 15 单测、backend 全量 150 过 | `student/backend/services/cpp_judge.py`（进度表 #14，⏳ 待部署验证） |
-| 底座规模：13 关旗舰关（C++/Python 双语判题）、600 题知识库、98 篇学习资料、诊断 600 题四步画像 | `student/backend/data/`；`docs/软件说明文档.md` §2.1 / §三 |
-| 本地模型可切换（缺 API key 自动回退内置本地 LLM，支持全离线部署） | `docs/软件说明文档.md` §2.1；`student/backend/services/` LLM 配置 |
+| C++ 判题器已知限制修复（fresh_result 二次调用/map 参数序列化等），新增 15 单测、backend 全量 150 过 | `backend/services/cpp_judge.py`（进度表 #14，⏳ 待部署验证） |
+| 底座规模：13 关旗舰关（C++/Python 双语判题）、600 题知识库、98 篇学习资料、诊断 600 题四步画像 | `backend/data/`；`docs/软件说明文档.md` §2.1 / §三 |
+| 本地模型可切换（缺 API key 自动回退内置本地 LLM，支持全离线部署） | `docs/软件说明文档.md` §2.1；`backend/services/` LLM 配置 |

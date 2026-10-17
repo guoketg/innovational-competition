@@ -1,22 +1,20 @@
 # ─── 智码助学 — 根目录一键启动 ─────────────────
 #   docker compose up -d
 #
-# 学生端 → http://localhost:80
+# 前端 → http://localhost:80
 
 services:
   # ============================================================
-  #  学生端服务
+  #  后端服务
   # ============================================================
   student-backend:
-    build: ./student/backend
+    build: ./backend
     container_name: ai-learning-backend
     ports:
       - "8001:8000"
     volumes:
       - student_backend_data:/app/data
-      - ./student/backend/data:/app/seed-data:ro
-      - ./student/learning_materials:/learning_materials:ro
-      - ./student/pdf:/pdf:ro
+      - ./backend/data:/app/seed-data:ro
     environment:
       - DATABASE_URL=${DATABASE_URL:-}
       # 生产环境必须通过 .env 显式设置强随机 JWT_SECRET_KEY；默认值仅供本地演示互通。
@@ -40,7 +38,7 @@ services:
       - student-net
 
   student-frontend:
-    build: ./student/frontend
+    build: ./frontend
     container_name: ai-learning-frontend
     ports:
       - "80:80"

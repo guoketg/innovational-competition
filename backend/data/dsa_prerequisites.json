@@ -1,0 +1,19 @@
+{
+  "curriculum_version": "dsa-prereq-v1",
+  "description": "数据结构与算法知识点先修依赖表。value 为直接前置知识点列表，边方向为「前置 → 后继」，即拓扑序方向。knowledge_tag 与 services/agent_course.py 的项目制课程、data/dsa_tutorial_seed.json 的教程、旗舰关 knowledge_tag 对齐。个人化学习路径生成时先对本表做拓扑排序，得到先修的合法区间。",
+  "prerequisites": {
+    "dsa-data-structures-tutorial": [],
+    "dsa-dsa-intro": [],
+    "dsa-dsa-linear-data-structures": ["dsa-dsa-intro"],
+    "dsa-binary-search-tree-insert": ["dsa-dsa-linear-data-structures"],
+    "dsa-binary-search-traverse": ["dsa-binary-search-tree-insert"],
+    "dsa-heap-shift-up": ["dsa-binary-search-tree-insert"],
+    "dsa-heap-sort": ["dsa-heap-shift-up"],
+    "dsa-graph-theory-deep": ["dsa-dsa-linear-data-structures"],
+    "dsa-union-find-compress": ["dsa-graph-theory-deep"],
+    "dsa-graph-theory-short-path": ["dsa-graph-theory-deep", "dsa-dsa-linear-data-structures"],
+    "dsa-dsa-basic-algorithm": ["dsa-dsa-linear-data-structures"],
+    "dsa-merge-sort": ["dsa-dsa-basic-algorithm"],
+    "dsa-dsa-hash-table": ["dsa-dsa-linear-data-structures", "dsa-dsa-basic-algorithm"]
+  }
+}

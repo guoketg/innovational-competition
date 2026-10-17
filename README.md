@@ -1,14 +1,12 @@
-# 智码助学 — 学生端（智学引擎）
+# 智码助学 — 个性化 AI 教学软件
 
 > 面向高校计算机学科（数据结构与算法等）实训的 AI 教学软件。
 
 ```
 智码助学/
-├── student/          # 🎓 学生端 (智学引擎)
-│   ├── frontend/     #    Vue 3 + Element Plus (nginx, 端口 80)
-│   └── backend/      #    Python FastAPI (端口 8001)
-├── docs/             # 📄 项目文档
-├── learning_materials/ # 📚 学习资料
+├── frontend/           # 🖥️ Vue 3 + Element Plus (nginx, 端口 80)
+├── backend/            # ⚙️ Python FastAPI (端口 8001)
+├── docs/               # 📄 项目文档
 └── README.md
 ```
 
@@ -25,6 +23,9 @@
 ### Docker 部署（推荐）
 
 ```bash
+# 首次启动先复制配置模板，并至少设置稳定的 JWT_SECRET_KEY
+copy .env.example .env
+
 docker compose up -d
 ```
 
@@ -32,23 +33,25 @@ docker compose up -d
 
 | 服务 | 端口 |
 | --- | --- |
-| 学生端前端 | 80 |
-| 学生端后端 | 8001 |
+| 前端 | 80 |
+| 后端 | 8001 |
+
+Demo 账号：`demo` / `demo123`
 
 ### 本地开发
 
 ```bash
-# 1. 学生端后端 (端口 8001)
-cd student/backend
+# 1. 后端 (端口 8001)
+cd backend
 uvicorn main:app --port 8001 --reload
 
-# 2. 学生端前端 (端口 5174)
-cd student/frontend
+# 2. 前端 (端口 5174)
+cd frontend
 npm install
 npm run dev -- --port 5174
 ```
 
 ## 架构说明
 
-- 学生端前端通过 nginx 将 `/api/` 反向代理到学生端后端（`host.docker.internal:8001`），SSE 路径已关闭代理缓冲（`proxy_buffering off`）以支持流式输出。
-- 学生端后端为单体 FastAPI 应用，路由包括：auth、diagnosis（学情诊断）、qa（AI 答疑）、learning、analytics、resource、knowledge、llm_config、image、rag、capability、workspace（CodeLab）。
+- 前端通过 nginx 将 `/api/` 反向代理到后端（`host.docker.internal:8001`），SSE 路径已关闭代理缓冲（`proxy_buffering off`）以支持流式输出。
+- 后端为单体 FastAPI 应用，路由包括：auth、diagnosis（学情诊断）、qa（AI 答疑）、learning、analytics、resource、knowledge、llm_config、image、rag、capability、workspace（CodeLab）。

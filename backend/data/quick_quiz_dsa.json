@@ -1,0 +1,86 @@
+{
+  "curriculum_version": "agent-project-path-v2",
+  "description": "新用户生成学习路线前的 5 道快速测评题。每题对应一个课程知识点标签，答对的项目会被标记为可快速过，答错的知识点会被优先安排。",
+  "questions": [
+    {
+      "question_id": "quick-dsa-1",
+      "question_type": "单选",
+      "question": "在顺序表（Python 列表）的最前面插入一个元素，通常需要移动多少个已有元素？",
+      "options": [
+        "不需要移动",
+        "大约一半",
+        "全部已有元素",
+        "只需要移动最后一个"
+      ],
+      "answer": "全部已有元素",
+      "knowledge_tag": "dsa-dsa-linear-data-structures",
+      "knowledge_point": "顺序表的插入代价",
+      "difficulty": "Lv1入门",
+      "analysis": "在顺序表头部插入时，后面所有元素都要整体后移一位，因此需要移动全部已有元素；这也是头部插入比尾部追加慢的原因。"
+    },
+    {
+      "question_id": "quick-dsa-2",
+      "question_type": "单选",
+      "question": "向二分搜索树插入一个新值，如果新值比当前节点大，应该继续走向哪一边？",
+      "options": [
+        "左子树",
+        "右子树",
+        "回到根节点",
+        "左右都可以"
+      ],
+      "answer": "右子树",
+      "knowledge_tag": "dsa-binary-search-tree-insert",
+      "knowledge_point": "二分搜索树的插入规则",
+      "difficulty": "Lv1入门",
+      "analysis": "二分搜索树要求左子树更小、右子树更大，所以更大的新值应进入右子树。"
+    },
+    {
+      "question_id": "quick-dsa-3",
+      "question_type": "单选",
+      "question": "要把一组数字按从小到大排序，堆排序通常先建立哪种堆？",
+      "options": [
+        "大顶堆",
+        "小顶堆",
+        "二叉搜索树",
+        "哈希表"
+      ],
+      "answer": "大顶堆",
+      "knowledge_tag": "dsa-heap-sort",
+      "knowledge_point": "堆排序的建堆方式",
+      "difficulty": "Lv2中等",
+      "analysis": "升序堆排序先建大顶堆，每次把堆顶最大值换到末尾，再缩小堆范围继续调整。"
+    },
+    {
+      "question_id": "quick-dsa-4",
+      "question_type": "单选",
+      "question": "用深度优先遍历（DFS）访问图时，为什么必须记录已经访问过的节点？",
+      "options": [
+        "避免在环上反复访问、陷入死循环",
+        "让遍历结果自动升序",
+        "减少图的边数",
+        "把图变成二叉树"
+      ],
+      "answer": "避免在环上反复访问、陷入死循环",
+      "knowledge_tag": "dsa-graph-theory-deep",
+      "knowledge_point": "图的深度优先遍历",
+      "difficulty": "Lv2中等",
+      "analysis": "图中可能存在环，不记录已访问节点就会沿环不断回到同一节点；记录后每个节点最多访问一次。"
+    },
+    {
+      "question_id": "quick-dsa-5",
+      "question_type": "单选",
+      "question": "用哈希表把「两数之和」从两重循环优化成一次遍历，主要利用了什么？",
+      "options": [
+        "哈希表查找平均接近 O(1)",
+        "哈希表会自动排序",
+        "哈希表能压缩数组",
+        "哈希表能消除所有冲突"
+      ],
+      "answer": "哈希表查找平均接近 O(1)",
+      "knowledge_tag": "dsa-dsa-hash-table",
+      "knowledge_point": "哈希表的查找代价",
+      "difficulty": "Lv3高阶",
+      "analysis": "遍历每个数时，用哈希表直接查目标差值是否出现过，把内层查找从线性扫描降为平均常数时间。"
+    }
+  ]
+}

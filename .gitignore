@@ -33,13 +33,13 @@ debug.log
 *.jsonl
 
 # 放行 DPO 数据（云端 IPO 重训必需，体积小）
-!student/backend/data/dpo/*.jsonl
+!backend/data/dpo/*.jsonl
 
 # 放行行为通道评测用例集（ground truth，体积小，需入库以复现 #35 基线）
-!student/backend/data/eval/behavior_channel_cases.jsonl
+!backend/data/eval/behavior_channel_cases.jsonl
 
 # DPO/IPO 训练产物（LoRA 权重与指标，训练在服务器上进行）
-student/backend/outputs/
+backend/outputs/
 
 # ===== 临时文件 =====
 tmp_*.json
@@ -91,17 +91,22 @@ Thumbs.db
 /models/
 /weights/
 /checkpoints/
-local-llm/models/
-local-llm/weights/
-local-llm/checkpoints/
+backend/local_llm/models/
+backend/local_llm/weights/
+backend/local_llm/checkpoints/
 
 # ===== Docker =====
 docker-compose.override.yml
 .venv-local-llm/
-local-llm/*.log
+backend/local_llm/*.log
 **/.llm-key-secret
 **/.student-key-secret
 **/.jwt-secret
+
+# ===== 运行产物（已合并到根配置）=====
+/backend/**/*.png
+/backend/data/generated_images/*
+!/backend/data/generated_images/*.svg
 
 # ===== 演示/抓取截图（根目录散落的演示产物）=====
 /shot-*.png
@@ -131,11 +136,11 @@ local-llm/*.log
 ~$*.xlsx
 
 # ===== 评测基准数据（外部克隆仓库 / 体积大，禁止入库）=====
-student/backend/data/eval/CREF_TutorCode/
-student/backend/data/eval/hints_in_browser/
-student/backend/data/eval/mathtutorbench/
-student/backend/data/eval/tutorbench_hf/
-student/backend/data/eval/tutorbench_sample.parquet
+backend/data/eval/CREF_TutorCode/
+backend/data/eval/hints_in_browser/
+backend/data/eval/mathtutorbench/
+backend/data/eval/tutorbench_hf/
+backend/data/eval/tutorbench_sample.parquet
 
 # ===== 本地机密（H200 SSH 等，禁止入库）=====
 secrets.local.md

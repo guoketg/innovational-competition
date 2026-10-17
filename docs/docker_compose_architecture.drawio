@@ -26,7 +26,7 @@
         </mxCell>
 
         <!-- ═══════ 卷 ═══════ -->
-        <mxCell id="stu-vol" value="卷：student_backend_data → /app/data&#xa;种子只读：./student/backend/data → /app/seed-data:ro&#xa;只读素材：learning_materials → /learning_materials · pdf → /pdf" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#F9A825;fontSize=10;" vertex="1" parent="1">
+        <mxCell id="stu-vol" value="卷：student_backend_data → /app/data&#xa;种子只读：./backend/data → /app/seed-data:ro" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#F9A825;fontSize=10;" vertex="1" parent="1">
           <mxGeometry x="240" y="460" width="360" height="80" as="geometry" />
         </mxCell>
 
