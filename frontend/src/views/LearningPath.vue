@@ -593,6 +593,10 @@
           <div>
             <h2>知识点路线 <small class="graph-scope">{{ knowledgeStats.total || 44 }} 个知识点全部在路线里</small></h2>
             <p>这条路线的每一站是一个知识点，项目只是练手资源。已掌握的知识点标绿；被前置挡住的会直接告诉你先补哪个。</p>
+            <p v-if="knowledgePath?.time_budget?.deferred_count" class="knowledge-deferred-tip">
+              按你的时间预算，主线安排 {{ formatMinutes(knowledgePath.time_budget.core_minutes) }}；
+              {{ knowledgePath.time_budget.deferred_count }} 个知识点（约 {{ formatMinutes(knowledgePath.time_budget.deferred_minutes) }}）放进「课后拓展」，时间宽裕再学。
+            </p>
           </div>
           <el-radio-group v-model="knowledgeFilter" size="small">
             <el-radio-button value="all">全部</el-radio-button>
@@ -655,6 +659,7 @@
                 <em v-if="unit.is_target" class="mini-tag target">目标</em>
                 <em v-if="unit.error_focus" class="mini-tag error">常错</em>
                 <em v-if="unit.needs_check" class="mini-tag check">建议先测</em>
+                <em v-if="unit.deferred" class="mini-tag deferred">课后拓展</em>
                 <em v-if="unit.difficulty_label" class="mini-tag attr">难度 {{ unit.difficulty_label }}</em>
                 <em v-if="unit.cognitive_level" class="mini-tag attr">{{ unit.cognitive_level }}</em>
                 <em v-if="unit.study_minutes" class="mini-tag attr">约 {{ formatMinutes(unit.study_minutes) }}</em>
@@ -1356,6 +1361,7 @@ const KNOWLEDGE_STATUS = {
   todo: '待安排',
 }
 function knowledgeStatusLabel(unit) {
+  if (unit?.deferred) return '课后拓展'
   return KNOWLEDGE_STATUS[unit?.status] || ''
 }
 function formatMinutes(minutes) {
@@ -2963,6 +2969,8 @@ onBeforeUnmount(() => {
 .mini-tag.target { background: #fff5e6; color: #d98a20; border: 1px solid #f7dfb5; }
 .mini-tag.error { background: #fff3ef; color: #c05038; border: 1px solid #f5d6cc; }
 .mini-tag.check { background: #eef7ff; color: #3378b8; border: 1px solid #d3e6f8; }
+.mini-tag.deferred { background: #f6f3ff; color: #7b61c9; border: 1px solid #e2dafb; }
+.knowledge-deferred-tip { margin: 4px 0 0; color: #7b61c9; font-size: 11.5px; line-height: 1.6; }
 .rel-contain { padding: 1px 6px; border-radius: 6px; font-size: 10.5px; background: #f2f4f9; color: #6c7893; border: 1px solid #e3e8f2; }
 .station-status.is-locked { color: #c05038; }
 .knowledge-empty { margin: 6px 0 0; color: #9aa4b6; font-size: 12px; }

@@ -47,6 +47,7 @@ async def build_knowledge_base(current_user: dict = Depends(get_current_user)):
             materials_dir=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "learning_materials"),
             dataset_dir=os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "dataset"),
             index_path=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "learning_materials", "index.json"),
+            tutorial_seed_path=os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "tutorial_seed.json"),
         )
 
         if not chunks:

@@ -82,6 +82,9 @@ class SiliconFlowBGEBackend(EmbeddingBackend):
     NAME = "bge-large-zh-v1.5"
     MODEL = "BAAI/bge-large-zh-v1.5"
     BATCH_SIZE = 32
+    # SiliconFlow 对单条输入有 512 token 上限，超限会整批返回 20015。
+    # 中文约 1 字 ≈ 1 token，按 480 字符截断留出余量。
+    MAX_INPUT_CHARS = 480
 
     def __init__(
         self,
@@ -106,7 +109,10 @@ class SiliconFlowBGEBackend(EmbeddingBackend):
             return []
         embeddings: List[List[float]] = []
         for index in range(0, len(texts), self.BATCH_SIZE):
-            batch = [_truncate_text(text, MAX_TEXT_CHARS) for text in texts[index:index + self.BATCH_SIZE]]
+            batch = [
+                _truncate_text(text, self.MAX_INPUT_CHARS)
+                for text in texts[index:index + self.BATCH_SIZE]
+            ]
             response = self.client.embeddings.create(model=self.model, input=batch)
             ordered = sorted(response.data, key=lambda item: item.index)
             batch_embeddings = [item.embedding for item in ordered]
@@ -248,14 +254,13 @@ def reset_embedding_backend():
 
 
 def _truncate_text(text: str, max_chars: int = MAX_TEXT_CHARS) -> str:
-    """截断文本到安全长度，防止单个文本块过大导致 GPU OOM
+    """截断文本到安全长度，防止单条输入超过模型 token 上限
 
-    BGE max_seq_length=512 tokens ≈ 1000-1500 中文字符（中文约 1.5-2 char/token）。
-    在字符层面截断而非 tokenizer 层面，避免加载 tokenizer 的开销。
+    BGE max_seq_length=512 tokens，中文约 1 字 ≈ 1 token，按字符截断即可。
     """
     if len(text) <= max_chars:
         return text
-    logger.warning(f"文本过长（{len(text)} chars），已截断至 {max_chars} chars")
+    logger.debug(f"文本过长（{len(text)} chars），已截断至 {max_chars} chars")
     return text[:max_chars]
 
 

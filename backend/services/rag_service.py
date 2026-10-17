@@ -251,10 +251,7 @@ class RAGService:
                 query_embeddings=[query_emb],
                 n_results=top_k,
                 where={
-                    "$and": [
-                        {"source_type": {"$ne": "qa_pair"}},
-                        {"quality_score": {"$gte": 0.55}},
-                    ]
+                    "quality_score": {"$gte": 0.55},
                 },
                 include=["documents", "metadatas", "distances"],
             )
@@ -314,8 +311,6 @@ class RAGService:
                 doc_meta = all_docs["metadatas"][i] if i < len(all_docs["metadatas"]) else {}
 
                 if not doc_text:
-                    continue
-                if doc_meta.get("source_type") == "qa_pair":
                     continue
                 if float(doc_meta.get("quality_score") or 0) < 0.55:
                     continue

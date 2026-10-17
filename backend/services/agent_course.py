@@ -635,6 +635,15 @@ STRATEGY_WEIGHTS = {
     "time_saver": {"prereq": 0.20, "target": 0.10, "weak": 0.05, "time": 0.50, "smooth": 0.15},
 }
 
+# 同一拓扑波次/同批可学任务内的连续排序权重：每个分量都归一到 0~1，分数越高越靠前。
+# 与 STRATEGY_WEIGHTS 的区别：这里不再把掌握度压成四档，微小差异也能改变先后顺序。
+KNOWLEDGE_SCORE_WEIGHTS = {
+    "balanced": {"weak": 0.40, "target": 0.25, "error": 0.15, "uncertain": 0.10, "pace": 0.10},
+    "weak_first": {"weak": 0.30, "target": 0.10, "error": 0.40, "uncertain": 0.15, "pace": 0.05},
+    "target_first": {"weak": 0.15, "target": 0.60, "error": 0.10, "uncertain": 0.10, "pace": 0.05},
+    "time_saver": {"weak": 0.20, "target": 0.15, "error": 0.05, "uncertain": 0.05, "pace": 0.55},
+}
+
 
 def knowledge_meta_index() -> dict:
     """tag -> 知识点属性快照（难度/认知层次/建议学时/考纲权重/常见误区）。"""
@@ -695,7 +704,6 @@ def _reorder_phase_tasks(tasks: list, prereq_map: dict, mastery: dict,
     strategy：balanced 均衡 / weak_first 补弱优先 / target_first 目标优先 /
     time_saver 省时优先。目标节点、错误画像、掌握度不确定度会改变同批任务的先后。
     """
-    mastery_high, mastery_low = _mastery_thresholds()
     readiness = readiness or {}
     target_tags = target_tags or set()
     error_tags = error_tags or set()
@@ -717,48 +725,28 @@ def _reorder_phase_tasks(tasks: list, prereq_map: dict, mastery: dict,
             children[parent_index].append(child_index)
 
     def priority(index: int) -> tuple:
-        knowledge = tasks[index].get("knowledge")
+        task = tasks[index]
+        knowledge = task.get("knowledge")
         score = mastery.get(knowledge)
+        if not isinstance(score, (int, float)):
+            score = None
         if (readiness.get(knowledge) or {}).get("state") == "blocked":
-            rank = 40  # 前置没打牢：排到本阶段同一批可学任务之后
-        elif score is None:
-            rank = 10
-        elif score < mastery_low:
-            rank = 0
-        elif score >= mastery_high:
-            rank = 30
-        else:
-            rank = 20
+            return (2.0, index)  # 前置没打牢：排到本阶段同一批可学任务之后
 
         is_target = knowledge in target_tags
         is_error = knowledge in error_tags
         needs_check = knowledge in uncertain_tags
-
-        if strategy == "target_first":
-            if is_target:
-                rank -= 30
-            if is_error:
-                rank -= 6
-        elif strategy == "weak_first":
-            if is_error:
-                rank -= 12
-            if needs_check:
-                rank -= 4
-            if is_target:
-                rank -= 5
-        elif strategy == "time_saver":
-            if score is not None and score >= mastery_high:
-                rank -= 15  # 已掌握的先快速过掉，把时间省给难点
-            if is_target:
-                rank -= 6
-        else:
-            if is_target:
-                rank -= 8
-            if is_error:
-                rank -= 4
-            if needs_check:
-                rank -= 2
-        return (rank, index)
+        minutes = _parse_minutes(task.get("duration"))
+        weights = KNOWLEDGE_SCORE_WEIGHTS.get(strategy) or KNOWLEDGE_SCORE_WEIGHTS["balanced"]
+        # 连续个性化分：掌握度越低越急、目标/错题/证据不足加权、省时策略下短任务优先。
+        urgency = (
+            weights["weak"] * (1.0 - (score if score is not None else 0.5))
+            + weights["target"] * (1.0 if is_target else 0.0)
+            + weights["error"] * (1.0 if is_error else 0.0)
+            + weights["uncertain"] * (1.0 if needs_check else 0.0)
+            + weights["pace"] * (1.0 - min(minutes, 120) / 120)
+        )
+        return (-urgency, index)
 
     ready = sorted([i for i in range(count) if indegree[i] == 0], key=priority)
     ordered = []
@@ -1480,33 +1468,15 @@ def plan_knowledge_path(mastery: dict = None, prereq_map: dict = None,
 
         if score is None:
             band = "unknown"
-            priority = 1
         elif score >= mastery_high:
             band = "high"
-            priority = 3
         elif score >= mastery_low:
             band = "medium"
-            priority = 2
         else:
             band = "low"
-            priority = 0
 
         is_target = tag in target_tags
         needs_check = tag in uncertain_tags and not (score is not None and score >= mastery_high)
-        if strategy == "target_first":
-            priority -= 30 if is_target else 0
-        elif strategy == "weak_first":
-            priority -= 12 if tag in error_tags else 0
-            priority -= 4 if needs_check else 0
-            priority -= 5 if is_target else 0
-        elif strategy == "time_saver":
-            priority -= 15 if band == "high" else 0
-            priority -= 6 if is_target else 0
-        else:
-            priority -= 8 if is_target else 0
-            priority -= 4 if tag in error_tags else 0
-            priority -= 2 if needs_check else 0
-
         project_items = project_map.get(tag) or []
         project = project_items[0] if project_items else None
         point_meta = meta_map.get(tag) or {}
@@ -1514,6 +1484,16 @@ def plan_knowledge_path(mastery: dict = None, prereq_map: dict = None,
         confidence = detail.get("confidence")
         estimated_minutes = int(point_meta.get("study_minutes") or 0) or (
             _parse_minutes(project.get("duration")) if project else 30
+        )
+        weights = KNOWLEDGE_SCORE_WEIGHTS.get(strategy) or KNOWLEDGE_SCORE_WEIGHTS["balanced"]
+        # 连续个性化分：分数越高越靠前。掌握度/错题/目标/证据不足/任务时长都参与，
+        # 不再压成四档，所以同一波次内掌握度差 2% 也能改变先后。
+        priority = (
+            weights["weak"] * (1.0 - (score if score is not None else 0.5))
+            + weights["target"] * (1.0 if is_target else 0.0)
+            + weights["error"] * (1.0 if tag in error_tags else 0.0)
+            + weights["uncertain"] * (1.0 if needs_check else 0.0)
+            + weights["pace"] * (1.0 - min(estimated_minutes, 120) / 120)
         )
         if is_target:
             reason = f"你指定的目标知识点；{reason}"
@@ -1561,12 +1541,50 @@ def plan_knowledge_path(mastery: dict = None, prereq_map: dict = None,
             "_priority": priority,
         })
 
-    units.sort(key=lambda unit: (unit["wave"], unit["_priority"], course_order[unit["tag"]]))
+    # 第一键是拓扑波次（硬约束），第二键是连续个性化分，最后才用课程原顺序兜底。
+    units.sort(key=lambda unit: (unit["wave"], -unit["_priority"], course_order[unit["tag"]]))
+
+    # 时间预算参与裁剪：按当前顺序累计主线学时，超出预算后的非目标节点归入
+    # 「课后拓展」。顺序本身不变，避免为了省时把先修关系打乱。
+    budget_minutes = time_budget.get("budget_minutes")
+    try:
+        budget_value = int(float(budget_minutes)) if budget_minutes else 0
+    except (TypeError, ValueError):
+        budget_value = 0
+    core_minutes = None
+    if budget_value > 0:
+        # 目标知识点及其全部先修必须留在主线，否则目标根本走不到。
+        keep_tags = set(target_tags)
+        stack = list(keep_tags)
+        while stack:
+            tag = stack.pop()
+            for parent in parents.get(tag) or []:
+                if parent not in keep_tags:
+                    keep_tags.add(parent)
+                    stack.append(parent)
+
+        core_minutes = 0
+        cut = False
+        for unit in units:
+            if unit["status"] == "done":
+                continue
+            minutes = int(unit.get("estimated_minutes") or 0)
+            if unit["tag"] in keep_tags or (not cut and core_minutes + minutes <= budget_value):
+                core_minutes += minutes
+                continue
+            cut = True
+            unit["deferred"] = True
+            unit["deferred_reason"] = (
+                f"按每周 {time_budget.get('weekly_hours') or '—'} 小时、"
+                f"{time_budget.get('deadline_weeks') or '—'} 周计算，主线时间不够；"
+                "先放课后拓展，时间宽裕再学"
+            )
+
     current = None
     for index, unit in enumerate(units, start=1):
         unit["order"] = index
         unit.pop("_priority", None)
-        if current is None and unit["status"] == "todo":
+        if current is None and unit["status"] == "todo" and not unit.get("deferred"):
             unit["status"] = "current"
             unit["reason"] = (
                 "下一步就学这个（你指定的目标）：先看教程，再做一道小测确认"
@@ -1579,7 +1597,10 @@ def plan_knowledge_path(mastery: dict = None, prereq_map: dict = None,
     remaining_minutes = sum(
         unit["estimated_minutes"] for unit in units if unit["status"] != "done"
     )
-    budget_minutes = time_budget.get("budget_minutes")
+    if core_minutes is None:
+        core_minutes = remaining_minutes
+    deferred_units = [unit for unit in units if unit.get("deferred")]
+    deferred_minutes = sum(int(unit.get("estimated_minutes") or 0) for unit in deferred_units)
     current_brief = None
     if current:
         current_brief = {
@@ -1627,6 +1648,12 @@ def plan_knowledge_path(mastery: dict = None, prereq_map: dict = None,
             "weekly_hours": time_budget.get("weekly_hours"),
             "deadline_weeks": time_budget.get("deadline_weeks"),
             "remaining_minutes": remaining_minutes,
+            # 主线学时：预算内保留的任务合计；课后拓展不计入
+            "core_minutes": core_minutes,
+            "deferred_minutes": deferred_minutes,
+            "deferred_count": len(deferred_units),
+            # 主线是否装得下；课后拓展单独放，不再算作超时
+            "core_fit": (core_minutes <= budget_value) if budget_value else True,
             "fit": (remaining_minutes <= budget_minutes) if budget_minutes else True,
         },
         "preferences": {

@@ -42,15 +42,18 @@ def main():
     parser.add_argument("--pdf-dir", default="pdf", help="PDF 教材目录")
     parser.add_argument("--materials-dir", default="learning_materials", help="学习材料目录")
     parser.add_argument("--dataset-dir", default="backend/data/dataset", help="题库目录")
+    parser.add_argument("--tutorial-seed", default="backend/data/tutorial_seed.json",
+                        help="内置教程种子文件（如 44 篇数据结构教程）")
     parser.add_argument("--index-path", default="learning_materials/index.json", help="学习材料索引")
     parser.add_argument("--batch-size", type=int, default=50, help="入库批大小")
     parser.add_argument("--chroma-path", default="backend/data/chroma_db", help="ChromaDB 存储路径")
     args = parser.parse_args()
 
     # 获取 API Key
-    api_key = args.api_key or os.environ.get("DASHSCOPE_API_KEY", "")
-    if args.provider == "dashscope" and not api_key:
-        print("❌ DashScope 需要 API Key。请通过 --api-key 或环境变量 DASHSCOPE_API_KEY 提供。")
+    env_key_name = "SILICONFLOW_API_KEY" if args.provider == "siliconflow" else "DASHSCOPE_API_KEY"
+    api_key = args.api_key or os.environ.get(env_key_name, "")
+    if not api_key:
+        print(f"❌ {args.provider} 需要 API Key。请通过 --api-key 或环境变量 {env_key_name} 提供。")
         sys.exit(1)
 
     print("=" * 60)
@@ -67,6 +70,7 @@ def main():
         materials_dir=args.materials_dir,
         dataset_dir=args.dataset_dir,
         index_path=args.index_path,
+        tutorial_seed_path=args.tutorial_seed,
     )
     load_time = time.time() - t0
     print(f"  ✅ 加载完成: {len(chunks)} 个文档块（耗时 {load_time:.1f}s）")

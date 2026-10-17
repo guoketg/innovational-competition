@@ -325,9 +325,15 @@ def _make_parent_child_chunks(
             # 检索文本：领域标签 + 短标题 + 章节 + 内容正文
             # 把最多空间留给实际内容（child_text），而非元数据
             short_title = title[:30] if len(title) > 30 else title
-            domain_tag = "数据分析与挖掘" if any(
-                kw in title for kw in ("数据", "数据分析", "数据挖掘", "数据仓库")
-            ) else "AI智能体"
+            if any(
+                kw in title
+                for kw in ("数据结构", "算法", "链表", "栈", "队列", "树", "图", "排序", "查找", "哈希")
+            ):
+                domain_tag = "数据结构与算法"
+            elif any(kw in title for kw in ("数据", "数据分析", "数据挖掘", "数据仓库")):
+                domain_tag = "数据分析与挖掘"
+            else:
+                domain_tag = "AI智能体"
             retrieval_text = f"【{domain_tag}】{short_title} | {section}\n{child_text}".strip()
             result.append(
                 DocumentChunk(
@@ -518,6 +524,51 @@ def load_markdown_documents(
     return chunks
 
 
+def load_tutorial_documents(seed_path: str) -> list[DocumentChunk]:
+    """加载内置教程种子（如 tutorial_seed.json 中的 44 篇数据结构教程）。"""
+    chunks: list[DocumentChunk] = []
+    path = Path(seed_path)
+    if not path.exists():
+        logger.warning("教程种子文件不存在: %s", seed_path)
+        return chunks
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logger.warning("教程种子解析失败 %s: %s", seed_path, exc)
+        return chunks
+    entries = data if isinstance(data, list) else data.get("tutorials", [])
+    for entry in entries:
+        content = str(entry.get("content") or "").strip()
+        if not content:
+            continue
+        title = str(entry.get("title") or entry.get("knowledge_tag") or path.stem)
+        module = str(entry.get("module") or "")
+        knowledge_tag = str(entry.get("knowledge_tag") or "")
+        source_url = str(entry.get("source_url") or "")
+        offset = 0
+        for section, section_text in _split_by_headings(content):
+            if len(section_text.strip()) < 40:
+                continue
+            units = [(unit, 0) for unit in _sentences(section_text)]
+            created = _make_parent_child_chunks(
+                section=section or title,
+                units=units,
+                source_path=path.name,
+                title=title,
+                module=module,
+                parent_offset=offset,
+                source_type="markdown",
+            )
+            for chunk in created:
+                chunk.knowledge_point = knowledge_tag
+                chunk.metadata["knowledge_tag"] = knowledge_tag
+                chunk.metadata["source_url"] = source_url
+            chunks.extend(created)
+            offset += max(1, len({c.metadata["parent_id"] for c in created}))
+    logger.info("教程种子 [%s] 生成 %s 个检索子块", path.name, len(chunks))
+    return chunks
+
+
 def load_qa_documents(dataset_dir: str) -> list[DocumentChunk]:
     chunks: list[DocumentChunk] = []
     base = Path(dataset_dir)
@@ -531,7 +582,14 @@ def load_qa_documents(dataset_dir: str) -> list[DocumentChunk]:
                 if isinstance(data, list)
                 else data.get("qa_pairs", data.get("questions", []))
             )
+            kept = 0
+            skipped = 0
             for index, item in enumerate(questions):
+                # 只收录当前课程（数据结构与算法）的题目：这些条目带有 knowledge_tag。
+                # 旧版「AI 智能体」课程题库没有该字段，直接跳过，避免过时内容进入知识库。
+                if not str(item.get("knowledge_tag") or "").strip():
+                    skipped += 1
+                    continue
                 text = "\n".join(
                     part
                     for part in (
@@ -543,6 +601,7 @@ def load_qa_documents(dataset_dir: str) -> list[DocumentChunk]:
                 )
                 if len(text) < 40:
                     continue
+                kept += 1
                 parent_id = hashlib.sha256(f"{path}:{index}:{text}".encode("utf-8")).hexdigest()[:20]
                 chunks.append(
                     DocumentChunk(
@@ -561,9 +620,16 @@ def load_qa_documents(dataset_dir: str) -> list[DocumentChunk]:
                             "embedding_text": text,
                             "quality_score": round(chunk_quality_score(text), 3),
                             "chunk_version": "semantic-parent-child-v2",
+                            "knowledge_tag": str(item.get("knowledge_tag") or ""),
                         },
                     )
                 )
+            logger.info(
+                "题库 [%s] 收录 %s 条，跳过非当前课程 %s 条",
+                path.name,
+                kept,
+                skipped,
+            )
         except Exception as exc:
             logger.warning("题库解析失败 %s: %s", path, exc)
     return chunks
@@ -574,9 +640,11 @@ def load_all_documents(
     materials_dir: str = "learning_materials",
     dataset_dir: str = "backend/data/dataset",
     index_path: str = "learning_materials/index.json",
+    tutorial_seed_path: str = "backend/data/tutorial_seed.json",
 ) -> list[DocumentChunk]:
     chunks = load_pdf_documents(pdf_dir)
     chunks.extend(load_markdown_documents(materials_dir, index_path))
+    chunks.extend(load_tutorial_documents(tutorial_seed_path))
     chunks.extend(load_qa_documents(dataset_dir))
     logger.info("总计: %s 个检索子块", len(chunks))
     return chunks
