@@ -38,7 +38,11 @@ async def generate_path(req: LearningPathGenerateRequest, current_user: dict = D
             timeline=req.timeline,
             learning_depth=req.learning_depth,
             diagnostic_session_id=req.diagnostic_session_id,
-            modules=req.modules
+            modules=req.modules,
+            target_tags=req.target_tags,
+            weekly_hours=req.weekly_hours,
+            deadline_weeks=req.deadline_weeks,
+            preferred_mode=req.preferred_mode
         )
         return APIResponse(data=result)
     except ValueError as e:
@@ -69,10 +73,14 @@ async def create_diagnostic_test(req: DiagnosticTestRequest, current_user: dict 
         return APIResponse(code=500, message=f"生成诊断测试失败: {str(e)}", data=None)
 
 @router.post("/path/quick-quiz", response_model=APIResponse)
-async def start_quick_quiz(current_user: dict = Depends(get_current_user)):
-    """开始 5 道快速测评（新用户生成路线前使用）"""
+async def start_quick_quiz(knowledge_tag: str = "", count: int = 5,
+                           current_user: dict = Depends(get_current_user)):
+    """开始快速测评；默认抽 5 道，传 knowledge_tag 可对单个知识点补测"""
     try:
-        return APIResponse(data=learning_service.start_quick_quiz(current_user["id"]))
+        count = max(1, min(count, 10))
+        return APIResponse(data=learning_service.start_quick_quiz(
+            current_user["id"], knowledge_tag, count
+        ))
     except ValueError as e:
         return APIResponse(code=400, message=str(e), data=None)
     except Exception as e:
@@ -85,11 +93,33 @@ async def submit_quick_quiz(req: QuizSubmitRequest, current_user: dict = Depends
     try:
         answers = [answer.model_dump() for answer in req.answers]
         result = learning_service.submit_quick_quiz(current_user["id"], req.session_id, answers)
+        # #45 闭环自适应：掌握度发生有意义变化时，自动重排路线并记录版本
+        try:
+            result["path_replan"] = await learning_service.maybe_auto_replan_after_assessment(
+                current_user["id"],
+                trigger="quick_quiz",
+                trigger_label="快速测评",
+                session_id=req.session_id,
+            )
+        except Exception as replan_exc:
+            print(f"[quick_quiz] 自动重排跳过: {replan_exc}")
+            result["path_replan"] = {"applied": False, "reason": "replan_error"}
         return APIResponse(data=result)
     except ValueError as e:
         return APIResponse(code=400, message=str(e), data=None)
     except Exception as e:
         return APIResponse(code=500, message=f"提交快速测评失败: {str(e)}", data=None)
+
+
+@router.get("/path/versions", response_model=APIResponse)
+async def get_path_versions(limit: int = 5, current_user: dict = Depends(get_current_user)):
+    """查看路线变更记录（版本、触发来源、变更摘要）"""
+    try:
+        limit = max(1, min(limit, 20))
+        versions = await learning_service.list_path_versions(current_user["id"], limit=limit)
+        return APIResponse(data={"versions": versions})
+    except Exception as e:
+        return APIResponse(code=500, message=f"获取路线变更记录失败: {str(e)}", data=None)
 
 
 @router.get("/resource", response_model=APIResponse)
@@ -136,68 +166,523 @@ async def get_path_roadmap(current_user: dict = Depends(get_current_user)):
         return APIResponse(code=500, message=f"获取学习地图失败: {str(e)}", data=None)
 
 
-def _knowledge_nodes(roadmap: dict) -> list:
-    """从路线图站点里取出知识点名单（tag + 展示名），按 tag 去重。"""
-    nodes, seen = [], set()
-    for station in (roadmap or {}).get("stations", []) or []:
-        tag = station.get("knowledge")
-        if not tag or tag in seen:
-            continue
-        seen.add(tag)
-        nodes.append({"tag": tag, "name": station.get("topic") or tag})
-    return nodes
+def _knowledge_nodes() -> list:
+    """课程级知识点名单：与具体用户学没学过无关，保证图谱和课程知识体系一一对应。"""
+    from services import agent_course
+
+    return agent_course.course_knowledge_points()
 
 
-def _attach_mastery(nodes: list, roadmap: dict) -> list:
-    """把站点上的掌握度贴到图谱节点，供前端沿用同一套分档配色。"""
-    bands = {}
+def _attach_mastery(nodes: list, roadmap: dict, user_id: int = None) -> list:
+    """把「当前用户学得怎么样」贴到课程知识点上。
+
+    - mastery / readiness 来自主口径掌握度与沿先修边的传播结果；
+    - station_status / is_current / is_done 标记该知识点在本人路径上的位置；
+    - projects 列出该知识点对应的全部实训项目，点击节点可直接跳到项目实验。
+    """
+    from services import agent_course
+
+    stations_by_tag = {}
     for station in (roadmap or {}).get("stations", []) or []:
         tag = station.get("knowledge")
-        if tag and tag not in bands:
-            bands[tag] = {"mastery": station.get("mastery"), "mastery_band": station.get("mastery_band")}
+        if tag:
+            stations_by_tag.setdefault(tag, []).append(station)
+
+    readiness = {}
+    profiles = {}
+    if user_id is not None:
+        try:
+            readiness = learning_service._build_graph_context(user_id).get("readiness") or {}
+        except Exception:
+            readiness = {}
+        try:
+            profiles = learning_service._mastery_detail_by_knowledge(user_id)
+        except Exception:
+            profiles = {}
+
+    names = {node["tag"]: node.get("name") or node["tag"] for node in nodes}
+    projects = agent_course.project_index()
+
     for node in nodes:
-        node.update(bands.get(node["tag"], {"mastery": None, "mastery_band": "unknown"}))
+        tag = node["tag"]
+        group = stations_by_tag.get(tag) or []
+        statuses = [station.get("status") for station in group]
+        if "current" in statuses:
+            station_status = "current"
+        elif group and all(status == "done" for status in statuses):
+            station_status = "done"
+        elif "locked" in statuses:
+            station_status = "locked"
+        elif group:
+            station_status = "todo"
+        else:
+            station_status = None
+
+        info = readiness.get(tag) or {}
+        station = group[0] if group else {}
+        profile = profiles.get(tag) or {}
+        mastery = station.get("mastery") if station.get("mastery") is not None else profile.get("score")
+        node.update({
+            "mastery": mastery,
+            "mastery_band": station.get("mastery_band") or learning_service._mastery_band(mastery),
+            "mastery_confidence": profile.get("confidence"),
+            "mastery_confidence_label": profile.get("confidence_label"),
+            "mastery_evidence": profile.get("evidence_count"),
+            "mastery_evidence_detail": (
+                {
+                    "quiz_attempts": profile.get("quiz_attempts", 0),
+                    "quiz_correct": profile.get("quiz_correct", 0),
+                    "lab_attempts": profile.get("lab_attempts", 0),
+                }
+                if profile
+                else None
+            ),
+            "graph_readiness": info.get("state") or station.get("graph_readiness"),
+            "graph_readiness_score": info.get("score") if info else station.get("graph_readiness_score"),
+            "graph_blockers": [
+                names.get(blocker) or blocker
+                for blocker in (info.get("root_blockers") or station.get("graph_blockers") or [])
+            ],
+            "own_mastery": info.get("own_mastery", station.get("graph_own_mastery")),
+            "own_band": info.get("own_band"),
+            "undiagnosed": bool(info.get("undiagnosed", station.get("graph_undiagnosed"))),
+            "weak_self": bool(info.get("weak_self")),
+            "parents": [
+                {**parent, "name": names.get(parent.get("tag")) or parent.get("name") or parent.get("tag")}
+                for parent in (info.get("parents") or station.get("graph_parents") or [])
+            ],
+            "skippable": bool(station.get("skippable")),
+            "station_status": station_status,
+            "is_current": station_status == "current",
+            "is_done": station_status == "done",
+            "projects": projects.get(tag) or [],
+            "on_path": bool(group),
+        })
     return nodes
+
+
+PERSONAL_STATE_LABELS = {
+    "done": "已完成",
+    "current": "当前站",
+    "available": "路线待学",
+    "locked": "前置未完成",
+    "explored": "已掌握（不在当前路线）",
+    "frontier": "可以接着拓展",
+    "hidden": "暂不展示",
+}
+
+
+def _node_own_score(node: dict):
+    """读取节点自身掌握度；没有证据时返回 None（由调用方按中性水平处理）。"""
+    value = node.get("own_mastery")
+    if value is None:
+        value = node.get("mastery")
+    try:
+        return None if value is None else float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _personal_graph_view(graph: dict, mastery_high: float, mastery_low: float,
+                         neutral_score: float = 0.6) -> dict:
+    """按「这个人学到哪了」裁剪图谱节点，而不只是改颜色。
+
+    - 路线上的节点（已完成 / 当前 / 待学 / 被前置卡住）始终可见；
+    - 已经练过的拓展节点可见（explored）；
+    - 「拓展前沿」可见：所有前置都不薄弱，且至少有一个前置已经学到位，
+      因此随着用户掌握的知识变多，可见节点会逐步向外长出来；
+    - 其余节点隐藏，只保留在「完整课程图谱」里。
+    """
+    nodes = graph.get("nodes") or []
+    node_index = {node.get("tag"): node for node in nodes if node.get("tag")}
+    parent_map = {}
+    for edge in graph.get("edges") or []:
+        if edge.get("relation") != "prerequisite":
+            continue
+        source, target = edge.get("source"), edge.get("target")
+        if source in node_index and target in node_index:
+            parent_map.setdefault(target, []).append(source)
+
+    visible, hidden = [], 0
+    counts = {state: 0 for state in PERSONAL_STATE_LABELS}
+    for node in nodes:
+        tag = node.get("tag")
+        if node.get("is_done"):
+            state = "done"
+        elif node.get("is_current"):
+            state = "current"
+        elif node.get("station_status") == "locked":
+            state = "locked"
+        elif node.get("station_status") == "todo":
+            state = "available"
+        else:
+            own = _node_own_score(node)
+            if own is not None and own >= mastery_high:
+                state = "explored"
+            else:
+                parents = parent_map.get(tag) or []
+                if not parents:
+                    state = "frontier"
+                else:
+                    satisfied = True
+                    anchored = False
+                    for parent_tag in parents:
+                        parent = node_index.get(parent_tag) or {}
+                        parent_score = _node_own_score(parent)
+                        if parent_score is None:
+                            parent_score = neutral_score  # 未诊断前置按中性估计
+                        if parent_score < mastery_low:
+                            satisfied = False
+                        if (parent.get("is_done") or parent.get("is_current")
+                                or (parent_score is not None and parent_score >= mastery_high)):
+                            anchored = True
+                    state = "frontier" if satisfied and anchored else "hidden"
+
+        node["personal_state"] = state
+        node["personal_state_label"] = PERSONAL_STATE_LABELS.get(state, state)
+        counts[state] = counts.get(state, 0) + 1
+        if state == "hidden":
+            hidden += 1
+        else:
+            visible.append(node)
+
+    visible_ids = {node.get("tag") for node in visible}
+    graph["nodes"] = visible
+    graph["edges"] = [
+        edge for edge in (graph.get("edges") or [])
+        if edge.get("source") in visible_ids and edge.get("target") in visible_ids
+    ]
+    # 相似边两端也必须在场，丢弃后同步统计口径，避免前端显示已失效的条数
+    graph["stats"] = dict(graph.get("stats") or {})
+    graph["stats"]["visible_nodes"] = len(visible)
+    graph["stats"]["hidden_nodes"] = hidden
+    graph["view"] = {
+        "scope": "mine",
+        "total_nodes": len(nodes),
+        "visible_nodes": len(visible),
+        "hidden_nodes": hidden,
+        "state_counts": counts,
+    }
+    return graph
+
+
+def _apply_graph_scope(graph: dict, scope: str) -> dict:
+    """scope=mine 返回随个人学习状态变化的子图；scope=full 返回完整课程图谱。"""
+    from services.teaching_policy_service import MASTERY_HIGH, MASTERY_LOW
+    from services.knowledge_graph_service import UNDIAGNOSED_SCORE
+
+    total = len(graph.get("nodes") or [])
+    if scope == "full":
+        for node in graph.get("nodes") or []:
+            node["personal_state"] = "done" if node.get("is_done") else (
+                "current" if node.get("is_current") else (
+                    "locked" if node.get("station_status") == "locked" else (
+                        "available" if node.get("station_status") == "todo" else "full"
+                    )
+                )
+            )
+            node["personal_state_label"] = (
+                PERSONAL_STATE_LABELS.get(node["personal_state"], "完整课程")
+            )
+        graph["view"] = {
+            "scope": "full",
+            "total_nodes": total,
+            "visible_nodes": total,
+            "hidden_nodes": 0,
+            "state_counts": {},
+        }
+        return graph
+    return _personal_graph_view(graph, MASTERY_HIGH, MASTERY_LOW, UNDIAGNOSED_SCORE)
+
+
+def _attach_catalog_fields(nodes: list) -> list:
+    """把课程清单里的属性贴到图谱节点上（难度、认知层次、学时、权重、包含关系等）。
+
+    图谱可能由旧版本生成，节点里没有这些字段；这里统一以课程清单为权威来源补齐，
+    保证前端和路径编排拿到的属性一致。
+    """
+    from services import agent_course
+
+    catalog = {item["tag"]: item for item in agent_course.COURSE_KNOWLEDGE_POINTS}
+    fields = (
+        "module", "in_course", "difficulty", "difficulty_label", "cognitive_level",
+        "study_minutes", "exam_weight", "exam_weight_raw", "misconceptions",
+        "part_of", "taught_by", "assessed_by",
+    )
+    for node in nodes:
+        item = catalog.get(node.get("tag")) or {}
+        for field in fields:
+            node[field] = item.get(field, node.get(field))
+        node["module"] = item.get("module") or node.get("module") or ""
+        node["in_course"] = bool(item.get("in_course"))
+    return nodes
+
+
+def _ensure_catalog_edges(graph: dict) -> dict:
+    """给旧图谱补上课程目录的 part-of 边，并统一重算关系统计。"""
+    from services import agent_course
+
+    node_ids = {node.get("tag") for node in graph.get("nodes") or []}
+    edges = list(graph.get("edges") or [])
+    existing = {
+        (edge.get("source"), edge.get("target"), edge.get("relation")) for edge in edges
+    }
+    for edge in agent_course.part_of_edges():
+        key = (edge["source"], edge["target"], edge["relation"])
+        if edge["source"] not in node_ids or edge["target"] not in node_ids:
+            continue
+        if key in existing:
+            continue
+        edges.append(edge)
+        existing.add(key)
+    graph["edges"] = edges
+    stats = dict(graph.get("stats") or {})
+    stats["edges"] = len(edges)
+    stats["prerequisite"] = sum(1 for e in edges if e.get("relation") == "prerequisite")
+    stats["similar"] = sum(1 for e in edges if e.get("relation") == "similar")
+    stats["part_of"] = sum(1 for e in edges if e.get("relation") == "part-of")
+    graph["stats"] = stats
+    return graph
 
 
 @router.get("/path/graph", response_model=APIResponse)
-async def get_path_graph(current_user: dict = Depends(get_current_user)):
-    """获取知识图谱（§5.8 第二版）；未生成过时降级返回专家先修骨架。"""
+async def get_path_graph(scope: str = "mine", course: str = "", current_user: dict = Depends(get_current_user)):
+    """获取知识图谱。
+
+    scope=mine（默认）：只返回与当前用户相关的节点（路线 + 已掌握 + 可拓展前沿），
+    不同用户看到的节点集合和数量不同；scope=full：完整 44 个课程知识点。
+    course：课程标识（默认 dsa 数据结构与算法），用于换课程时读不同图谱。
+    """
     from services import knowledge_graph_service as kg_service
 
     try:
         roadmap = await learning_service.build_learning_roadmap(current_user["id"])
-        nodes = _knowledge_nodes(roadmap)
-        graph = kg_service.get_knowledge_graph(current_user["id"])
+        nodes = _knowledge_nodes()
+        version = kg_service.resolve_curriculum_version(course)
+        graph = kg_service.get_knowledge_graph(current_user["id"], version)
         if not graph:
             graph = kg_service.build_skeleton_graph(nodes, learning_service._load_prerequisites())
             graph["has_graph"] = False
         else:
             graph["has_graph"] = True
-        graph["nodes"] = _attach_mastery(graph["nodes"], roadmap)
+        graph["nodes"] = _attach_mastery(graph["nodes"], roadmap, current_user["id"])
+        graph["nodes"] = _attach_catalog_fields(graph["nodes"])
+        graph = _ensure_catalog_edges(graph)
+        graph["impact"] = roadmap.get("graph") or {}
+        graph["path_needs_apply"] = bool((roadmap.get("graph") or {}).get("path_needs_apply"))
+        graph = _apply_graph_scope(graph, scope if scope in ("mine", "full") else "mine")
         return APIResponse(data=graph)
     except Exception as e:
         return APIResponse(code=500, message=f"获取知识图谱失败: {str(e)}", data=None)
 
 
 @router.post("/path/graph/generate", response_model=APIResponse)
-async def generate_path_graph(current_user: dict = Depends(get_current_user)):
-    """调用 LLM 构建知识图谱：知识点描述 + 先修/相似双关系（§5.8 第二版）。"""
+async def generate_path_graph(course: str = "", current_user: dict = Depends(get_current_user)):
+    """调用 LLM 构建课程级知识图谱：知识点描述 + 先修/相似双关系，边带置信度与依据。"""
     from services import knowledge_graph_service as kg_service
 
+    key = (course or kg_service.DEFAULT_COURSE).strip().lower()
+    if key not in kg_service.COURSE_REGISTRY:
+        available = "、".join(f"{item['course']}（{item['label']}）" for item in kg_service.course_options())
+        return APIResponse(code=400, message=f"还没接入课程「{course}」，当前可用课程：{available}", data=None)
+    if key != kg_service.DEFAULT_COURSE:
+        return APIResponse(code=400, message="该课程还没有专属知识点表，暂不能自动生成图谱", data=None)
     try:
-        roadmap = await learning_service.build_learning_roadmap(current_user["id"])
-        nodes = _knowledge_nodes(roadmap)
-        if not nodes:
-            return APIResponse(code=400, message="还没有学习路径，请先生成学习路线", data=None)
+        nodes = _knowledge_nodes()
         graph = await kg_service.generate_knowledge_graph(
             current_user["id"], nodes, learning_service._load_prerequisites()
         )
+        roadmap = await learning_service.build_learning_roadmap(current_user["id"])
         graph["has_graph"] = True
-        graph["nodes"] = _attach_mastery(graph["nodes"], roadmap)
+        graph["nodes"] = _attach_mastery(graph["nodes"], roadmap, current_user["id"])
+        graph["nodes"] = _attach_catalog_fields(graph["nodes"])
+        graph = _ensure_catalog_edges(graph)
+        graph["impact"] = roadmap.get("graph") or {}
+        graph["path_needs_apply"] = bool(roadmap.get("has_path"))
         return APIResponse(data=graph)
     except Exception as e:
         return APIResponse(code=500, message=f"生成知识图谱失败: {str(e)}", data=None)
+
+
+class GraphEdgeReviewRequest(BaseModel):
+    source: str
+    target: str
+    relation: str = "prerequisite"
+    action: str
+
+
+@router.post("/path/graph/edges/review", response_model=APIResponse)
+async def review_path_graph_edge(req: GraphEdgeReviewRequest, current_user: dict = Depends(get_current_user)):
+    """人工审核一条 AI 推断的关系：采纳后参与路径编排，拒绝后只保留展示。"""
+    from services import knowledge_graph_service as kg_service
+
+    try:
+        graph = kg_service.get_knowledge_graph(current_user["id"])
+        if not graph:
+            return APIResponse(code=400, message="还没有知识图谱，请先生成", data=None)
+        edge = kg_service.review_edge(graph, req.source, req.target, req.relation, req.action)
+        action_label = "采纳" if str(req.action or "").lower() in ("accept", "approve", "adopt") else "拒绝"
+        kg_service._persist(
+            current_user["id"], graph, change_type="review",
+            change_note=f"{action_label}关系 {req.source} → {req.target}（{req.relation}）",
+        )
+        roadmap = await learning_service.build_learning_roadmap(current_user["id"])
+        graph["has_graph"] = True
+        graph["nodes"] = _attach_mastery(graph["nodes"], roadmap, current_user["id"])
+        graph["impact"] = roadmap.get("graph") or {}
+        graph["path_needs_apply"] = bool((roadmap.get("graph") or {}).get("path_needs_apply"))
+        graph["reviewed_edge"] = edge
+        return APIResponse(data=graph)
+    except ValueError as e:
+        return APIResponse(code=400, message=str(e), data=None)
+    except Exception as e:
+        return APIResponse(code=500, message=f"审核知识关系失败: {str(e)}", data=None)
+
+
+@router.post("/path/graph/apply", response_model=APIResponse)
+async def apply_path_graph(current_user: dict = Depends(get_current_user)):
+    """用当前知识图谱重排学习路径（迁移已完成进度，不丢历史记录）。"""
+    try:
+        result = await learning_service.apply_graph_to_path(current_user["id"])
+        return APIResponse(data=result)
+    except ValueError as e:
+        return APIResponse(code=400, message=str(e), data=None)
+    except Exception as e:
+        return APIResponse(code=500, message=f"应用知识图谱失败: {str(e)}", data=None)
+
+
+@router.get("/path/graph/evaluation", response_model=APIResponse)
+async def evaluate_path_graph(current_user: dict = Depends(get_current_user)):
+    """知识图谱测评：结构健康 / 边质量 / 路径影响 / 证据覆盖 四维评分与明细。"""
+    from services.knowledge_graph_eval import evaluate_knowledge_graph
+
+    try:
+        return APIResponse(data=evaluate_knowledge_graph(current_user["id"]))
+    except Exception as e:
+        return APIResponse(code=500, message=f"知识图谱测评失败: {str(e)}", data=None)
+
+
+@router.get("/path/graph/courses", response_model=APIResponse)
+async def list_graph_courses(current_user: dict = Depends(get_current_user)):
+    """可选课程清单：换课程时前端用它展示下拉框，不用改代码。"""
+    from services import knowledge_graph_service as kg_service
+
+    return APIResponse(data={
+        "default_course": kg_service.DEFAULT_COURSE,
+        "courses": kg_service.course_options(),
+    })
+
+
+def _load_graph_for_query(current_user: dict, course: str):
+    from services import knowledge_graph_service as kg_service
+
+    version = kg_service.resolve_curriculum_version(course)
+    graph = kg_service.get_knowledge_graph(current_user["id"], version)
+    if not graph:
+        # 还没有 AI 生成/审核过的个人图谱时，退回专家维护的课程骨架，
+        # 保证图查询和路线图看到的是同一份连线，不会出现“页面有图、查询说没有”。
+        graph = kg_service.build_skeleton_graph(
+            _knowledge_nodes(), learning_service._load_prerequisites()
+        )
+        graph = _ensure_catalog_edges(graph)
+    return graph
+
+
+@router.get("/path/graph/neighbors", response_model=APIResponse)
+async def query_path_graph_neighbors(
+    ref: str,
+    hops: int = 1,
+    direction: str = "both",
+    relations: str = "",
+    course: str = "",
+    current_user: dict = Depends(get_current_user),
+):
+    """查某个知识点的 N 跳邻居：ref 可以是 tag 或知识点名称。"""
+    from services import knowledge_graph_service as kg_service
+
+    try:
+        graph = _load_graph_for_query(current_user, course)
+        relation_list = [item.strip() for item in relations.split(",") if item.strip()]
+        data = kg_service.query_neighbors(
+            graph, ref, hops=hops, direction=direction, relations=relation_list
+        )
+        return APIResponse(data=data)
+    except ValueError as e:
+        return APIResponse(code=400, message=str(e), data=None)
+    except Exception as e:
+        return APIResponse(code=500, message=f"查询邻居失败: {str(e)}", data=None)
+
+
+@router.get("/path/graph/path", response_model=APIResponse)
+async def query_path_graph_between(
+    source: str,
+    target: str,
+    direction: str = "both",
+    relations: str = "",
+    max_hops: int = 8,
+    course: str = "",
+    current_user: dict = Depends(get_current_user),
+):
+    """查两个知识点之间怎么连起来（最短路径）。"""
+    from services import knowledge_graph_service as kg_service
+
+    try:
+        graph = _load_graph_for_query(current_user, course)
+        relation_list = [item.strip() for item in relations.split(",") if item.strip()]
+        data = kg_service.query_path(
+            graph, source, target, direction=direction,
+            relations=relation_list, max_hops=max_hops,
+        )
+        return APIResponse(data=data)
+    except ValueError as e:
+        return APIResponse(code=400, message=str(e), data=None)
+    except Exception as e:
+        return APIResponse(code=500, message=f"查询路径失败: {str(e)}", data=None)
+
+
+@router.get("/path/graph/versions", response_model=APIResponse)
+async def list_path_graph_versions(
+    course: str = "", limit: int = 20, current_user: dict = Depends(get_current_user)
+):
+    """列出版本快照：每次生成 / 审核 / 回滚都会留一份，可回滚到旧版本。"""
+    from services import knowledge_graph_service as kg_service
+
+    try:
+        data = kg_service.list_graph_versions(
+            kg_service.resolve_curriculum_version(course), limit=limit
+        )
+        return APIResponse(data=data)
+    except Exception as e:
+        return APIResponse(code=500, message=f"读取版本历史失败: {str(e)}", data=None)
+
+
+class GraphVersionRestoreRequest(BaseModel):
+    note: str = ""
+
+
+@router.post("/path/graph/versions/{version_id}/restore", response_model=APIResponse)
+async def restore_path_graph_version(
+    version_id: int,
+    req: GraphVersionRestoreRequest = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """把知识图谱回滚到指定快照（回滚本身也会留一份新快照，可以再退回来）。"""
+    from services import knowledge_graph_service as kg_service
+
+    try:
+        graph = kg_service.restore_graph_version(
+            current_user["id"], version_id, note=(req.note if req else "") or ""
+        )
+        roadmap = await learning_service.build_learning_roadmap(current_user["id"])
+        graph["has_graph"] = True
+        graph["nodes"] = _attach_mastery(graph["nodes"], roadmap, current_user["id"])
+        graph["impact"] = roadmap.get("graph") or {}
+        graph["path_needs_apply"] = bool((roadmap.get("graph") or {}).get("path_needs_apply"))
+        return APIResponse(data=graph)
+    except ValueError as e:
+        return APIResponse(code=400, message=str(e), data=None)
+    except Exception as e:
+        return APIResponse(code=500, message=f"回滚图谱失败: {str(e)}", data=None)
 
 
 @router.put("/path/progress", response_model=APIResponse)
@@ -1286,7 +1771,7 @@ async def generate_tutorial(req: TutorialGenerateRequest, current_user: dict = D
         if seed_conn:
             seed_conn.close()
 
-    prompt = f"""你是一位资深的AI智能体学科导师，请为以下主题生成一份结构完整的学习教程。
+    prompt = f"""你是一位资深的数据结构与算法课程导师，请为以下主题生成一份结构完整的学习教程。
 
 【主题】{req.topic}
 【学习目标】{req.goal or "系统掌握该知识点"}
@@ -1305,13 +1790,13 @@ async def generate_tutorial(req: TutorialGenerateRequest, current_user: dict = D
 
     try:
         from services.personalization_service import build_personalized_system_prompt
-        base_system = "你是专业的AI智能体学科导师，擅长编写结构清晰的学习教程。只输出Markdown内容。"
+        base_system = "你是专业的数据结构与算法课程导师，擅长编写结构清晰的学习教程。只输出Markdown内容。"
         # M26：教程接学习者画像——按掌握度/错题/偏好调整讲解深度与案例
         system_prompt = build_personalized_system_prompt(
             current_user["id"], f"{req.topic} {req.goal or ''}", base_system
         )
     except Exception:
-        system_prompt = "你是专业的AI智能体学科导师，擅长编写结构清晰的学习教程。只输出Markdown内容。"
+        system_prompt = "你是专业的数据结构与算法课程导师，擅长编写结构清晰的学习教程。只输出Markdown内容。"
 
     try:
         response = await call_llm(

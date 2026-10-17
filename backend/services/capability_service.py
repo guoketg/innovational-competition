@@ -1215,6 +1215,14 @@ async def grade_defense_answers(user_id: int, session_id: int) -> None:
         user_id, row["knowledge_tag"], row["exercise_id"],
         explanation_score=score, passed=met_standard,
     )
+    # #45 答辩评分写入掌握度后，自动判断是否需要重排路线
+    try:
+        from services import learning_service
+        await learning_service.maybe_auto_replan_after_assessment(
+            user_id, trigger="lab", trigger_label="实验答辩", session_id=session_id,
+        )
+    except Exception as exc:
+        logger.warning("答辩后自动重排跳过: %s", exc)
 
 
 def _process_evidence(conn, session_id: int, started_at: str, ai_usage: str) -> tuple[int, dict]:

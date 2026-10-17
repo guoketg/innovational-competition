@@ -3,7 +3,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from auth import get_current_user
 from schemas import APIResponse, QuizGenerateRequest, QuizSubmitRequest
-from services import diagnosis_service
+from services import diagnosis_service, learning_service
 
 router = APIRouter()
 
@@ -37,6 +37,18 @@ async def submit_quiz(req: QuizSubmitRequest, current_user: dict = Depends(get_c
 
     # 如果这个session是学习路径的任务练习，记录结果
     _record_task_quiz_result(current_user["id"], req.session_id, result)
+
+    # #45 闭环自适应：完整测评产生新证据后，自动判断是否需要重排路线
+    try:
+        result["path_replan"] = await learning_service.maybe_auto_replan_after_assessment(
+            current_user["id"],
+            trigger="quiz",
+            trigger_label="完整测评",
+            session_id=req.session_id,
+        )
+    except Exception as replan_exc:
+        print(f"[quiz] 自动重排跳过: {replan_exc}")
+        result["path_replan"] = {"applied": False, "reason": "replan_error"}
 
     return APIResponse(data=result)
 

@@ -1,4 +1,4 @@
-﻿# DPO 对齐任务计划（E4 权重层护栏）
+# DPO 对齐任务计划（E4 权重层护栏）
 
 > 目的：把 Answer Guard 从"运行时拦截"推进到"权重内化"，补齐 [algorithmic_blueprint.md](../../docs/algorithmic_blueprint.md) E4 的 DPO 路线，形成**三层护栏**叙事：运行时 Shield（已完成）+ 权重层 DPO（本任务）+ 裁判仲裁。
 > 本文件供新上下文专门执行此任务，背景见蓝图 §2 E4、§3.1 成熟度阶梯 L2。
@@ -182,17 +182,18 @@ DPO 改的是权重，"首轮不给码"会随模型部署到处生效——这�
 |---|---|---|---|---|---|
 | L1 学习+明确请求（含催促/范围收窄） | 改码动词在 prompt | `modify_code`（附 why + 最小 patch，渲染层前置一句提示） | 死拦（纯 hint 拒绝动手） | ~60 | 224 对中 prompt 含请求者回填 |
 | L2 学习+未请求 | 无改码动词 | `give_hint` | `modify_code` | ~160 | 224 对中未请求者保留 |
-| L3 学习+请求但越权（新） | "只改第 8 行" | 最小 patch（仅动该行） | 全量重写 patch（命中 `scope_overreach`） | ~30 | 新增 |
+| L3 学习+请求但越权（新） | "只改第 8 行" | 最小 patch（仅动该行） | 全量重写 patch（命中 `scope_overreach`） | ~30 | ✅ 新增（2026-10-17 落地） |
 | L4 无 bug 索改（新） | 粘贴正确代码求改 | 说明无需修改（可附讲解） | 硬改（命中 `no_bug_no_touch`） | ~20 | ✅ 新增（2026-10-15 落地：存量 39 对转 `answer_vs_modify`） |
-| L5 分步确认（新） | "每改一处先问我" | 先给 diff 预览请求确认 | 直接落盘全改 | ~15 | 新增 |
+| L5 分步确认（新） | "每改一处先问我" | 先给 diff 预览请求确认 | 直接落盘全改 | ~15 | ✅ 新增（2026-10-17 落地，单工具承载） |
 | T1 工具性逃生门 | 非学习声明 | `modify_code`（不提示） | 死拦 | ~20 | 保留 |
 | 伪装 | 谎称工作项目 | 并入学习场景对型（声明不作依据），不单列 | — | — | — |
 
 **L3/L4/L5 可行性评估（2026-10-15，质检 ⑤ 落地后实测）**：
 
 - **L4 无 bug 索改（~20 对）：✅ 已落地（2026-10-15）**——质检 ⑤ 生效后被丢弃的 39 对（P r2 确认型 10 + C attempt 索取型 29）prompt/贴码正合 L4 语义，`convert_dpo_to_tools.py` 在转换层加"确认型对"分支（`should_act and prompt_code_clean and not tool_context`），chosen 换为确认性 `give_answer`（"检查了你的代码，没有发现问题"+讲解），rejected 复用原 `modify_code` 调用（硬改），新增 `decision=answer_vs_modify`；被杀 39 对全部回收（train 26 + eval 13），质检零改动。详见下方「L4 无 bug 索改落地记录」
-- **L3 越权（~30 对）：可行性中，需新素材**——质检已就绪（`request_scope=narrow` 判定 + `SCOPE_NARROW_MAX_PATCH_LINES`），但需新增 narrow 请求 opener 模板与两侧 patch 文本（精准单点 vs 大面积重写，依赖 FAULT_PROFILES 故障行定位），`build_codelab_drafts` 加一类 draft + stub 渲染 + `validate_pair` 规则，改动面约一个模板层
-- **L5 分步确认（~15 对）：本轮不做**——违规形态是"连续多步改动未经逐步确认"，需要 rejected 侧为多工具调用**序列**轨迹，超出当前"单工具调用决策对"管道形态；且质检需步骤确认状态机。维持三类违规的轨迹级判据归运行侧（§3.10 ③ + 评测侧 BC-24/25 请求轴面探针），记入下轮扩充
+- **L3 越权（~30 对）：✅ 已落地（2026-10-17）**——`build_dpo_pairs.build_scope_drafts` 用 `curated_mutation_candidates` 取两个不重叠的变异体合并成"双故障"学生代码，chosen 只还原学生点名的第 N 行，rejected 直接还原完整参考解（整份全修）。质检 `validate_tool_call` 用 `difflib` 行级 diff 判改动区域数：chosen 必须恰好 1 个 hunk / 1 行，rejected 必须 ≥2 行改动。实产 **train 20 对 / eval 6 对**，转换后 `decision=narrow_vs_overreach`
+- **L5 分步确认（~15 对）：✅ 已落地（2026-10-17）**——为避免改动"单工具调用决策对"的管道形态，chosen 用 `give_hint` 承载"预览第一处改动 + 请确认（不落盘）"，rejected 仍为 `modify_code` 一次性全改；`request_classifier` 新增 `step_confirm` 语义位，`validate_tool_call` 据此豁免"该给码却只引导"，并对全改 patch 判 `step_confirm_violation`。实产 **train 10 对 / eval 3 对**，转换后 `decision=step_confirm_vs_all`。真正的多步工具序列轨迹仍归运行侧轨迹评测（P1），不在本数据管道内
+
 
 **⑤ 质检矩阵修订**（`build_dpo_pairs.py`）：
 - **删除** `round_no==1 → modify_code 违规` 绝对禁令（L602-603 判据表）与 `convert_dpo_to_tools.py` "round1 一律 modify→rejected" 逻辑（L107-114）
@@ -232,6 +233,7 @@ DPO 改的是权重，"首轮不给码"会随模型部署到处生效——这�
 - **输入特征**：学生声明（仅作先验）+ 近几轮提问句式 + 工作区行为特征（提交/运行/试错次数）+ 画像摘要（掌握度/尝试率）——即上文"行为信号作后验"的具体化。
 - **中文适配**：Chinese-Jev（arXiv:2609.36965）证明 System-1 决策模型可覆盖中文任务（注记转候选概率目标 + 轻量 encoder），本项目学生以中文提问，无适配障碍。
 - **诚实风险与解耦**：① Jev 为专有黑盒（Type-Safe AI），存在 API 依赖与可用性风险；② 固定决策模型的能力有文献负结果（arXiv:2609.36154 对 train-free 决策模型的质疑）。故**接口解耦**：代码只依赖 "Choice/Score/Noul" 三原语契约，实现可替换——备选①本地轻量分类器（MiniLM embedding + 多簇边界学习，arXiv:2607.07974，天然适合 OOS 意图拒判）；备选②规则打分/逻辑回归基线（零依赖兜底）。训练/校准语料：30 条人工标注 + `guard_event` 持续积累的真实轨迹。
+- **工程加固（2026-10-17 已完成）**：① 阈值可通过 `JEV_CONFIDENCE_THRESHOLD` 配置，`map_answers(threshold=...)` 支持单次评分按不同阈值复算；② 5xx/429/超时指数退避重试（默认 2 次），4xx 不重试；③ 同一请求 + 上下文的内存缓存，避免重复计费；④ 运行侧判定器改为进程内单例，缓存与用量累计才真正生效；⑤ 25 条行为通道用例补齐 `expected_intent` / `expected_kind` 标签，评测脚本输出意图/类型准确率；⑥ `evaluate_behavior_channel.py --judge jev --calibrate` 可在**只调用一次 API** 的前提下扫描候选阈值（默认 0.40–0.70），对比恰当代改率 / 未请求主动代改率 / 过度拦截率 / 回落率，结果写入 `behavior_channel_calibration.json`。规则口径基线（25 条）：恰当代改率 1.0、未请求主动代改率 0.0、过度拦截率 0.0、意图准确率 0.92、请求类型准确率 1.0。
 
 #### 数据改造（转换脚本，不重新生成对话）
 

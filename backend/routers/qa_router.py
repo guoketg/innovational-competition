@@ -36,6 +36,7 @@ from services.personalization_service import (
 )
 from database import get_db
 from services.guidance_context_service import build_learning_context, public_learning_context
+from services.graph_rag_service import build_graph_context
 from services.teaching_policy_service import qa_move_directive
 from services.mind_map_service import get_mind_map
 from services.answer_guard_service import (
@@ -384,6 +385,7 @@ async def ask_question_stream(req: QARequest, current_user: dict = Depends(get_c
     _user_cfg = _get_user_llm_config(current_user["id"])
     _is_deepseek = _user_cfg and "deepseek" in str(_user_cfg.get("base_url", "")).lower()
     learning_context = build_learning_context(current_user["id"], req.question)
+    graph_context = build_graph_context(current_user["id"], req.question)
 
     # 自动检测代码输入
     is_code = qa_service.is_code_input(req.question)
@@ -427,6 +429,8 @@ async def ask_question_stream(req: QARequest, current_user: dict = Depends(get_c
             current_user["id"], req.question, system_prompt,
         )
         system_prompt += "\n\n" + learning_context["prompt"]
+        if graph_context.get("prompt"):
+            system_prompt += "\n\n" + graph_context["prompt"]
 
         # 深度思考：追加思考指令 + 调整参数
         if req.deep_thinking:
@@ -463,6 +467,8 @@ async def ask_question_stream(req: QARequest, current_user: dict = Depends(get_c
             current_user["id"], req.question, system_prompt,
         )
         system_prompt += "\n\n" + learning_context["prompt"]
+        if graph_context.get("prompt"):
+            system_prompt += "\n\n" + graph_context["prompt"]
 
         # 开关表示“允许模型使用”，真正是否调用由 Function Calling 自主决定。
         if not _is_memory_visibility_query(req.question):
@@ -580,6 +586,8 @@ async def ask_question_stream(req: QARequest, current_user: dict = Depends(get_c
         """先发送 RAG 来源/不可用提示和搜索结果，再流式输出 LLM 回答（带心跳保活）"""
         if learning_context.get("available"):
             yield f"data: {json.dumps({'learning_context': public_learning_context(learning_context)}, ensure_ascii=False)}\n\n"
+        if graph_context.get("references"):
+            yield f"data: {json.dumps({'graph_references': graph_context['references']}, ensure_ascii=False, default=str)}\n\n"
         if tool_bundle.get("tool_events"):
             yield f"data: {json.dumps({'tool_events': tool_bundle['tool_events']}, ensure_ascii=False)}\n\n"
         if rag_sources:
@@ -909,6 +917,7 @@ async def save_assistant_msg(req: QASaveRequest, current_user: dict = Depends(ge
         mind_map=req.mind_map,
         learning_analysis=req.learning_analysis,
         memory_updates=req.memory_updates,
+        graph_references=req.graph_references,
     )
     return APIResponse(data={
         "message_id": result["message_id"],

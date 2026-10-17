@@ -8,6 +8,7 @@ from services.ai_service import (
 from database import get_db, json_load
 from services.personalization_service import build_personalized_system_prompt, record_conversation_turn
 from services.guidance_context_service import build_learning_context, public_learning_context
+from services.graph_rag_service import build_graph_context, identify_tags
 
 
 def _filter_code_response(raw: str) -> str:
@@ -175,11 +176,14 @@ async def answer_question(user_id: int, question: str, question_type: str = "tex
                           history: list[dict] | None = None) -> dict:
     """AI答疑"""
     learning_context = build_learning_context(user_id, question)
+    graph_context = build_graph_context(user_id, question)
     # 自动检测代码输入
     if is_code_input(question):
         system_prompt = "你是代码分析机器人。你的输出会被程序自动解析，任何不符合格式的内容都会导致系统报错。你必须只输出以下三部分：## 代码结构与功能分析 / ## 是否存在错误 / ## 如何修改。不要输出其他任何文字。"
         system_prompt = build_personalized_system_prompt(user_id, question, system_prompt)
         system_prompt += "\n\n" + learning_context["prompt"]
+        if graph_context.get("prompt"):
+            system_prompt += "\n\n" + graph_context["prompt"]
         prompt = CODE_DEBUG_PROMPT.format(question=question)
         raw = await call_llm(user_id, [
             {"role": "system", "content": system_prompt},
@@ -253,6 +257,8 @@ async def answer_question(user_id: int, question: str, question_type: str = "tex
 直接讲AI领域的实质内容，不要输出思考过程，不要用开场白。语言通俗，适合大学生。"""
         system_prompt = build_personalized_system_prompt(user_id, question, system_prompt)
         system_prompt += "\n\n" + learning_context["prompt"]
+        if graph_context.get("prompt"):
+            system_prompt += "\n\n" + graph_context["prompt"]
 
         retry_messages = [
             {"role": "system", "content": system_prompt},
@@ -315,6 +321,7 @@ async def answer_question(user_id: int, question: str, question_type: str = "tex
         "knowledge_tags": knowledge_tags,
         "explanation_level": explanation_level,
         "learning_context": public_learning_context(learning_context),
+        "graph_references": graph_context.get("references") or [],
     }
 
 async def save_qa_history(user_id: int, question: str, answer: str,
@@ -352,31 +359,46 @@ async def save_qa_history(user_id: int, question: str, answer: str,
 
 
 def identify_knowledge_tags(text: str) -> list:
-    """根据问题文本识别涉及的知识点"""
+    """根据问题文本识别涉及的知识点：优先用课程图谱匹配，无命中再走旧关键词表。"""
+    graph_tags = identify_tags(text)
+    if graph_tags:
+        return graph_tags
+
     keyword_map = {
-        "智能体": ["智能体基础概念"],
-        "agent": ["智能体基础概念"],
-        "大模型": ["大模型基座原理"],
-        "LLM": ["大模型基座原理"],
-        "上下文": ["大模型基座原理"],
-        "参数": ["大模型基座原理"],
-        "transformer": ["大模型基座原理"],
-        "提示词": ["提示词工程"],
-        "prompt": ["提示词工程"],
-        "思维链": ["提示词工程"],
-        "少样本": ["提示词工程"],
-        "零样本": ["提示词工程"],
-        "框架": ["智能体框架开发"],
-        "工具调用": ["智能体框架开发"],
-        "记忆": ["智能体框架开发"],
-        "规划": ["智能体框架开发"],
-        "算法": ["智能体算法逻辑"],
-        "决策": ["智能体算法逻辑"],
-        "推理": ["智能体算法逻辑"],
-        "协作": ["多智能体应用"],
-        "多智能体": ["多智能体应用"],
-        "多agent": ["多智能体应用"],
-        "冲突": ["多智能体应用"],
+        "堆排序": ["dsa-heap-sort"],
+        "归并排序": ["dsa-merge-sort"],
+        "排序": ["dsa-merge-sort"],
+        "二分搜索树": ["dsa-binary-search-tree-insert"],
+        "二叉搜索树": ["dsa-binary-search-tree-insert"],
+        "二叉树": ["dsa-binary-search-tree-insert"],
+        "中序遍历": ["dsa-binary-search-traverse"],
+        "层序遍历": ["dsa-binary-search-traverse"],
+        "遍历": ["dsa-binary-search-traverse"],
+        "上浮": ["dsa-heap-shift-up"],
+        "下沉": ["dsa-heap-shift-up"],
+        "堆": ["dsa-heap-shift-up"],
+        "并查集": ["dsa-union-find-compress"],
+        "路径压缩": ["dsa-union-find-compress"],
+        "最短路径": ["dsa-graph-theory-short-path"],
+        "广度优先": ["dsa-graph-theory-short-path"],
+        "BFS": ["dsa-graph-theory-short-path"],
+        "深度优先": ["dsa-graph-theory-deep"],
+        "DFS": ["dsa-graph-theory-deep"],
+        "邻接矩阵": ["dsa-graph-theory-deep"],
+        "邻接表": ["dsa-graph-theory-deep"],
+        "图": ["dsa-graph-theory-deep"],
+        "哈希": ["dsa-dsa-hash-table"],
+        "散列": ["dsa-dsa-hash-table"],
+        "LRU": ["dsa-dsa-hash-table"],
+        "缓存": ["dsa-dsa-hash-table"],
+        "顺序表": ["dsa-dsa-linear-data-structures"],
+        "链表": ["dsa-dsa-linear-data-structures"],
+        "栈": ["dsa-dsa-linear-data-structures"],
+        "队列": ["dsa-dsa-linear-data-structures"],
+        "线性表": ["dsa-dsa-linear-data-structures"],
+        "时间复杂度": ["dsa-dsa-basic-algorithm"],
+        "空间复杂度": ["dsa-dsa-basic-algorithm"],
+        "算法": ["dsa-dsa-basic-algorithm"],
     }
     matched = set()
     text_lower = text.lower()

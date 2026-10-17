@@ -1,0 +1,120 @@
+{
+  "meta": {
+    "module": "模块四：排序算法",
+    "total_qa": 10,
+    "source": "dsa-bank-v1 — 数据结构与算法课程题库",
+    "type_distribution": {
+      "multiple_choice": 6,
+      "true_false": 2,
+      "fill_in_blank": 2
+    }
+  },
+  "qa_pairs": [
+    {
+      "question": "归并排序的平均和最坏时间复杂度都是（ ）",
+      "answer": "O(n log n)",
+      "options": ["O(n)", "O(n log n)", "O(n²)", "O(log n)"],
+      "section": "模块四：排序算法",
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "knowledge_tag": "归并排序与性能基准",
+      "knowledge_point": "归并排序的时间复杂度",
+      "analysis": "归并排序每次把区间对半拆分，共 log n 层；每层合并所有元素的总代价是 O(n)，因此总复杂度为 O(n log n)。"
+    },
+    {
+      "question": "归并排序的额外空间复杂度是（ ）",
+      "answer": "O(n)",
+      "options": ["O(1)", "O(log n)", "O(n)", "O(n²)"],
+      "section": "模块四：排序算法",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "归并排序与性能基准",
+      "knowledge_point": "归并排序的空间复杂度",
+      "analysis": "合并两个有序区间时需要额外的临时数组存放结果，最坏需要 n 个辅助空间，因此空间复杂度是 O(n)。"
+    },
+    {
+      "question": "堆排序的额外空间复杂度是（ ）",
+      "answer": "O(1)",
+      "options": ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
+      "section": "模块四：排序算法",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "堆排序",
+      "knowledge_point": "堆排序的空间复杂度",
+      "analysis": "堆排序直接在原数组上建堆并交换元素，只需要常数个临时变量，是原地排序。"
+    },
+    {
+      "question": "下列排序算法中，属于稳定排序的是（ ）",
+      "answer": "归并排序",
+      "options": ["归并排序", "堆排序", "快速排序", "选择排序"],
+      "section": "模块四：排序算法",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "归并排序与性能基准",
+      "knowledge_point": "排序算法的稳定性",
+      "analysis": "归并排序合并时若相等元素优先取左边，可以保持相对顺序，因此稳定。堆排序、快速排序、选择排序通常不稳定。"
+    },
+    {
+      "question": "归并排序采用的核心算法思想是（ ）",
+      "answer": "分治",
+      "options": ["分治", "贪心", "动态规划", "回溯"],
+      "section": "模块四：排序算法",
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "knowledge_tag": "归并排序与性能基准",
+      "knowledge_point": "归并排序的分治思想",
+      "analysis": "归并排序把数组分成两半分别排序（分），再把两个有序数组合并（治），是典型的分治算法。"
+    },
+    {
+      "question": "堆排序中，把无序数组建成大顶堆的时间复杂度是（ ）",
+      "answer": "O(n)",
+      "options": ["O(n)", "O(n log n)", "O(n²)", "O(log n)"],
+      "section": "模块四：排序算法",
+      "type": "multiple_choice",
+      "difficulty": "hard",
+      "knowledge_tag": "堆排序",
+      "knowledge_point": "建堆的时间复杂度",
+      "analysis": "自底向上建堆的总代价是 O(n)。建堆之后还要进行 n 次删除堆顶，每次 O(log n)，所以堆排序整体仍是 O(n log n)。"
+    },
+    {
+      "question": "堆排序在最坏情况下的时间复杂度仍然是 O(n log n)。",
+      "answer": "正确",
+      "section": "模块四：排序算法",
+      "type": "true_false",
+      "difficulty": "medium",
+      "knowledge_tag": "堆排序",
+      "knowledge_point": "堆排序的最坏复杂度",
+      "analysis": "堆排序的建堆是 O(n)，之后每次调整堆是 O(log n)，共 n 次，最坏和平均都是 O(n log n)，不会像快速排序那样退化到 O(n²)。"
+    },
+    {
+      "question": "归并排序是一种原地排序算法，不需要额外的辅助数组。",
+      "answer": "错误",
+      "section": "模块四：排序算法",
+      "type": "true_false",
+      "difficulty": "easy",
+      "knowledge_tag": "归并排序与性能基准",
+      "knowledge_point": "归并排序的空间开销",
+      "analysis": "常规归并排序合并时需要 O(n) 的辅助数组，不属于原地排序。堆排序才是原地排序。"
+    },
+    {
+      "question": "归并排序的额外空间复杂度是（ ）。",
+      "answer": "O(n)",
+      "section": "模块四：排序算法",
+      "type": "fill_in_blank",
+      "difficulty": "medium",
+      "knowledge_tag": "归并排序与性能基准",
+      "knowledge_point": "归并排序的空间复杂度",
+      "analysis": "合并阶段需要长度为 n 的临时数组保存合并结果，因此额外空间为 O(n)。"
+    },
+    {
+      "question": "堆排序、快速排序和选择排序通常都是（ ）排序（填“稳定”或“不稳定”）。",
+      "answer": "不稳定",
+      "section": "模块四：排序算法",
+      "type": "fill_in_blank",
+      "difficulty": "medium",
+      "knowledge_tag": "堆排序",
+      "knowledge_point": "排序算法的稳定性",
+      "analysis": "这三种算法在交换元素时可能改变相等元素的相对次序，因此通常认为不稳定。归并排序和插入排序是稳定的。"
+    }
+  ]
+}

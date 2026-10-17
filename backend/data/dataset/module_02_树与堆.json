@@ -1,0 +1,120 @@
+{
+  "meta": {
+    "module": "模块二：树与堆",
+    "total_qa": 10,
+    "source": "dsa-bank-v1 — 数据结构与算法课程题库",
+    "type_distribution": {
+      "multiple_choice": 6,
+      "true_false": 2,
+      "fill_in_blank": 2
+    }
+  },
+  "qa_pairs": [
+    {
+      "question": "对二叉搜索树进行哪一种遍历，可以得到从小到大的有序序列（ ）",
+      "answer": "中序遍历",
+      "options": ["中序遍历", "前序遍历", "后序遍历", "层序遍历"],
+      "section": "模块二：树与堆",
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "knowledge_tag": "二分搜索树：中序与层序遍历",
+      "knowledge_point": "BST 中序遍历的有序性",
+      "analysis": "二叉搜索树满足左子树 < 根 < 右子树。中序遍历按“左-根-右”访问，正好得到升序序列。"
+    },
+    {
+      "question": "在平衡的二叉搜索树中查找一个元素，平均时间复杂度是（ ）",
+      "answer": "O(log n)",
+      "options": ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
+      "section": "模块二：树与堆",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "二分搜索树：插入与查找",
+      "knowledge_point": "BST 查找的复杂度",
+      "analysis": "平衡 BST 的高度是 O(log n)，每次比较都能排除一半子树，所以查找是 O(log n)。若树退化成链表，最坏会变成 O(n)。"
+    },
+    {
+      "question": "用数组存储完全二叉树（根节点下标为 1），下标为 i 的节点，其左孩子下标是（ ）",
+      "answer": "2i",
+      "options": ["2i", "2i + 1", "i / 2", "i + 1"],
+      "section": "模块二：树与堆",
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "knowledge_tag": "堆：上浮与下沉",
+      "knowledge_point": "完全二叉树的数组表示",
+      "analysis": "根为 1 时，节点 i 的左孩子是 2i，右孩子是 2i+1，父节点是 i/2（向下取整）。"
+    },
+    {
+      "question": "向大顶堆中插入一个新元素后，恢复堆性质的操作是（ ）",
+      "answer": "上浮",
+      "options": ["上浮", "下沉", "左旋", "右旋"],
+      "section": "模块二：树与堆",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "堆：上浮与下沉",
+      "knowledge_point": "堆的上浮操作",
+      "analysis": "新元素先放到数组末尾，然后不断与父节点比较，比父节点大就交换，直到满足堆性质，这个过程叫上浮。"
+    },
+    {
+      "question": "从大顶堆中删除堆顶元素后，恢复堆性质的操作是（ ）",
+      "answer": "下沉",
+      "options": ["下沉", "上浮", "中序遍历", "哈希重排"],
+      "section": "模块二：树与堆",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "堆：上浮与下沉",
+      "knowledge_point": "堆的下沉操作",
+      "analysis": "删除堆顶时，把最后一个元素移到堆顶，再与较大的孩子比较并交换，直到满足堆性质，这个过程叫下沉。"
+    },
+    {
+      "question": "二叉搜索树的层序遍历通常借助哪种数据结构实现（ ）",
+      "answer": "队列",
+      "options": ["队列", "栈", "哈希表", "并查集"],
+      "section": "模块二：树与堆",
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "knowledge_tag": "二分搜索树：中序与层序遍历",
+      "knowledge_point": "层序遍历的实现",
+      "analysis": "层序遍历按层从左到右访问，先把根入队，出队时把左右孩子依次入队，用队列的先进先出保证顺序。"
+    },
+    {
+      "question": "二叉搜索树中任意节点的左子树所有节点值都小于该节点值。",
+      "answer": "正确",
+      "section": "模块二：树与堆",
+      "type": "true_false",
+      "difficulty": "easy",
+      "knowledge_tag": "二分搜索树：插入与查找",
+      "knowledge_point": "BST 的有序性定义",
+      "analysis": "这是二叉搜索树的核心性质：左子树全部小于根，右子树全部大于根，并且对每个子树递归成立。"
+    },
+    {
+      "question": "大顶堆的根节点保存的是整个堆中的最小值。",
+      "answer": "错误",
+      "section": "模块二：树与堆",
+      "type": "true_false",
+      "difficulty": "easy",
+      "knowledge_tag": "堆：上浮与下沉",
+      "knowledge_point": "大顶堆的定义",
+      "analysis": "大顶堆要求每个节点都不小于其孩子，因此根节点是最大值。最小值在叶子节点中，并不固定在根。"
+    },
+    {
+      "question": "用数组存储完全二叉树（根节点下标为 1），下标为 i 的节点，其左孩子下标是（ ）。",
+      "answer": "2i",
+      "section": "模块二：树与堆",
+      "type": "fill_in_blank",
+      "difficulty": "easy",
+      "knowledge_tag": "堆：上浮与下沉",
+      "knowledge_point": "完全二叉树的数组表示",
+      "analysis": "根为 1 时，左孩子为 2i，右孩子为 2i+1；反过来，节点 i 的父节点为 i//2。"
+    },
+    {
+      "question": "把 n 个无序元素建成一个堆，采用自底向上的建堆方法，时间复杂度是（ ）。",
+      "answer": "O(n)",
+      "section": "模块二：树与堆",
+      "type": "fill_in_blank",
+      "difficulty": "hard",
+      "knowledge_tag": "堆：上浮与下沉",
+      "knowledge_point": "建堆的时间复杂度",
+      "analysis": "自底向上对每个非叶节点下沉，虽然单次下沉最坏 O(log n)，但越靠下的节点越多、下沉距离越短，总和收敛到 O(n)，不是 O(n log n)。"
+    }
+  ]
+}

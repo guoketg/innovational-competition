@@ -75,31 +75,59 @@ def _mark_tool_guard_warned(user_id, exercise_id) -> bool:
         return True
 
 
-def _select_intent_judge():
+_intent_judge_cache: dict[str, object] = {}
+_intent_judge_cache_lock = threading.Lock()
+
+
+def _jev_cache_key(api_key: str) -> str:
+    """按 Key 哈希缓存判定器实例；日志只出现哈希，不出现明文。"""
+    return hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:16]
+
+
+def _select_intent_judge(user_id=None):
     """选择行为通道意图判定器 → ``(judge_fn, judge_name)``。
 
-    * 默认（``TOOL_GUARD_JUDGE`` 未设 / 非 jev）：规则版 ``judge_intent``
-      —— 零成本、零网络依赖；
-    * ``TOOL_GUARD_JUDGE=jev``：走 Jev（OpenRouter Decisions API），需
-      ``OPENROUTER_API_KEY``；缺失或初始化失败则回落规则版。
+    * ``TOOL_GUARD_JUDGE=rule``：强制规则版 ``judge_intent``（零成本、零网络依赖）；
+    * 默认 ``auto``：用户个人配置或服务端环境变量里有 OpenRouter Key 才启用 Jev，
+      没有配置就走规则版——**未配置默认不使用 Jev**；
+    * ``TOOL_GUARD_JUDGE=jev``：强制尝试 Jev，无 Key 时仍回落规则版并告警。
 
-    Jev 的**运行时失败回落**（无密钥 / 超时 / HTTP 非 200 / 解析失败）由
-    ``JevIntentJudge.judge`` 内部统一退回规则版并在 evidence 记 ``jev_fallback:<reason>``，
-    此处只负责能否构造出 Jev 判定器，不阻断主流程。
+    Jev 判定器按 Key 哈希**进程内复用**：同文缓存、成本累计（total_usage）才能
+    跨请求生效；Key 变更后自动使用新实例，旧实例随缓存条目保留至进程退出。
+
+    Jev 的**运行时失败回落**（超时 / HTTP 非 200 / 解析失败）由
+    ``JevIntentJudge.judge`` 内部统一退回规则版并在 evidence 记
+    ``jev_fallback:<reason>``，此处只负责能否构造出 Jev 判定器，不阻断主流程。
     """
     from services.request_classifier import judge_intent
 
-    if (os.getenv("TOOL_GUARD_JUDGE", "rule") or "rule").strip().lower() == "jev":
-        try:
-            from services.jev_judge import JevIntentJudge
+    mode = (os.getenv("TOOL_GUARD_JUDGE", "auto") or "auto").strip().lower()
+    if mode == "rule":
+        return judge_intent, "rule"
 
-            judge = JevIntentJudge()
-            if judge.api_key:
-                return judge.judge, "jev"
-            logger.warning("TOOL_GUARD_JUDGE=jev 但未配置 OPENROUTER_API_KEY，回落规则版判定器")
-        except Exception as exc:  # noqa: BLE001 —— 初始化失败不应阻断主流程
-            logger.warning("Jev 判定器初始化失败(%s)，回落规则版判定器", exc)
-    return judge_intent, "rule"
+    from services.jev_judge import JevIntentJudge, resolve_api_key
+
+    api_key = resolve_api_key(user_id)
+    if not api_key:
+        if mode == "jev":
+            logger.warning("TOOL_GUARD_JUDGE=jev 但未配置 Jev API Key，回落规则版判定器")
+        return judge_intent, "rule"
+
+    cache_key = _jev_cache_key(api_key)
+    with _intent_judge_cache_lock:
+        judge = _intent_judge_cache.get(cache_key)
+        if judge is None:
+            try:
+                judge = JevIntentJudge(api_key=api_key)
+            except Exception as exc:  # noqa: BLE001 —— 初始化失败不应阻断主流程
+                logger.warning("Jev 判定器初始化失败(%s)，回落规则版判定器", exc)
+                return judge_intent, "rule"
+            _intent_judge_cache[cache_key] = judge
+            logger.info(
+                "行为通道意图判定器：Jev（%s，阈值 %.2f，key_id %s）",
+                judge.model, judge.threshold, cache_key,
+            )
+    return judge.judge, "jev"
 
 
 TRACK_CONFIG = {
@@ -2752,9 +2780,9 @@ async def ask_assistant_streaming(
     #   工具性逃生门 → 放行；明确改码请求 → 放行；未请求 → 拦截；
     #   明确请求但免提示阀未满足 → 提示 1 次后放行；
     #   低置信（伪装可疑 / 无法判定）→ 保守回落学习模式，不采信其声明。
-    #   判定器可切换：默认规则版；TOOL_GUARD_JUDGE=jev 且配了 OPENROUTER_API_KEY 时走
-    #   Jev（API，失败自动回落规则版）。
-    _judge_fn, _judge_name = _select_intent_judge()
+    #   判定器可切换：默认 auto（用户/服务端配置了 OpenRouter Key 才走 Jev，
+    #   未配置默认不用 Jev）；TOOL_GUARD_JUDGE=rule 强制规则版，=jev 强制尝试 Jev。
+    _judge_fn, _judge_name = _select_intent_judge(user_id)
     _req_signal = classify_request(question)
     _judgment = _judge_fn(question)
     _allow_write, _warn_once, _write_reason = decide_channel(

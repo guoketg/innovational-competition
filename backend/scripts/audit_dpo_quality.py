@@ -191,6 +191,18 @@ def main() -> int:
                 meta={"case": case_obj} if case_obj else {},
             )
             ok, why = validate_pair(draft)
+        elif layer == "Y":
+            # Y 层（L3/L5）重建 meta：学生代码取 prompt 内代码块，故障行号取 chosen 点名行
+            blocks = [b.strip() for b in _code_blocks(_prompt_texts(row.get("prompt"))) if b.strip()]
+            m = re.search(r"第\s*(\d+)\s*行", chosen)
+            draft = PairDraft(
+                layer=layer, source=row.get("source", ""), family=row.get("family", ""),
+                round=rnd or 0, lang=row.get("lang", "zh"), ref="",
+                user_prompt="", chosen=chosen, rejected=rejected, subtype=subtype,
+                meta={"bug_code": blocks[-1] if blocks else "",
+                      "fault_line_no": int(m.group(1)) if m else 0},
+            )
+            ok, why = validate_pair(draft)
         else:
             ok, why = False, f"未知层 {layer}"
         if not ok:

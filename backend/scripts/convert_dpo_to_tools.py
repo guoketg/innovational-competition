@@ -192,7 +192,22 @@ def convert_row(row: dict, stats: dict) -> dict | None:
     why = ref_prose or clean_why(strip_code(hint_text))
     level = min(max(int(row.get("hint_level") or 1), 1), 3)
 
-    if should_act and ctx.get("prompt_code_clean") and not ctx.get("tool_context"):
+    if subtype == "scope_overreach":
+        # L3 越权修改：正解=只还原点名那一行；错误侧=顺手把整份修完。
+        # 两侧都是 modify_code，区别在 patch 实际的改动区域数（由 validate_tool_call 查表）。
+        chosen_call = {"tool": "modify_code", "args": {
+            "patch": extract_code(chosen), "why": clean_why(strip_code(chosen))}}
+        rejected_call = {"tool": "modify_code", "args": {
+            "patch": extract_code(rejected), "why": clean_why(strip_code(rejected))}}
+        decision = "narrow_vs_overreach"
+    elif subtype == "step_confirm":
+        # L5 分步确认：正解=先预览一处并请确认（give_hint，不落盘）；
+        # 错误侧=没等确认就一次性全改（modify_code，step_confirm_violation）。
+        chosen_call = {"tool": "give_hint", "args": {"level": 1, "text": chosen.strip()}}
+        rejected_call = {"tool": "modify_code", "args": {
+            "patch": extract_code(rejected), "why": clean_why(strip_code(rejected))}}
+        decision = "step_confirm_vs_all"
+    elif should_act and ctx.get("prompt_code_clean") and not ctx.get("tool_context"):
         # L4 无 bug 索改（plan §3.10 ④）：学生索改但贴码=参考解（确证无缺陷）→
         # 正解是说明无需修改（give_answer，不落盘），硬改该代码即 no_bug_no_touch 违规。
         # why 只用确认话术：ref_prose 是"改了什么"的修复叙述（相对 round1 带病码），

@@ -71,7 +71,7 @@ def decrypt_config(config: dict | None) -> dict | None:
     if not config:
         return config
     result = dict(config)
-    for key in ("api_key", "image_api_key", "embedding_api_key", "search_api_key"):
+    for key in ("api_key", "image_api_key", "embedding_api_key", "search_api_key", "jev_api_key"):
         if key in result:
             result[key] = decrypt_secret(result.get(key, ""))
     return result

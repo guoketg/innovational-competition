@@ -1,333 +1,158 @@
 [
   {
-    "category": "智能体基础概念",
-    "description": "AI智能体的基本概念与核心特征，是所有后续学习的基础",
+    "category": "线性结构",
+    "description": "顺序表、链表与栈的底层存储方式与基本操作，是后续所有数据结构的基础",
     "prerequisites": [],
     "tags": [
       {
-        "name": "AI智能体定义",
+        "name": "线性结构：顺序表 / 链表 / 栈",
         "difficulty": "Lv1入门",
-        "description": "理解AI智能体的基本定义与核心特征",
+        "description": "掌握顺序表与链表的存储差异，以及栈的后进先出特性",
+        "graph_tag": "dsa-dsa-linear-data-structures",
         "prerequisites": []
-      },
+      }
+    ]
+  },
+  {
+    "category": "树与堆",
+    "description": "二分搜索树的插入查找与遍历，以及堆的上浮下沉维护",
+    "prerequisites": [
+      "线性结构"
+    ],
+    "tags": [
       {
-        "name": "智能体核心特征",
-        "difficulty": "Lv1入门",
-        "description": "自主性、反应性、主动性、社交能力四大特征",
-        "prerequisites": [
-          "AI智能体定义"
-        ]
-      },
-      {
-        "name": "智能体分类",
-        "difficulty": "Lv1入门",
-        "description": "掌握反应式、慎思式、混合式智能体的分类",
-        "prerequisites": [
-          "AI智能体定义"
-        ]
-      },
-      {
-        "name": "智能体与大模型区别",
+        "name": "二分搜索树：插入与查找",
         "difficulty": "Lv2中等",
-        "description": "辨析AI智能体与大语言模型的本质差异",
+        "description": "理解二分搜索树的有序性，能实现插入与查找",
+        "graph_tag": "dsa-binary-search-tree-insert",
         "prerequisites": [
-          "AI智能体定义",
-          "智能体核心特征"
+          "线性结构：顺序表 / 链表 / 栈"
         ]
       },
       {
-        "name": "智能体应用边界",
+        "name": "二分搜索树：中序与层序遍历",
         "difficulty": "Lv2中等",
-        "description": "了解AI智能体的能力范围与局限性",
+        "description": "掌握中序得到有序序列，以及层序遍历的队列实现",
+        "graph_tag": "dsa-binary-search-traverse",
         "prerequisites": [
-          "智能体与大模型区别"
+          "二分搜索树：插入与查找"
         ]
       },
       {
-        "name": "智能体架构设计",
-        "difficulty": "Lv3高阶",
-        "description": "掌握AI智能体的整体架构设计理念",
+        "name": "堆：上浮与下沉",
+        "difficulty": "Lv2中等",
+        "description": "理解完全二叉树与堆序性质，掌握上浮和下沉调整",
+        "graph_tag": "dsa-heap-shift-up",
         "prerequisites": [
-          "智能体核心特征",
-          "智能体应用边界"
+          "线性结构：顺序表 / 链表 / 栈"
         ]
       }
     ]
   },
   {
-    "category": "大模型基座原理",
-    "description": "理解大语言模型的基础原理，是学习提示词工程和Agent开发的前提",
+    "category": "图与并查集",
+    "description": "图的表示与两种遍历方式，以及并查集与最短路径求解",
     "prerequisites": [
-      "智能体基础概念"
+      "线性结构",
+      "树与堆"
     ],
     "tags": [
       {
-        "name": "LLM上下文窗口",
-        "difficulty": "Lv1入门",
-        "description": "理解大语言模型的上下文窗口机制",
-        "prerequisites": []
+        "name": "图的表示与深度优先遍历",
+        "difficulty": "Lv2中等",
+        "description": "掌握邻接矩阵与邻接表，能实现深度优先遍历",
+        "graph_tag": "dsa-graph-theory-deep",
+        "prerequisites": [
+          "线性结构：顺序表 / 链表 / 栈"
+        ]
       },
       {
-        "name": "Transformer架构",
+        "name": "并查集与路径压缩",
         "difficulty": "Lv3高阶",
-        "description": "理解Transformer的核心架构设计（编码器-解码器、自注意力、位置编码）",
+        "description": "理解并查集的合并与查询，掌握路径压缩优化",
+        "graph_tag": "dsa-union-find-compress",
         "prerequisites": [
-          "LLM上下文窗口"
+          "图的表示与深度优先遍历"
         ]
       },
       {
-        "name": "预训练与微调",
-        "difficulty": "Lv2中等",
-        "description": "了解LLM的预训练和微调范式，以及LoRA等高效微调方法",
-        "prerequisites": [
-          "Transformer架构"
-        ]
-      },
-      {
-        "name": "模型参数能力",
-        "difficulty": "Lv2中等",
-        "description": "模型参数量与能力的关系、涌现能力、Scaling Law",
-        "prerequisites": [
-          "预训练与微调"
-        ]
-      },
-      {
-        "name": "推理机制",
+        "name": "广度优先遍历与最短路径",
         "difficulty": "Lv3高阶",
-        "description": "深入理解LLM的推理链路、KV Cache、推测解码等优化技术",
+        "description": "掌握用队列实现广度优先遍历，求解无权图最短路径",
+        "graph_tag": "dsa-graph-theory-short-path",
         "prerequisites": [
-          "Transformer架构",
-          "模型参数能力"
-        ]
-      },
-      {
-        "name": "模型局限性",
-        "difficulty": "Lv2中等",
-        "description": "幻觉问题、知识截止、推理偏差、偏见等局限及应对策略",
-        "prerequisites": [
-          "推理机制"
+          "图的表示与深度优先遍历"
         ]
       }
     ]
   },
   {
-    "category": "提示词工程",
-    "description": "掌握与大语言模型高效交互的技术，是开发Agent的必要技能",
+    "category": "排序算法",
+    "description": "归并排序与堆排序的原理、复杂度与稳定性对比",
     "prerequisites": [
-      "大模型基座原理"
+      "线性结构",
+      "树与堆"
     ],
     "tags": [
       {
-        "name": "零样本提示",
-        "difficulty": "Lv1入门",
-        "description": "掌握零样本提示的基本用法与适用场景",
-        "prerequisites": []
-      },
-      {
-        "name": "角色提示",
-        "difficulty": "Lv1入门",
-        "description": "通过角色设定引导模型行为与输出风格",
-        "prerequisites": [
-          "零样本提示"
-        ]
-      },
-      {
-        "name": "少样本提示",
+        "name": "归并排序与性能基准",
         "difficulty": "Lv2中等",
-        "description": "通过示例引导模型输出格式与内容的技术",
+        "description": "掌握分治合并过程，理解 O(n log n) 复杂度与稳定性",
+        "graph_tag": "dsa-merge-sort",
         "prerequisites": [
-          "零样本提示"
+          "线性结构：顺序表 / 链表 / 栈"
         ]
       },
       {
-        "name": "结构化输出提示",
-        "difficulty": "Lv2中等",
-        "description": "控制模型输出JSON、XML等结构化格式的方法",
-        "prerequisites": [
-          "少样本提示"
-        ]
-      },
-      {
-        "name": "思维链Prompt",
+        "name": "堆排序",
         "difficulty": "Lv3高阶",
-        "description": "Chain-of-Thought推理提示设计，引导模型逐步思考",
+        "description": "利用堆结构完成原地排序，理解其复杂度与不稳定性",
+        "graph_tag": "dsa-heap-sort",
         "prerequisites": [
-          "少样本提示",
-          "结构化输出提示"
-        ]
-      },
-      {
-        "name": "Prompt优化技巧",
-        "difficulty": "Lv3高阶",
-        "description": "高级提示词优化、调试与自动化Prompt生成方法",
-        "prerequisites": [
-          "思维链Prompt"
+          "堆：上浮与下沉"
         ]
       }
     ]
   },
   {
-    "category": "智能体框架开发",
-    "description": "学习AI Agent的主流开发框架和核心技术组件",
+    "category": "哈希与缓存",
+    "description": "哈希表的冲突处理与 LRU 缓存的数据结构组合",
     "prerequisites": [
-      "提示词工程"
+      "线性结构",
+      "排序算法"
     ],
     "tags": [
       {
-        "name": "框架基础",
-        "difficulty": "Lv1入门",
-        "description": "了解LangChain、LangGraph、Coze、AutoGen等主流Agent框架",
-        "prerequisites": []
-      },
-      {
-        "name": "Agent运行机制",
-        "difficulty": "Lv2中等",
-        "description": "理解AI智能体的运行循环（感知-规划-执行）与生命周期管理",
-        "prerequisites": [
-          "框架基础"
-        ]
-      },
-      {
-        "name": "记忆模块",
-        "difficulty": "Lv2中等",
-        "description": "短期记忆与长期记忆的设计与实现，向量数据库集成",
-        "prerequisites": [
-          "Agent运行机制"
-        ]
-      },
-      {
-        "name": "行动-工具调用FunctionCalling",
+        "name": "哈希表与 LRU 缓存",
         "difficulty": "Lv3高阶",
-        "description": "掌握Function Calling、MCP协议、工具定义与注册",
+        "description": "理解哈希函数与冲突处理，能组合哈希表和双向链表实现 LRU",
+        "graph_tag": "dsa-dsa-hash-table",
         "prerequisites": [
-          "Agent运行机制"
-        ]
-      },
-      {
-        "name": "规划-任务分解",
-        "difficulty": "Lv3高阶",
-        "description": "任务分解与执行规划的核心算法，Plan-and-Execute模式",
-        "prerequisites": [
-          "工具调用ToolUse",
-          "记忆模块"
-        ]
-      },
-      {
-        "name": "多模态智能体",
-        "difficulty": "Lv3高阶",
-        "description": "处理文本、图像、语音的多模态Agent设计与实现",
-        "prerequisites": [
-          "规划模块"
+          "线性结构：顺序表 / 链表 / 栈",
+          "归并排序与性能基准"
         ]
       }
     ]
   },
   {
-    "category": "智能体算法逻辑",
-    "description": "深入Agent内部算法，掌握推理、决策、反思等核心逻辑",
+    "category": "算法工具箱与综合",
+    "description": "把排序、查找、图遍历等能力封装成统一入口，并做复杂度与方案选型",
     "prerequisites": [
-      "智能体框架开发"
+      "线性结构",
+      "树与堆",
+      "图与并查集",
+      "排序算法",
+      "哈希与缓存"
     ],
     "tags": [
       {
-        "name": "任务拆解逻辑",
+        "name": "算法工具箱：统一入口与分发",
         "difficulty": "Lv2中等",
-        "description": "复杂任务自动分解为子任务的逻辑与策略",
-        "prerequisites": []
-      },
-      {
-        "name": "推理链路算法",
-        "difficulty": "Lv3高阶",
-        "description": "多步推理链路的算法设计，ReAct模式详解",
+        "description": "掌握统一入口加分发映射的设计，能根据场景选择合适的数据结构",
+        "graph_tag": "dsa-dsa-basic-algorithm",
         "prerequisites": [
-          "任务拆解逻辑"
-        ]
-      },
-      {
-        "name": "知识检索增强",
-        "difficulty": "Lv2中等",
-        "description": "RAG技术在智能体中的应用，检索增强生成",
-        "prerequisites": [
-          "任务拆解逻辑"
-        ]
-      },
-      {
-        "name": "自主决策算法",
-        "difficulty": "Lv3高阶",
-        "description": "ReAct、Plan-Act、Tree-of-Thought等决策算法的原理与对比",
-        "prerequisites": [
-          "推理链路算法"
-        ]
-      },
-      {
-        "name": "反思迭代机制",
-        "difficulty": "Lv2中等",
-        "description": "自我反思与迭代优化的算法实现，Reflection模式",
-        "prerequisites": [
-          "自主决策算法"
-        ]
-      },
-      {
-        "name": "强化学习与智能体",
-        "difficulty": "Lv3高阶",
-        "description": "RLHF与智能体训练的关联，基于人类反馈的强化学习",
-        "prerequisites": [
-          "反思迭代机制"
-        ]
-      }
-    ]
-  },
-  {
-    "category": "多智能体应用",
-    "description": "多个AI Agent协同工作的系统设计与实际应用",
-    "prerequisites": [
-      "智能体算法逻辑"
-    ],
-    "tags": [
-      {
-        "name": "场景落地实践",
-        "difficulty": "Lv1入门",
-        "description": "多智能体在客服、教育、软件开发等场景的应用案例",
-        "prerequisites": []
-      },
-      {
-        "name": "多Agent协作",
-        "difficulty": "Lv2中等",
-        "description": "多个AI智能体协同工作的机制与模式",
-        "prerequisites": [
-          "场景落地实践"
-        ]
-      },
-      {
-        "name": "分工机制",
-        "difficulty": "Lv2中等",
-        "description": "智能体角色分配与任务分工策略，CrewAI角色设计",
-        "prerequisites": [
-          "多Agent协作"
-        ]
-      },
-      {
-        "name": "通信协议设计",
-        "difficulty": "Lv3高阶",
-        "description": "智能体间的消息传递与通信协议，A2A协议",
-        "prerequisites": [
-          "分工机制"
-        ]
-      },
-      {
-        "name": "冲突解决逻辑",
-        "difficulty": "Lv3高阶",
-        "description": "多智能体意见不一致时的投票、仲裁、协商解决机制",
-        "prerequisites": [
-          "通信协议设计"
-        ]
-      },
-      {
-        "name": "多智能体系统架构",
-        "difficulty": "Lv3高阶",
-        "description": "大规模多智能体系统的整体架构、部署与监控",
-        "prerequisites": [
-          "冲突解决逻辑"
+          "归并排序与性能基准",
+          "图的表示与深度优先遍历"
         ]
       }
     ]

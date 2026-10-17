@@ -57,7 +57,7 @@
               <el-select v-model="form.learning_goal" style="width:100%">
                 <el-option label="课程预习与复习" value="课程预习" />
                 <el-option label="期末备考冲刺" value="期末备考" />
-                <el-option label="智能体开发实操" value="开发实操" />
+                <el-option label="数据结构与算法实训" value="算法实训" />
                 <el-option label="竞赛项目落地" value="竞赛项目" />
                 <el-option label="深度学习研究" value="深度学习" />
               </el-select>
@@ -254,6 +254,39 @@
           </el-form>
         </el-card>
 
+        <el-card shadow="hover" style="margin-top:20px" class="jev-quick-card">
+          <template #header>
+            <div class="page-title">
+              <el-icon><Cpu /></el-icon> 🧭 Jev 意图判定（OpenRouter）
+              <el-tag v-if="jevConfigured" type="success" size="small" style="margin-left:12px">
+                {{ jevSource === 'user' ? '已配置（个人）' : '已配置（服务端）' }}
+              </el-tag>
+              <el-tag v-else type="info" size="small" style="margin-left:12px">未配置 · 未启用</el-tag>
+            </div>
+          </template>
+          <p style="color:#909399;font-size:13px;margin-bottom:16px">
+            用来判断「学生是在学习，还是让 AI 代写」。<b>不配置就不会调用它</b>，系统会自动使用免费的规则版判定，答疑功能不受影响。<br/>
+            配置后优先使用你的 Key（加密保存，界面只显示掩码）；服务端统一配置也可作为默认。<br/>
+            <a href="https://openrouter.ai/keys" target="_blank" style="color:#409EFF">获取 OpenRouter API Key →</a>
+          </p>
+          <el-form label-width="90px" style="max-width:500px">
+            <el-form-item label="API Key">
+              <el-input v-model="jevApiKey" type="password" show-password placeholder="sk-or-v1-..." size="large" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" size="large" @click="handleSaveJev" :loading="jevSaving" style="width:100%">
+                🧭 保存 Jev 配置
+              </el-button>
+            </el-form-item>
+            <el-form-item v-if="jevSource === 'user'">
+              <el-button type="danger" plain @click="handleResetJev">清除我的 Jev Key</el-button>
+            </el-form-item>
+          </el-form>
+          <div v-if="jevConfigured" style="font-size:12px;color:#909399">
+            当前生效 Key：{{ llmConfig.jev_api_key || '由服务端统一提供' }}（来源：{{ jevSource === 'user' ? '个人配置' : '服务端' }}）
+          </div>
+        </el-card>
+
         <el-card shadow="hover" style="margin-top:20px">
           <template #header><div class="page-title"><el-icon><Cpu /></el-icon> AI大模型配置（高级）</div></template>
           <p style="color:#909399;font-size:13px;margin-bottom:16px">高级自定义配置，支持OpenAI及兼容接口（如Azure、本地模型等）。如仅需使用 DeepSeek，请在上方快速配置。</p>
@@ -357,7 +390,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useUserStore } from '../stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getLLMConfig, saveLLMConfig, resetLLMConfig, saveEmbeddingConfig, saveSearchConfig } from '../api/llm'
+import { getLLMConfig, saveLLMConfig, resetLLMConfig, saveEmbeddingConfig, saveSearchConfig, saveJevConfig } from '../api/llm'
 import { getMemoryOverview, getKnowledgeDetail, createMemory, updateMemory, deleteMemory } from '../api/qa'
 import { getReminderSettings, updateReminderSettings } from '../api/notification'
 import { marked } from 'marked'
@@ -376,6 +409,10 @@ const embeddingConfigured = ref(false)
 const searchApiSaving = ref(false)
 const searchApiKey = ref('')
 const searchApiConfigured = ref(false)
+const jevSaving = ref(false)
+const jevApiKey = ref('')
+const jevConfigured = ref(false)
+const jevSource = ref('')
 const memoryOverview = ref({})
 const memoryDialogVisible = ref(false)
 const selectedMemory = ref(null)
@@ -574,6 +611,8 @@ onMounted(async () => {
     deepseekConfigured.value = data.is_configured && data.provider === 'deepseek'
     embeddingConfigured.value = !!(data.embedding_api_key)
     searchApiConfigured.value = !!(data.search_api_key)
+    jevConfigured.value = !!data.jev_configured
+    jevSource.value = data.jev_source || ''
     if (data.is_configured) {
       llmForm.api_key = ''
       llmForm.image_api_key = ''
@@ -666,7 +705,12 @@ async function handleResetDeepSeek() {
     deepseekConfigured.value = false
     deepseekApiKey.value = ''
     embeddingConfigured.value = false
-    llmConfig.value = { provider: 'openai', api_key: '', image_api_key: '', embedding_api_key: '', base_url: 'https://api.openai.com', model_name: 'gpt-4o', temperature: 0.7, max_tokens: 4096, is_configured: false }
+    searchApiConfigured.value = false
+    jevApiKey.value = ''
+    const data = await getLLMConfig()
+    llmConfig.value = data
+    jevConfigured.value = !!data.jev_configured
+    jevSource.value = data.jev_source || ''
     ElMessage.success('DeepSeek 配置已重置')
   } catch(e) {
     if (e !== 'cancel') ElMessage.error('重置失败')
@@ -761,13 +805,63 @@ async function handleResetSearchApi() {
   }
 }
 
+async function handleSaveJev() {
+  const key = jevApiKey.value.trim()
+  if (!key) {
+    ElMessage.warning('请输入 OpenRouter API Key')
+    return
+  }
+  if (!key.startsWith('sk-or-')) {
+    ElMessage.warning('OpenRouter API Key 应以 sk-or- 开头')
+    return
+  }
+  jevSaving.value = true
+  try {
+    const result = await saveJevConfig({ jev_api_key: key })
+    jevConfigured.value = !!result.jev_configured
+    jevSource.value = result.jev_source || ''
+    jevApiKey.value = ''
+    ElMessage.success(result.message || 'Jev 配置已保存')
+    const data = await getLLMConfig()
+    llmConfig.value = data
+  } catch(e) {
+    ElMessage.error('保存失败: ' + (e.message || '未知错误'))
+  } finally {
+    jevSaving.value = false
+  }
+}
+
+async function handleResetJev() {
+  try {
+    await ElMessageBox.confirm(
+      '确认清除你个人的 Jev API Key？清除后若服务端也没有配置，行为通道将改用规则版判定。',
+      '提示',
+      { confirmButtonText: '确认清除', cancelButtonText: '取消', type: 'warning' }
+    )
+    const result = await saveJevConfig({ jev_api_key: '' })
+    jevConfigured.value = !!result.jev_configured
+    jevSource.value = result.jev_source || ''
+    jevApiKey.value = ''
+    const data = await getLLMConfig()
+    llmConfig.value = data
+    ElMessage.success(result.message || 'Jev 配置已清除')
+  } catch(e) {
+    if (e !== 'cancel') ElMessage.error('清除失败')
+  }
+}
+
 async function handleResetLLM() {
   try {
     await ElMessageBox.confirm('确认重置为系统默认配置？', '提示', { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' })
     await resetLLMConfig()
-    llmConfig.value = { provider: 'openai', api_key: '', image_api_key: '', embedding_api_key: '', search_api_key: '', base_url: 'https://api.openai.com', model_name: 'gpt-4o', temperature: 0.7, max_tokens: 4096, is_configured: false }
+    const data = await getLLMConfig()
+    llmConfig.value = data
     deepseekConfigured.value = false
+    embeddingConfigured.value = false
     searchApiConfigured.value = false
+    jevApiKey.value = ''
+    jevConfigured.value = !!data.jev_configured
+    jevSource.value = data.jev_source || ''
     llmForm.provider = 'openai'
     llmForm.api_key = ''
     llmForm.image_api_key = ''
@@ -797,6 +891,9 @@ async function handleResetLLM() {
 }
 .search-quick-card {
   border-left: 4px solid #E6A23C;
+}
+.jev-quick-card {
+  border-left: 4px solid #8B5CF6;
 }
 
 /* 知识点标签高亮 */

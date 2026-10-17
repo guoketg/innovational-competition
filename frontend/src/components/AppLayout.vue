@@ -247,8 +247,10 @@ function handleLogout() {
 .user-copy small { margin-top: 4px; color: var(--ink-400); font-size: 10px; }
 .main-content { min-height:0;overflow-x: hidden;overflow-y:auto;padding: 20px 24px 30px; background: transparent;scrollbar-gutter:stable;overscroll-behavior-y:contain }
 .main-content.is-fullscreen { overflow: hidden; padding: 0;scrollbar-gutter:auto; }
-.main-content.is-workspace { display:flex;overflow:hidden;padding:0;scrollbar-gutter:auto; }
+.main-content.is-workspace { display:flex;flex-direction:column;overflow:hidden;padding:0;scrollbar-gutter:auto; }
 .main-content.is-workspace > * { width:100%;height:auto!important;min-width:0;min-height:0;align-self:stretch; }
+.main-content.is-workspace > .notify-banner { flex:0 0 auto;width:auto;margin:12px 16px 0; }
+.main-content.is-workspace > :not(.notify-banner) { flex:1 1 auto; }
 .sidebar-scrim { display: none; }
 .mobile-nav-launch{display:none}
 .notify-banner { display:flex;align-items:center;gap:12px;margin:0 0 16px;padding:12px 16px;border:1px solid #f3d9cf;border-radius:14px;background:linear-gradient(100deg,#fff7f3,#fffdfb);box-shadow:0 6px 18px rgba(210,120,90,.08); }

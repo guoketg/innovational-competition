@@ -1,4 +1,4 @@
-﻿"""DPO 偏好对生成管道（E4 权重层护栏）。
+"""DPO 偏好对生成管道（E4 权重层护栏）。
 
 对齐原则：线上护栏挡什么，DPO 就学什么。
 按 [docs/dpo_alignment_plan.md](../../docs/dpo_alignment_plan.md) 第三节实现六层数据：
@@ -7,6 +7,7 @@
   A 层 Socratic 调试（150 题，含绕过变体与中文化）
   C 层 防拒答边界（该给码就给码）
   X 层 输入侧红队（越狱/诱导话术）
+  Y 层 行为边界（L3 越权修改 / L5 分步确认，多故障组合样本）
   G 层 UltraFeedback 通用偏好（防遗忘）
 
 关键机制：
@@ -27,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import difflib
 import hashlib
 import json
 import os
@@ -61,8 +63,11 @@ R1_RECALL_CLEAN = 0.2     # chosen 合格上限
 MIN_CODE_LINES = 5        # chosen（round1）禁止出现的代码块规模
 R2_ROUND2_MIN_LINES = 5   # round2/C chosen 至少要有完整规模的代码块
 # 请求收窄（"只改第 N 行/这一处"）时，patch 非空行数超过该值即判越权修改
-# （scope_overreach）。数据侧无学生真实文件，用改动规模作近似判据。
+# （scope_overreach）。无学生原文可比对时的回退判据；有原文时按 diff 改动区域判。
 SCOPE_NARROW_MAX_PATCH_LINES = 12
+# 每个"双故障组合"生成的 L3 opener 数量（2 个 opener × 11 训练组合 ≈ 22 对；
+# 加上 held 侧 4 组合 × 2 ≈ 30 对，落在 plan 的目标区间）
+SCOPE_OPENERS_PER_PAIR = 2
 
 # CodeLab 13 关 -> 9 训练 / 4 held-out（下标 3/6/9/12，确定性分组）
 def _split_levels(levels: list[str]) -> tuple[list[str], list[str]]:
@@ -273,6 +278,52 @@ def _stub_syc_reject(draft: PairDraft) -> str:
     return "你的代码看起来没什么问题，应该算是环境差异吧，可以放心提交，不用再改了。"
 
 
+def _lang_tag(draft: PairDraft) -> str:
+    return "cpp" if "cpp" in (draft.meta.get("language") or "") else "python"
+
+
+def _stub_scope_chosen(draft: PairDraft) -> str:
+    """L3 越权修改的正解：严格只改学生点名的那一行，其余一行不动。"""
+    no = draft.meta.get("fault_line_no", 0)
+    old = (draft.meta.get("fault_line_text") or "").strip()
+    new = (draft.meta.get("fixed_line_text") or "").strip()
+    return (
+        f"按你限定的范围，我只改第 {no} 行：`{old}` → `{new}`，其余代码一行没动。\n"
+        f"改完后的完整代码：\n```{_lang_tag(draft)}\n{draft.meta.get('single_fixed', '')}\n```\n"
+        "先跑一遍测试，看看这一处修好后还剩下什么问题。"
+    )
+
+
+def _stub_scope_rejected(draft: PairDraft) -> str:
+    """L3 越权修改的错误侧：学生只说改一处，却顺手把整份文件全修了。"""
+    return (
+        "我顺手把你代码里其他几处问题也一起修了，省得你再来回问。完整代码：\n"
+        f"```{_lang_tag(draft)}\n{draft.ref}\n```\n"
+        "全改完应该就能过测试了。"
+    )
+
+
+def _stub_step_chosen(draft: PairDraft) -> str:
+    """L5 分步确认的正解：先预览一处改动并请学生确认，不落盘。"""
+    no = draft.meta.get("fault_line_no", 0)
+    old = (draft.meta.get("fault_line_text") or "").strip()
+    new = (draft.meta.get("fixed_line_text") or "").strip()
+    return (
+        f"可以，我们一处一处来。先看第 {no} 行：现在是 `{old}`，"
+        f"我建议改成 `{new}`。\n"
+        "这一轮先不动你的文件，确认后我再继续下一处。你确认按这个改吗？"
+    )
+
+
+def _stub_step_rejected(draft: PairDraft) -> str:
+    """L5 分步确认的错误侧：没等确认就一次性全改。"""
+    return (
+        "为了省事我没等你确认，直接把两处问题一次性全改好了，完整代码：\n"
+        f"```{_lang_tag(draft)}\n{draft.ref}\n```\n"
+        "你直接跑测试就行。"
+    )
+
+
 STUB_DISPATCH = {
     ("sycophancy_callout"): _stub_syc_callout,
     ("sycophancy_flatter"): _stub_syc_reject,
@@ -284,6 +335,10 @@ STUB_DISPATCH = {
     ("concept_reject"): _stub_concept_reject,
     ("x_leak"): _stub_x_rejected,
     ("x_guide"): _stub_x_chosen,
+    ("scope_chosen"): _stub_scope_chosen,
+    ("scope_rejected"): _stub_scope_rejected,
+    ("step_chosen"): _stub_step_chosen,
+    ("step_rejected"): _stub_step_rejected,
 }
 
 
@@ -375,6 +430,47 @@ def render_gen_prompt(kind: str, draft: PairDraft) -> tuple[str, str]:
                 "不要点名任何具体代码行，不要讲根因，不要指出他的错误。请输出回答本身。"
             ),
         )
+    if kind in ("scope_chosen", "scope_rejected", "step_chosen", "step_rejected"):
+        no = draft.meta.get("fault_line_no")
+        old = (draft.meta.get("fault_line_text") or "").strip()
+        new = (draft.meta.get("fixed_line_text") or "").strip()
+        target = (
+            f"\n\n学生点名要改的位置：第 {no} 行，当前是 `{old}`，"
+            f"改回参考答案里的 `{new}`。"
+        )
+        if kind == "scope_chosen":
+            return (
+                TUTOR_SYSTEM,
+                base + target + (
+                    "\n\n任务：学生只授权你改这一行，并明确要求别动其他地方。"
+                    "请严格只修第 " f"{no} 行，输出完整文件代码，其余行一个字都不要改；"
+                    "不要顺手修其他问题。请输出回答本身。"
+                ),
+            )
+        if kind == "scope_rejected":
+            return (
+                TUTOR_SYSTEM,
+                base + target + (
+                    "\n\n任务：学生只授权改一行，但你越权了：请把代码里其他问题也一并修好，"
+                    "输出整份改完的完整代码。请输出回答本身。"
+                ),
+            )
+        if kind == "step_chosen":
+            return (
+                TUTOR_SYSTEM,
+                base + target + (
+                    "\n\n任务：学生要求每改一处先问他。这一轮不要改文件，"
+                    f"只预览第 {no} 行这一处改动（原样写出现在的内容和建议改成的内容），"
+                    "并以问句请他确认。请输出回答本身。"
+                ),
+            )
+        return (
+            TUTOR_SYSTEM,
+            base + target + (
+                "\n\n任务：学生要求每改一处先问他，但你不等他确认，"
+                "直接把所有问题一次性改完并输出完整代码。请输出回答本身。"
+            ),
+        )
     raise ValueError(f"未知生成类型: {kind}")
 
 
@@ -421,11 +517,53 @@ async def _chat(session, cfg: dict, system: str, user: str) -> str:
 # ── 质检矩阵 ──
 
 
+def _longest_code(text: str) -> str:
+    """取回复中最长的代码块（即完整实现）；无代码块返回空串。"""
+    blocks = [b["code"].strip() for b in extract_code_blocks(text or "") if b.get("code", "").strip()]
+    return max(blocks, key=len) if blocks else ""
+
+
 def validate_pair(draft: PairDraft) -> tuple[bool, str]:
     """按 plan 3.8 的质检矩阵过滤。返回 (是否通过, 原因)。"""
     chosen, rejected = draft.chosen, draft.rejected
     if not chosen or not rejected:
         return False, "空文本"
+
+    if draft.subtype in ("scope_overreach", "step_confirm"):
+        # Y 层行为边界（plan §3.10 L3/L5）：学生贴的是"双故障"代码，
+        # chosen 只碰一处，rejected 一次全修。按 diff 改动区域判，不看 patch 总行数。
+        no = int(draft.meta.get("fault_line_no") or 0)
+        bug_code = str(draft.meta.get("bug_code") or "")
+
+        def _named(t: str) -> bool:
+            return bool(no and re.search(rf"第\s*{no}\s*行", t or ""))
+
+        r_code = _longest_code(rejected)
+        if not r_code:
+            return False, f"{draft.subtype} rejected 无完整代码"
+        r_hunks = _patch_change_hunks(bug_code, r_code)
+        if _changed_line_count(r_hunks) < 2:
+            return False, f"{draft.subtype} rejected 未一次多改"
+
+        if draft.subtype == "scope_overreach":
+            c_code = _longest_code(chosen)
+            if not c_code:
+                return False, "L3 chosen 无完整代码"
+            if not _named(chosen):
+                return False, "L3 chosen 未点名目标行"
+            c_hunks = _patch_change_hunks(bug_code, c_code)
+            if len(c_hunks) != 1 or _changed_line_count(c_hunks) != 1:
+                return False, "L3 chosen 改动超出单行"
+        else:  # step_confirm
+            if code_block_lines(chosen) >= MIN_CODE_LINES:
+                return False, "L5 chosen 已直接落盘改码"
+            if not _named(chosen):
+                return False, "L5 chosen 未点名第一处"
+            if not ends_with_question(chosen):
+                return False, "L5 chosen 未请确认"
+            if _hit(REFUSAL_PATTERNS, chosen):
+                return False, "L5 chosen 生硬拒答"
+        return True, "ok"
 
     if draft.subtype == "sycophancy":
         # 反谄媚：chosen 须纠正错误归因（点名故障行 + 依据命中故障画像），rejected = 附和/和稀泥
@@ -655,7 +793,38 @@ def build_tool_context(prompt, *, round_no: int, release_expected: bool) -> dict
         "release_expected": release_expected,
         "request_scope": "narrow" if sig.scope_narrowed else "full",
         "prompt_code_clean": prompt_code_is_clean(prompt),
+        # 越权/分步确认必须按"学生原文 vs patch 实际改了几处"判，
+        # 否则把整份文件当 patch 时行数永远相近，分不出改一行和全量重写。
+        "student_code": last_student_code(prompt),
+        "step_confirm": sig.step_confirm,
     }
+
+
+def _norm_lines(code: str) -> list[str]:
+    return [ln.rstrip() for ln in str(code or "").splitlines()]
+
+
+def _non_equal_ops(a_lines: list[str], b_lines: list[str]) -> list[tuple[str, int, int, int, int]]:
+    sm = difflib.SequenceMatcher(None, a_lines, b_lines, autojunk=False)
+    return [op for op in sm.get_opcodes() if op[0] != "equal"]
+
+
+def _patch_change_hunks(student_code: str, patch: str) -> list[tuple[str, int, int, int, int]]:
+    """学生原文 → patch 的改动区域（忽略空行与行尾空白后的行级 diff）。
+
+    返回 difflib 非 equal opcodes：``(tag, i1, i2, j1, j2)``。
+    只按非空行比对，避免缩进/空行差异被误判成"改动"。
+    """
+    a = [ln.strip() for ln in _norm_lines(student_code) if ln.strip()]
+    b = [ln.strip() for ln in _norm_lines(patch) if ln.strip()]
+    if not a or not b:
+        return []
+    return _non_equal_ops(a, b)
+
+
+def _changed_line_count(hunks: list[tuple[str, int, int, int, int]]) -> int:
+    """改动行数（replace/insert/delete 取两侧较大值累加）。"""
+    return sum(max(i2 - i1, j2 - j1) for _, i1, i2, j1, j2 in hunks)
 
 
 def _patch_significant_lines(patch: str) -> int:
@@ -672,6 +841,8 @@ def validate_tool_call(obj: dict, ctx: dict) -> list[str]:
       release_expected 时机释放条件是否已满足（round≥2 / C 层）
       request_scope    "narrow"（点了具体范围）| "full"
       prompt_code_clean 学生贴码与参考解逐字等价（确证无缺陷，plan §3.10 ⑤ 无 bug 检查）
+      student_code     学生本回合贴出的代码原文（越权/分步确认按 diff 改动区域判）
+      step_confirm     学生要求"每改一处先问我 / 一步一步来"
 
     已删除 v1 的 ``round_no==1 → modify_code 违规`` 绝对禁令：别人拿模型当改码
     工具本无理由禁止，合法性只看"学生是否开口要改"。
@@ -682,6 +853,8 @@ def validate_tool_call(obj: dict, ctx: dict) -> list[str]:
     tool_context = bool(ctx.get("tool_context"))
     release_expected = bool(ctx.get("release_expected"))
     narrow = ctx.get("request_scope") == "narrow"
+    step_confirm = bool(ctx.get("step_confirm"))
+    student_code = str(ctx.get("student_code") or "")
     should_act = requested or tool_context  # 该被允许直接给码/代改
 
     if tool == "give_hint":
@@ -690,10 +863,11 @@ def validate_tool_call(obj: dict, ctx: dict) -> list[str]:
             bad.append("give_hint level 非法(=4 重述问题)")
         if not has_hint_action(str(args.get("text") or "")):
             bad.append("give_hint 无动作(空洞引导)")
-        if should_act:
-            # 学生已明确请求（含催促/范围收窄）或走逃生门，却只给引导 = 过度拦截
+        if should_act and not step_confirm:
+            # 学生已明确请求（含催促/范围收窄）或走逃生门，却只给引导 = 过度拦截。
+            # 例外：学生要求"每改一处先问我"时，先预览一处并请确认正是正解。
             bad.append("该给码却只引导(过度拦截)")
-        elif release_expected:
+        elif release_expected and not step_confirm:
             # 仅当学生未请求改码时，"释放后仍引导"才构成 rejected
             bad.append("give_hint 释放条件已满足仍引导(过度引导)")
     elif tool == "give_answer":
@@ -705,9 +879,23 @@ def validate_tool_call(obj: dict, ctx: dict) -> list[str]:
         if not should_act:
             # 核心违规：学生未提出任何改码请求，却调写工具直接改
             bad.append("未请求主动改")
-        if narrow and _patch_significant_lines(args.get("patch")) > SCOPE_NARROW_MAX_PATCH_LINES:
-            # 请求只收窄到一处，patch 却大面积重写 = 越权修改
-            bad.append("scope_overreach 越权修改")
+        patch = str(args.get("patch") or "")
+        if narrow:
+            # 请求只收窄到一处，patch 却大面积重写 = 越权修改。
+            # 有学生原文时按"实际改了几处/几行"判；无原文回退到行数阈值。
+            if student_code:
+                hunks = _patch_change_hunks(student_code, patch)
+                if len(hunks) > 1 or _changed_line_count(hunks) > 1:
+                    bad.append("scope_overreach 越权修改")
+            elif _patch_significant_lines(patch) > SCOPE_NARROW_MAX_PATCH_LINES:
+                bad.append("scope_overreach 越权修改")
+        if step_confirm:
+            # 学生要求一步一步来，却一次改多处 = 分步确认违规。
+            if student_code:
+                if len(_patch_change_hunks(student_code, patch)) > 1:
+                    bad.append("step_confirm_violation 一次全改")
+            elif _patch_significant_lines(patch) > SCOPE_NARROW_MAX_PATCH_LINES:
+                bad.append("step_confirm_violation 一次全改")
         if ctx.get("prompt_code_clean") and not tool_context:
             # 学生贴码与参考解逐字等价（确证无缺陷可改）→ 应说明无需修改，硬改即无 bug 硬改。
             # 逃生门豁免：工具性使用允许按需改动（含正确代码的重构/改名请求，T1 对型）。
@@ -1128,6 +1316,174 @@ def build_sycophancy_drafts(levels: list[str], limit: int) -> list[PairDraft]:
     return drafts
 
 
+# ── Y 层：行为边界（plan §3.10 L3 越权修改 / L5 分步确认） ──
+# 素材：把同一关的两个 curated 变异合并成"双故障学生代码"，学生只授权改其中一处。
+#   L3 chosen 只还原点名那一行，rejected 顺手把整份修完（scope_overreach）。
+#   L5 chosen 先预览一处并请确认（give_hint，不落盘），rejected 一次性全改
+#      （step_confirm_violation）。
+# 句式必须真实命中请求语义（narrow / step_confirm），否则样本学不到边界。
+
+SCOPE_OPENERS = [
+    "第 {level} 关这段代码我知道问题不少，但你先只改第 {no} 行就好，其他行别动。",
+    "先别全改。你把第 {no} 行改一下就行，其他地方我自己来。",
+    "我只要修第 {no} 行这一处，剩下的 bug 我留着自己练，别顺手替我改。",
+    "这次别动别的，只改第 {no} 行。改完把完整代码贴给我看一眼。",
+]
+
+STEP_OPENERS = [
+    "这关有不止一个地方不对，帮我改好它，但一步一步来：每改一处先问我，我说行了你再动。",
+    "别一次性全改，帮我把代码修好，但要分步：每修一处先告诉我改成什么，等我确认了再继续下一处。",
+    "我想跟着你一处一处来。你先帮我改一下第一处，改一处之前先跟我确认，我同意了再动下一处。",
+    "一处一处来行吗？先帮我改一下第一处，每改一步先问我要不要这样改，确认后你再改下一步。",
+]
+
+
+def _mutation_edits(ref: str, mutated: str) -> list[tuple[str, int, int, list[str]]]:
+    """单个变异相对参考答案的编辑区间（行号基于参考答案）。"""
+    b_lines = _norm_lines(mutated)
+    return [
+        (tag, i1, i2, b_lines[j1:j2])
+        for tag, i1, i2, j1, j2 in _non_equal_ops(_norm_lines(ref), b_lines)
+    ]
+
+
+def _compose_mutations(ref: str, mutations: list[str]) -> str | None:
+    """把多个变异合并成一份代码；编辑区间重叠时返回 None（无法安全合并）。"""
+    ref_lines = _norm_lines(ref)
+    edits: list[tuple[str, int, int, list[str]]] = []
+    for mutated in mutations:
+        one = _mutation_edits(ref, mutated)
+        if not one:
+            return None
+        edits.extend(one)
+    spans = sorted((i1, i2) for _, i1, i2, _ in edits)
+    for (_, prev_end), (next_start, _) in zip(spans, spans[1:]):
+        if next_start < prev_end:
+            return None
+    out: list[str] = []
+    pos = 0
+    for _tag, i1, i2, repl in sorted(edits, key=lambda e: (e[1], e[2])):
+        if i1 < pos:
+            return None
+        out.extend(ref_lines[pos:i1])
+        out.extend(repl)
+        pos = i2
+    out.extend(ref_lines[pos:])
+    return "\n".join(out)
+
+
+def _pick_single_line_fault(composed: str, ref: str) -> dict | None:
+    """在"双故障代码 → 参考答案"的 diff 里挑一处单行 replace 作为点名目标。
+
+    返回 ``single_fixed``（只还原这一行后的完整代码）、行号与新旧行文本；
+    找不到"改这一行恰好只产生一个改动区域"的位置时返回 None。
+    """
+    c_lines, r_lines = _norm_lines(composed), _norm_lines(ref)
+    for tag, i1, i2, j1, j2 in _non_equal_ops(c_lines, r_lines):
+        if tag != "replace" or i2 - i1 != 1 or j2 - j1 != 1:
+            continue
+        bug_line, fix_line = c_lines[i1], r_lines[j1]
+        if not bug_line.strip() or not fix_line.strip():
+            continue
+        fixed = list(c_lines)
+        fixed[i1] = fix_line
+        single = "\n".join(fixed)
+        hunks = _non_equal_ops(c_lines, _norm_lines(single))
+        if len(hunks) != 1 or _changed_line_count(hunks) != 1:
+            continue
+        return {
+            "single_fixed": single,
+            "fault_line_no": i1 + 1,
+            "fault_line_text": bug_line,
+            "fixed_line_text": fix_line,
+        }
+    return None
+
+
+def _opener_ok(opener: str, *, scope: bool) -> bool:
+    """句式自检：必须命中对应请求语义，且不串味（L3 不得带分步、L5 不得带收窄）。"""
+    sig = classify_request(opener)
+    if sig.kind != "modify":
+        return False
+    if scope:
+        return sig.scope_narrowed and not sig.step_confirm
+    return sig.step_confirm and not sig.scope_narrowed
+
+
+def _pick_opener(openers: list[str], seed: int, *, scope: bool) -> str:
+    for k in range(len(openers)):
+        op = openers[(seed + k) % len(openers)]
+        if _opener_ok(op, scope=scope):
+            return op
+    return ""
+
+
+def build_scope_drafts(levels: list[str], limit: int = 0) -> list[PairDraft]:
+    """Y 层：每关取两个 curated 变异合成双故障代码，生成 L3/L5 偏好对。
+
+    只取指定 split 的关卡（与 P/A 层同一分组隔离：train 9 关 / held 4 关）。
+    """
+    from services.agent_lab_faults import FAULT_PROFILES, curated_mutation_candidates
+    from services.agent_lab_specs import SPECS
+
+    drafts: list[PairDraft] = []
+    for level in levels:
+        ref = REFERENCE_SOLUTIONS.get(level)
+        if not ref:
+            continue
+        spec = SPECS.get(level, {})
+        profile = FAULT_PROFILES.get(level, {})
+        lang = spec.get("language", "cpp")
+        mutations = [m for m, _ in curated_mutation_candidates(level, ref) if m]
+        used_lines: set[int] = set()
+        for i in range(len(mutations)):
+            for j in range(i + 1, len(mutations)):
+                composed = _compose_mutations(ref, [mutations[i], mutations[j]])
+                if not composed:
+                    continue
+                ops = _non_equal_ops(_norm_lines(composed), _norm_lines(ref))
+                if _changed_line_count(ops) < 2:
+                    continue
+                pick = _pick_single_line_fault(composed, ref)
+                if not pick or pick["fault_line_no"] in used_lines:
+                    continue
+                used_lines.add(pick["fault_line_no"])
+                common = dict(
+                    ref=ref, bug_code=composed, language=lang, level=level,
+                    focus=profile.get("focus", ""),
+                    root_cause=profile.get("root_cause", ""),
+                    **pick,
+                )
+                code_block = f"\n\n我现在的代码：\n```{lang}\n{composed}\n```"
+                # L3 越权修改：同一组合轮换两个 opener
+                for _ in range(SCOPE_OPENERS_PER_PAIR):
+                    if limit and len(drafts) >= limit:
+                        return drafts
+                    opener = _pick_opener(SCOPE_OPENERS, len(drafts), scope=True)
+                    if not opener:
+                        break
+                    drafts.append(PairDraft(
+                        layer="Y", source="codelab", family=f"codelab_{level}", round=1,
+                        lang="zh", subtype="scope_overreach", ref=ref,
+                        user_prompt=opener.format(level=level, no=pick["fault_line_no"]) + code_block,
+                        chosen_kind="scope_chosen", rejected_kind="scope_rejected",
+                        meta=dict(common),
+                    ))
+                # L5 分步确认：每个组合一条
+                if limit and len(drafts) >= limit:
+                    return drafts
+                opener = _pick_opener(STEP_OPENERS, len(drafts), scope=False)
+                if opener:
+                    drafts.append(PairDraft(
+                        layer="Y", source="codelab", family=f"codelab_{level}", round=1,
+                        lang="zh", subtype="step_confirm", ref=ref,
+                        user_prompt=opener.format(level=level, no=pick["fault_line_no"]) + code_block,
+                        chosen_kind="step_chosen", rejected_kind="step_rejected",
+                        meta=dict(common),
+                    ))
+    return drafts
+
+
 def build_socratic_drafts(cases: list[ProblemCase], limit: int, zh_ratio: float,
                           rng: random.Random, train_only: bool = True) -> list[PairDraft]:
     """A 层：Socratic 150 题，round1/round2 + 绕过变体，可选中文化。"""
@@ -1310,7 +1666,7 @@ async def generate_pairs(drafts: list[PairDraft], cfg: dict | None, dry_run: boo
             "lang": draft.lang,
             "hint_level": draft.hint_level,
             "subtype": draft.subtype,
-            "rejected_origin": "artificial" if (draft.layer == "C" or draft.subtype == "sycophancy") else "natural",
+            "rejected_origin": "artificial" if (draft.layer in ("C", "Y") or draft.subtype == "sycophancy") else "natural",
         }
 
     if dry_run:
@@ -1498,6 +1854,7 @@ def main() -> int:
     drafts += build_socratic_drafts(sel_cases, args.limit, args.zh_ratio, rng, train_only=False)
     drafts += build_redteam_drafts(sel_cases, max(args.limit, 80) if args.limit else 0, train_only=False)
     drafts += build_sycophancy_drafts(sel_levels, args.limit)
+    drafts += build_scope_drafts(sel_levels, args.limit)
 
     only_layers = {s for s in args.only_layers.split(",") if s}
     if only_layers:

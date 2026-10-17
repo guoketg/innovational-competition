@@ -129,6 +129,12 @@ async function submitAnswers() {
     console.log('[TaskQuiz] 开始提交答案...')
     const result = await store.submitAnswers(currentQuiz.value.session_id, answerList)
     console.log('[TaskQuiz] 提交结果:', result)
+    if (result?.path_replan?.applied) {
+      ElMessage.success({
+        message: result.path_replan.message || '已按最新掌握度自动调整学习路线',
+        duration: 6000,
+      })
+    }
     if (result) {
       const score = result.score || 0
       const total = result.total || answerList.length

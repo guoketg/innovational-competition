@@ -20,11 +20,11 @@ async def get_knowledge_tags():
 async def get_categories():
     """获取测评维度列表（对应6个分模块题库）"""
     categories = [
-        {"name": "智能体基础通识", "tag_count": 80, "module_id": "01"},
-        {"name": "大模型与提示词工程", "tag_count": 80, "module_id": "02"},
-        {"name": "智能体四大核心能力模块", "tag_count": 80, "module_id": "03"},
-        {"name": "开发框架与工程实践", "tag_count": 80, "module_id": "04"},
-        {"name": "多智能体系统", "tag_count": 80, "module_id": "05"},
-        {"name": "评估安全与前沿拓展", "tag_count": 80, "module_id": "06"},
+        {"name": "线性结构", "tag_count": 1, "module_id": "01"},
+        {"name": "树与堆", "tag_count": 3, "module_id": "02"},
+        {"name": "图与并查集", "tag_count": 3, "module_id": "03"},
+        {"name": "排序算法", "tag_count": 2, "module_id": "04"},
+        {"name": "哈希与缓存", "tag_count": 1, "module_id": "05"},
+        {"name": "算法工具箱与综合", "tag_count": 1, "module_id": "06"},
     ]
     return APIResponse(data=categories)

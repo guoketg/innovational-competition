@@ -730,6 +730,7 @@ def save_assistant_message(
     mind_map: dict = None,
     learning_analysis: dict = None,
     memory_updates: list = None,
+    graph_references: list = None,
 ) -> dict:
     """保存助手消息（流式生成完成后调用），返回 {'message_id': int}"""
     tags = knowledge_tags or []
@@ -750,6 +751,8 @@ def save_assistant_message(
         assistant_metadata["learning_analysis"] = learning_analysis
     if memory_updates:
         assistant_metadata["memory_updates"] = memory_updates
+    if graph_references:
+        assistant_metadata["graph_references"] = graph_references
     metadata_json = json.dumps(assistant_metadata, ensure_ascii=False)
     cursor = conn.execute(
         """INSERT INTO conversation_messages (session_id, user_id, role, content, knowledge_tags, metadata)
@@ -766,31 +769,51 @@ def save_assistant_message(
 
 
 def identify_knowledge_tags_standalone(text: str) -> list:
-    """独立的知识点识别（与 qa_service.identify_knowledge_tags 相同逻辑，避免循环导入）"""
+    """独立的知识点识别：优先用课程图谱匹配，无命中再走旧关键词表。"""
+    try:
+        from services.graph_rag_service import identify_tags
+
+        graph_tags = identify_tags(text)
+        if graph_tags:
+            return graph_tags
+    except Exception:
+        pass
+
     keyword_map = {
-        "智能体": ["智能体基础概念"],
-        "agent": ["智能体基础概念"],
-        "大模型": ["大模型基座原理"],
-        "LLM": ["大模型基座原理"],
-        "上下文": ["大模型基座原理"],
-        "参数": ["大模型基座原理"],
-        "transformer": ["大模型基座原理"],
-        "提示词": ["提示词工程"],
-        "prompt": ["提示词工程"],
-        "思维链": ["提示词工程"],
-        "少样本": ["提示词工程"],
-        "零样本": ["提示词工程"],
-        "框架": ["智能体框架开发"],
-        "工具调用": ["智能体框架开发"],
-        "记忆": ["智能体框架开发"],
-        "规划": ["智能体框架开发"],
-        "算法": ["智能体算法逻辑"],
-        "决策": ["智能体算法逻辑"],
-        "推理": ["智能体算法逻辑"],
-        "协作": ["多智能体应用"],
-        "多智能体": ["多智能体应用"],
-        "多agent": ["多智能体应用"],
-        "冲突": ["多智能体应用"],
+        "堆排序": ["dsa-heap-sort"],
+        "归并排序": ["dsa-merge-sort"],
+        "排序": ["dsa-merge-sort"],
+        "二分搜索树": ["dsa-binary-search-tree-insert"],
+        "二叉搜索树": ["dsa-binary-search-tree-insert"],
+        "二叉树": ["dsa-binary-search-tree-insert"],
+        "中序遍历": ["dsa-binary-search-traverse"],
+        "层序遍历": ["dsa-binary-search-traverse"],
+        "遍历": ["dsa-binary-search-traverse"],
+        "上浮": ["dsa-heap-shift-up"],
+        "下沉": ["dsa-heap-shift-up"],
+        "堆": ["dsa-heap-shift-up"],
+        "并查集": ["dsa-union-find-compress"],
+        "路径压缩": ["dsa-union-find-compress"],
+        "最短路径": ["dsa-graph-theory-short-path"],
+        "广度优先": ["dsa-graph-theory-short-path"],
+        "BFS": ["dsa-graph-theory-short-path"],
+        "深度优先": ["dsa-graph-theory-deep"],
+        "DFS": ["dsa-graph-theory-deep"],
+        "邻接矩阵": ["dsa-graph-theory-deep"],
+        "邻接表": ["dsa-graph-theory-deep"],
+        "图": ["dsa-graph-theory-deep"],
+        "哈希": ["dsa-dsa-hash-table"],
+        "散列": ["dsa-dsa-hash-table"],
+        "LRU": ["dsa-dsa-hash-table"],
+        "缓存": ["dsa-dsa-hash-table"],
+        "顺序表": ["dsa-dsa-linear-data-structures"],
+        "链表": ["dsa-dsa-linear-data-structures"],
+        "栈": ["dsa-dsa-linear-data-structures"],
+        "队列": ["dsa-dsa-linear-data-structures"],
+        "线性表": ["dsa-dsa-linear-data-structures"],
+        "时间复杂度": ["dsa-dsa-basic-algorithm"],
+        "空间复杂度": ["dsa-dsa-basic-algorithm"],
+        "算法": ["dsa-dsa-basic-algorithm"],
     }
     matched = set()
     text_lower = text.lower()

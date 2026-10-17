@@ -25,6 +25,9 @@ services:
       - EMBEDDING_RUNTIME_MODE=siliconflow
       - SILICONFLOW_API_KEY=${SILICONFLOW_API_KEY:-}
       - SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
+      # Jev 意图判定：未配置 OPENROUTER_API_KEY 时自动走规则版判定
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - TOOL_GUARD_JUDGE=${TOOL_GUARD_JUDGE:-auto}
       - EMBEDDING_MEMORY_CACHE_SIZE=256
       - LOCAL_GPU_MODEL_AUTO=${LOCAL_GPU_MODEL_AUTO:-0}
       - LOCAL_GPU_MODEL_BASE_URL=http://host.docker.internal:8010/v1

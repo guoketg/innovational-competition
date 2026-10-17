@@ -1,6 +1,6 @@
 {
-  "curriculum_version": "agent-project-path-v2",
-  "description": "新用户生成学习路线前的 5 道快速测评题。每题对应一个课程知识点标签，答对的项目会被标记为可快速过，答错的知识点会被优先安排。",
+  "curriculum_version": "agent-project-path-v3",
+  "description": "课程知识点快速测评题库，覆盖 data/dsa_prerequisites.json 中的全部 44 个知识点，每个知识点至少 1 道单选题。默认每次抽 5 道、优先覆盖尚未诊断的知识点；也支持按 knowledge_tag 只测某个知识点。答对/答错都会写入该知识点的掌握度证据。",
   "questions": [
     {
       "question_id": "quick-dsa-1",
@@ -81,6 +81,630 @@
       "knowledge_point": "哈希表的查找代价",
       "difficulty": "Lv3高阶",
       "analysis": "遍历每个数时，用哈希表直接查目标差值是否出现过，把内层查找从线性扫描降为平均常数时间。"
+    },
+    {
+      "question_id": "quick-dsa-6",
+      "question_type": "单选",
+      "question": "二分搜索树的中序遍历，输出结果有什么特点？",
+      "options": [
+        "从小到大有序",
+        "从大到小有序",
+        "按插入顺序排列",
+        "完全随机"
+      ],
+      "answer": "从小到大有序",
+      "knowledge_tag": "dsa-binary-search-traverse",
+      "knowledge_point": "二分搜索树的中序遍历",
+      "difficulty": "Lv1入门",
+      "analysis": "中序遍历按「左子树 → 根 → 右子树」访问，而左子树都更小、右子树都更大，所以结果自然是从小到大有序。"
+    },
+    {
+      "question_id": "quick-dsa-7",
+      "question_type": "单选",
+      "question": "往大顶堆插入新元素后，如果它比父节点大，下一步应该怎么做？",
+      "options": [
+        "与父节点交换并继续向上比较（上浮）",
+        "直接放在数组末尾就结束",
+        "与左孩子交换",
+        "把整棵树重新建一遍"
+      ],
+      "answer": "与父节点交换并继续向上比较（上浮）",
+      "knowledge_tag": "dsa-heap-shift-up",
+      "knowledge_point": "堆的上浮调整",
+      "difficulty": "Lv1入门",
+      "analysis": "大顶堆要求父节点不小于孩子，新元素比父节点大就破坏了堆序，需要一路与父节点交换直到满足堆序，这就是上浮。"
+    },
+    {
+      "question_id": "quick-dsa-8",
+      "question_type": "单选",
+      "question": "并查集的路径压缩做了什么？",
+      "options": [
+        "把查找路径上的节点直接挂到根节点",
+        "按集合大小合并两棵树",
+        "删除集合里重复的元素",
+        "把根节点改成叶子节点"
+      ],
+      "answer": "把查找路径上的节点直接挂到根节点",
+      "knowledge_tag": "dsa-union-find-compress",
+      "knowledge_point": "并查集的路径压缩",
+      "difficulty": "Lv2中等",
+      "analysis": "路径压缩在 find 回溯时把沿途节点直接指向根，后续再查这些节点只需一步，显著降低树高。"
+    },
+    {
+      "question_id": "quick-dsa-9",
+      "question_type": "单选",
+      "question": "在无权图中求两点间边数最少的最短路径，通常用哪种遍历？",
+      "options": [
+        "广度优先遍历（BFS）",
+        "深度优先遍历（DFS）",
+        "先序遍历",
+        "后序遍历"
+      ],
+      "answer": "广度优先遍历（BFS）",
+      "knowledge_tag": "dsa-graph-theory-short-path",
+      "knowledge_point": "广度优先遍历与最短路径",
+      "difficulty": "Lv1入门",
+      "analysis": "BFS 按层向外扩展，第一次到达某顶点时经过的边数一定最少，因此无权图最短路径用 BFS。"
+    },
+    {
+      "question_id": "quick-dsa-10",
+      "question_type": "单选",
+      "question": "算法工具箱的「统一入口」最主要的作用是什么？",
+      "options": [
+        "根据问题特征把请求分发到合适的算法实现",
+        "把所有算法合并成一个算法",
+        "自动提升程序运行速度",
+        "保证所有算法都是 O(1)"
+      ],
+      "answer": "根据问题特征把请求分发到合适的算法实现",
+      "knowledge_tag": "dsa-dsa-basic-algorithm",
+      "knowledge_point": "算法工具箱的统一入口与分发",
+      "difficulty": "Lv1入门",
+      "analysis": "统一入口负责识别问题类型并路由到对应实现，调用方不必关心具体算法细节，也便于后续替换和扩展。"
+    },
+    {
+      "question_id": "quick-dsa-11",
+      "question_type": "单选",
+      "question": "归并排序在最好、最坏和平均情况下的时间复杂度分别是？",
+      "options": [
+        "都是 O(n log n)",
+        "最好是 O(n)，最坏是 O(n²)",
+        "都是 O(n²)",
+        "都是 O(log n)"
+      ],
+      "answer": "都是 O(n log n)",
+      "knowledge_tag": "dsa-merge-sort",
+      "knowledge_point": "归并排序的时间复杂度",
+      "difficulty": "Lv2中等",
+      "analysis": "归并排序每次稳定地二分，合并阶段线性扫描，三种情况都是 O(n log n)，代价是需要额外空间。"
+    },
+    {
+      "question_id": "quick-dsa-12",
+      "question_type": "单选",
+      "question": "下列哪一项不属于「数据结构」研究的核心内容？",
+      "options": [
+        "数据的逻辑结构",
+        "数据的存储结构",
+        "数据的基本操作",
+        "编译器的代码优化"
+      ],
+      "answer": "编译器的代码优化",
+      "knowledge_tag": "dsa-data-structures-tutorial",
+      "knowledge_point": "数据结构与算法总览",
+      "difficulty": "Lv1入门",
+      "analysis": "数据结构关注数据之间的逻辑关系、在内存中的存储方式以及在其上定义的基本操作；编译器优化属于编译原理。"
+    },
+    {
+      "question_id": "quick-dsa-13",
+      "question_type": "单选",
+      "question": "算法的「有穷性」指的是什么？",
+      "options": [
+        "算法必须在有限步骤内结束",
+        "算法必须有输入",
+        "算法必须有输出",
+        "算法必须能处理任意规模的数据"
+      ],
+      "answer": "算法必须在有限步骤内结束",
+      "knowledge_tag": "dsa-dsa-intro",
+      "knowledge_point": "算法的基本特性",
+      "difficulty": "Lv1入门",
+      "analysis": "有穷性要求算法执行有限步后终止；输入、输出、可行性、确定性是另外几个基本特性。"
+    },
+    {
+      "question_id": "quick-dsa-14",
+      "question_type": "单选",
+      "question": "一棵有 n 个节点的树，共有多少条边？",
+      "options": [
+        "n-1",
+        "n",
+        "n+1",
+        "2n"
+      ],
+      "answer": "n-1",
+      "knowledge_tag": "dsa-dsa-tree",
+      "knowledge_point": "树的基本性质",
+      "difficulty": "Lv1入门",
+      "analysis": "树是连通且无环的图，除根节点外每个节点恰好有一条边连向父节点，所以边数为 n-1。"
+    },
+    {
+      "question_id": "quick-dsa-15",
+      "question_type": "单选",
+      "question": "n 个顶点的无向完全图共有多少条边？",
+      "options": [
+        "n(n-1)/2",
+        "n(n-1)",
+        "n²",
+        "n-1"
+      ],
+      "answer": "n(n-1)/2",
+      "knowledge_tag": "dsa-dsa-graph",
+      "knowledge_point": "图的基本概念",
+      "difficulty": "Lv2中等",
+      "analysis": "任意两个顶点之间都有一条边，共 C(n,2)=n(n-1)/2 条；有向完全图则是 n(n-1) 条。"
+    },
+    {
+      "question_id": "quick-dsa-16",
+      "question_type": "单选",
+      "question": "分治算法的三个标准步骤是什么？",
+      "options": [
+        "分解、解决、合并",
+        "排序、查找、删除",
+        "入栈、出栈、取栈顶",
+        "建堆、调整、排序"
+      ],
+      "answer": "分解、解决、合并",
+      "knowledge_tag": "dsa-dsa-divide-and-conquer",
+      "knowledge_point": "分治算法的基本步骤",
+      "difficulty": "Lv1入门",
+      "analysis": "分治先把原问题分解成规模更小的子问题，递归解决子问题，再把子问题的解合并成原问题的解。"
+    },
+    {
+      "question_id": "quick-dsa-17",
+      "question_type": "单选",
+      "question": "贪心算法每一步是怎么做选择的？",
+      "options": [
+        "选当前看起来最好的，且之后不回溯",
+        "枚举所有可能再选全局最优",
+        "随机选一个再验证",
+        "先排序再二分查找"
+      ],
+      "answer": "选当前看起来最好的，且之后不回溯",
+      "knowledge_tag": "dsa-dsa-greedy-algorithm",
+      "knowledge_point": "贪心算法的选择策略",
+      "difficulty": "Lv1入门",
+      "analysis": "贪心每一步只做局部最优选择且不回头修改；只有在问题满足贪心选择性质和最优子结构时，局部最优才能导致全局最优。"
+    },
+    {
+      "question_id": "quick-dsa-18",
+      "question_type": "单选",
+      "question": "动态规划相比朴素递归，最关键的改进是什么？",
+      "options": [
+        "保存子问题的结果，避免重复计算",
+        "把递归改成循环就足够了",
+        "每次随机选择一个子问题",
+        "只处理规模为 1 的子问题"
+      ],
+      "answer": "保存子问题的结果，避免重复计算",
+      "knowledge_tag": "dsa-dsa-dynamic-programming",
+      "knowledge_point": "动态规划的核心思想",
+      "difficulty": "Lv1入门",
+      "analysis": "朴素递归会反复求解相同子问题；动态规划用记忆化或表格保存子问题答案，把指数级重复计算降为多项式级。"
+    },
+    {
+      "question_id": "quick-dsa-19",
+      "question_type": "单选",
+      "question": "AVL 平衡树要求任意节点左右子树的高度差绝对值不超过多少？",
+      "options": [
+        "1",
+        "2",
+        "log n",
+        "n"
+      ],
+      "answer": "1",
+      "knowledge_tag": "dsa-dsa-advanced-tree",
+      "knowledge_point": "平衡树的平衡条件",
+      "difficulty": "Lv2中等",
+      "analysis": "AVL 树要求每个节点的平衡因子只能是 -1、0、1，超过就通过旋转恢复平衡，从而保证树高为 O(log n)。"
+    },
+    {
+      "question_id": "quick-dsa-20",
+      "question_type": "单选",
+      "question": "Dijkstra 算法不能正确处理下面哪种情况？",
+      "options": [
+        "存在负权边",
+        "边权全为正数",
+        "图是连通的",
+        "图是有向的"
+      ],
+      "answer": "存在负权边",
+      "knowledge_tag": "dsa-dsa-advanced-graph",
+      "knowledge_point": "最短路径算法的适用条件",
+      "difficulty": "Lv2中等",
+      "analysis": "Dijkstra 基于「已确定的最短距离不会再变小」这一前提，负权边会破坏该前提；含负权边应使用 Bellman-Ford 等算法。"
+    },
+    {
+      "question_id": "quick-dsa-21",
+      "question_type": "单选",
+      "question": "下列排序算法中，哪一种通常是稳定的？",
+      "options": [
+        "归并排序",
+        "快速排序",
+        "堆排序",
+        "选择排序"
+      ],
+      "answer": "归并排序",
+      "knowledge_tag": "dsa-dsa-sorting",
+      "knowledge_point": "排序算法的稳定性",
+      "difficulty": "Lv2中等",
+      "analysis": "归并排序在合并相等元素时保持原有先后顺序，因此是稳定的；快排、堆排、选择排序通常不稳定。"
+    },
+    {
+      "question_id": "quick-dsa-22",
+      "question_type": "单选",
+      "question": "对一个已经基本有序的数组做插入排序，时间复杂度接近？",
+      "options": [
+        "O(n)",
+        "O(n log n)",
+        "O(n²)",
+        "O(2ⁿ)"
+      ],
+      "answer": "O(n)",
+      "knowledge_tag": "dsa-insertion-sort",
+      "knowledge_point": "插入排序的最好情况",
+      "difficulty": "Lv2中等",
+      "analysis": "数组基本有序时，每个元素只需和前一个比较一次就停下，总比较次数接近 n，因此是 O(n)。"
+    },
+    {
+      "question_id": "quick-dsa-23",
+      "question_type": "单选",
+      "question": "希尔排序的基本做法是什么？",
+      "options": [
+        "按增量分组做插入排序，再逐步缩小增量",
+        "每次选一个基准值分区",
+        "反复建堆取最大值",
+        "把数组两两归并"
+      ],
+      "answer": "按增量分组做插入排序，再逐步缩小增量",
+      "knowledge_tag": "dsa-shell-sort",
+      "knowledge_point": "希尔排序的增量思想",
+      "difficulty": "Lv2中等",
+      "analysis": "希尔排序先按较大增量把数组分成若干子序列分别插入排序，让元素快速接近最终位置，再逐步缩小增量直到 1。"
+    },
+    {
+      "question_id": "quick-dsa-24",
+      "question_type": "单选",
+      "question": "快速排序随机选择基准值，主要是为了什么？",
+      "options": [
+        "避免在有序输入上退化成 O(n²)",
+        "让排序变成稳定排序",
+        "把额外空间降到 O(1)",
+        "让比较次数固定不变"
+      ],
+      "answer": "避免在有序输入上退化成 O(n²)",
+      "knowledge_tag": "dsa-random-quick-sort",
+      "knowledge_point": "随机化快速排序",
+      "difficulty": "Lv2中等",
+      "analysis": "固定取第一个元素作基准时，有序数组会导致每次分区极不平衡；随机选基准让最坏情况出现的概率极低，期望复杂度为 O(n log n)。"
+    },
+    {
+      "question_id": "quick-dsa-25",
+      "question_type": "单选",
+      "question": "双路快速排序主要解决什么问题？",
+      "options": [
+        "大量元素等于基准值时分区严重不平衡",
+        "数组元素全部不重复时变慢",
+        "递归深度一定为 log n",
+        "无法处理负数"
+      ],
+      "answer": "大量元素等于基准值时分区严重不平衡",
+      "knowledge_tag": "dsa-2way-quick-sort",
+      "knowledge_point": "双路快速排序",
+      "difficulty": "Lv3高阶",
+      "analysis": "单路分区把所有等于基准的元素都堆在一侧，重复元素多时两侧极不平衡；双路分区从两端向中间扫描并把等于基准的元素分散到两侧。"
+    },
+    {
+      "question_id": "quick-dsa-26",
+      "question_type": "单选",
+      "question": "三路快速排序把数组划分成哪三部分？",
+      "options": [
+        "小于基准、等于基准、大于基准",
+        "按下标均分的左中右三份",
+        "已排序、未排序、已丢弃",
+        "奇数、偶数、零"
+      ],
+      "answer": "小于基准、等于基准、大于基准",
+      "knowledge_tag": "dsa-3way-qiuck-sort",
+      "knowledge_point": "三路快速排序",
+      "difficulty": "Lv3高阶",
+      "analysis": "三路快排一次分区就把等于基准的元素归位，之后只递归处理小于和大于两部分，特别适合大量重复元素的数组。"
+    },
+    {
+      "question_id": "quick-dsa-27",
+      "question_type": "单选",
+      "question": "借助快速排序的分区思想，平均 O(n) 求数组中第 k 大元素，这种算法叫什么？",
+      "options": [
+        "快速选择（Quick Select）",
+        "归并选择",
+        "堆选择",
+        "二分查找"
+      ],
+      "answer": "快速选择（Quick Select）",
+      "knowledge_tag": "dsa-sorting-algorithm-derivative-problem",
+      "knowledge_point": "排序衍生问题",
+      "difficulty": "Lv3高阶",
+      "analysis": "快速选择每次分区后只递归进入包含目标名次的那一侧，平均复杂度 O(n)，不需要把整个数组排好序。"
+    },
+    {
+      "question_id": "quick-dsa-28",
+      "question_type": "单选",
+      "question": "用数组存储完全二叉树（下标从 0 开始），下标 i 的左孩子下标是？",
+      "options": [
+        "2i+1",
+        "2i",
+        "2i+2",
+        "i+1"
+      ],
+      "answer": "2i+1",
+      "knowledge_tag": "dsa-heap-storage",
+      "knowledge_point": "堆的顺序存储",
+      "difficulty": "Lv2中等",
+      "analysis": "下标从 0 开始时，节点 i 的左孩子是 2i+1、右孩子是 2i+2、父节点是 (i-1)/2，不需要额外指针。"
+    },
+    {
+      "question_id": "quick-dsa-29",
+      "question_type": "单选",
+      "question": "从大顶堆取出堆顶元素后，通常怎样恢复堆序？",
+      "options": [
+        "把最后一个元素放到堆顶，再不断与较大的孩子交换（下沉）",
+        "把堆顶元素再放回去",
+        "重新插入所有元素",
+        "把数组整体逆序"
+      ],
+      "answer": "把最后一个元素放到堆顶，再不断与较大的孩子交换（下沉）",
+      "knowledge_tag": "dsa-heap-shift-down",
+      "knowledge_point": "堆的下沉调整",
+      "difficulty": "Lv2中等",
+      "analysis": "删除堆顶后，把末尾元素移到堆顶并把堆长度减一，然后让它与较大的孩子交换，直到重新满足大顶堆性质。"
+    },
+    {
+      "question_id": "quick-dsa-30",
+      "question_type": "单选",
+      "question": "自底向上建堆（heapify）的时间复杂度是？",
+      "options": [
+        "O(n)",
+        "O(n log n)",
+        "O(n²)",
+        "O(log n)"
+      ],
+      "answer": "O(n)",
+      "knowledge_tag": "dsa-heap-sort-optimization",
+      "knowledge_point": "建堆的时间复杂度",
+      "difficulty": "Lv3高阶",
+      "analysis": "从最后一个非叶子节点向前逐个下沉，越靠近底层的节点越多但下沉高度越小，求和后是 O(n)，优于逐个插入的 O(n log n)。"
+    },
+    {
+      "question_id": "quick-dsa-31",
+      "question_type": "单选",
+      "question": "索引堆相比普通堆，主要多了什么能力？",
+      "options": [
+        "能按索引修改或删除元素并保持堆序",
+        "能自动给所有元素排序",
+        "能存储重复元素",
+        "能节省一半内存"
+      ],
+      "answer": "能按索引修改或删除元素并保持堆序",
+      "knowledge_tag": "dsa-heap-index",
+      "knowledge_point": "索引堆",
+      "difficulty": "Lv3高阶",
+      "analysis": "索引堆内部维护「索引 → 数据」和「索引在堆中的位置」两张表，因此可以定位任意索引并原地调整，适合优先队列中动态改优先级。"
+    },
+    {
+      "question_id": "quick-dsa-32",
+      "question_type": "单选",
+      "question": "二分搜索树中，任意节点左子树里所有节点的值必须满足什么？",
+      "options": [
+        "都小于该节点的值",
+        "都大于该节点的值",
+        "都等于该节点的值",
+        "没有任何限制"
+      ],
+      "answer": "都小于该节点的值",
+      "knowledge_tag": "dsa-binary-search-tree",
+      "knowledge_point": "二分搜索树的性质",
+      "difficulty": "Lv1入门",
+      "analysis": "二分搜索树要求左子树全部更小、右子树全部更大，这样查找时每比较一次就能排除一半子树。"
+    },
+    {
+      "question_id": "quick-dsa-33",
+      "question_type": "单选",
+      "question": "如果二分搜索树退化成一条链，查找一个元素的最坏时间复杂度是？",
+      "options": [
+        "O(n)",
+        "O(log n)",
+        "O(1)",
+        "O(n log n)"
+      ],
+      "answer": "O(n)",
+      "knowledge_tag": "dsa-binary-search-tree-search",
+      "knowledge_point": "二分搜索树的查找代价",
+      "difficulty": "Lv2中等",
+      "analysis": "按有序顺序插入会让树退化成单链表，查找只能逐个节点比较，最坏需要 n 次，因此需要平衡树来保证 O(log n)。"
+    },
+    {
+      "question_id": "quick-dsa-34",
+      "question_type": "单选",
+      "question": "对二分搜索树做层序遍历，需要借助哪种数据结构？",
+      "options": [
+        "队列",
+        "栈",
+        "堆",
+        "哈希表"
+      ],
+      "answer": "队列",
+      "knowledge_tag": "dsa-binary-search-level-traverse",
+      "knowledge_point": "二分搜索树的层序遍历",
+      "difficulty": "Lv1入门",
+      "analysis": "层序遍历按层从左到右访问，先入队的节点先出队，因此用队列保存待访问节点。"
+    },
+    {
+      "question_id": "quick-dsa-35",
+      "question_type": "单选",
+      "question": "删除一个有两个孩子的二分搜索树节点，常见做法是？",
+      "options": [
+        "用右子树最小节点（或左子树最大节点）替换它，再删除那个节点",
+        "直接删除并断开整棵子树",
+        "把它和根节点交换",
+        "把左右子树全部清空"
+      ],
+      "answer": "用右子树最小节点（或左子树最大节点）替换它，再删除那个节点",
+      "knowledge_tag": "dsa-binary-search-remove",
+      "knowledge_point": "二分搜索树的删除",
+      "difficulty": "Lv2中等",
+      "analysis": "右子树最小节点（后继）比左子树都大、比右子树其余节点都小，用它替换被删节点可以继续保持二叉搜索树性质。"
+    },
+    {
+      "question_id": "quick-dsa-36",
+      "question_type": "单选",
+      "question": "在随机插入、形态较均衡的二分搜索树上，查找、插入、删除的平均时间复杂度是？",
+      "options": [
+        "O(log n)",
+        "O(n)",
+        "O(1)",
+        "O(n²)"
+      ],
+      "answer": "O(log n)",
+      "knowledge_tag": "dsa-binary-search-feature",
+      "knowledge_point": "二分搜索树的平均性能",
+      "difficulty": "Lv2中等",
+      "analysis": "形态均衡时树高约为 log n，三个操作都沿一条路径向下，平均复杂度为 O(log n)；退化时最坏为 O(n)。"
+    },
+    {
+      "question_id": "quick-dsa-37",
+      "question_type": "单选",
+      "question": "并查集最核心的两个操作是什么？",
+      "options": [
+        "查找代表元素（find）和合并两个集合（union）",
+        "插入和删除",
+        "排序和查找",
+        "入队和出队"
+      ],
+      "answer": "查找代表元素（find）和合并两个集合（union）",
+      "knowledge_tag": "dsa-union-find-basic",
+      "knowledge_point": "并查集的基本操作",
+      "difficulty": "Lv1入门",
+      "analysis": "并查集用一棵树表示一个集合，find 找根节点判断是否同集合，union 把两个根连起来完成合并。"
+    },
+    {
+      "question_id": "quick-dsa-38",
+      "question_type": "单选",
+      "question": "并查集的 quick-find 实现中，find 和 union 的复杂度大致是？",
+      "options": [
+        "find O(1)，union O(n)",
+        "find O(n)，union O(1)",
+        "两者都是 O(log n)",
+        "两者都是 O(1)"
+      ],
+      "answer": "find O(1)，union O(n)",
+      "knowledge_tag": "dsa-union-find-quick",
+      "knowledge_point": "并查集的快速查找实现",
+      "difficulty": "Lv3高阶",
+      "analysis": "quick-find 用数组直接记录每个元素所属集合，查找一步完成；但合并时要遍历整个数组改集合编号，代价 O(n)。"
+    },
+    {
+      "question_id": "quick-dsa-39",
+      "question_type": "单选",
+      "question": "并查集的 quick-union 实现中，union 操作主要做什么？",
+      "options": [
+        "把一个集合的根指向另一个集合的根",
+        "遍历整个数组修改所有元素",
+        "重新排序所有元素",
+        "删除较小的集合"
+      ],
+      "answer": "把一个集合的根指向另一个集合的根",
+      "knowledge_tag": "dsa-union-find-quick-merge",
+      "knowledge_point": "并查集的快速合并实现",
+      "difficulty": "Lv2中等",
+      "analysis": "quick-union 只改一个根指针就能完成合并，代价 O(1)；但树可能变高，所以还需要按 size/rank 合并和路径压缩。"
+    },
+    {
+      "question_id": "quick-dsa-40",
+      "question_type": "单选",
+      "question": "并查集按 size（集合大小）合并的目的是什么？",
+      "options": [
+        "让较小的树挂到较大的树下，避免树过高",
+        "让所有树都变成一条链",
+        "减少元素个数",
+        "保证 find 一定是 O(1)"
+      ],
+      "answer": "让较小的树挂到较大的树下，避免树过高",
+      "knowledge_tag": "dsa-union-find-size",
+      "knowledge_point": "并查集按 size 优化",
+      "difficulty": "Lv2中等",
+      "analysis": "把矮小的树挂到更大的树下，可以让树高保持在 O(log n) 量级，避免合并后查找变慢。"
+    },
+    {
+      "question_id": "quick-dsa-41",
+      "question_type": "单选",
+      "question": "并查集按 rank 合并时，rank 通常表示什么？",
+      "options": [
+        "树的高度上界（秩）",
+        "集合里元素的个数",
+        "根节点的下标",
+        "已经合并的次数"
+      ],
+      "answer": "树的高度上界（秩）",
+      "knowledge_tag": "dsa-union-find-rank",
+      "knowledge_point": "并查集按 rank 优化",
+      "difficulty": "Lv3高阶",
+      "analysis": "rank 记录树高的上界，合并时把 rank 小的根挂到 rank 大的根下；只有两棵 rank 相同的树合并时 rank 才加一。"
+    },
+    {
+      "question_id": "quick-dsa-42",
+      "question_type": "单选",
+      "question": "对于边数远少于 n² 的稀疏图，通常更适合用哪种表示？",
+      "options": [
+        "邻接表",
+        "邻接矩阵",
+        "完全图矩阵",
+        "二叉搜索树"
+      ],
+      "answer": "邻接表",
+      "knowledge_tag": "dsa-graph-theory",
+      "knowledge_point": "图的表示方法",
+      "difficulty": "Lv2中等",
+      "analysis": "邻接表只存实际存在的边，空间为 O(n+m)；邻接矩阵固定占 O(n²)，适合边很密集的图。"
+    },
+    {
+      "question_id": "quick-dsa-43",
+      "question_type": "单选",
+      "question": "图结构中的「相邻节点迭代器」主要用来做什么？",
+      "options": [
+        "依次访问某个顶点的所有邻接点，而不暴露内部存储细节",
+        "对顶点自动排序",
+        "计算最短路径",
+        "删除所有边"
+      ],
+      "answer": "依次访问某个顶点的所有邻接点，而不暴露内部存储细节",
+      "knowledge_tag": "dsa-graph-theory-iter",
+      "knowledge_point": "相邻节点迭代器",
+      "difficulty": "Lv2中等",
+      "analysis": "迭代器把「如何遍历邻接点」封装起来，上层算法只依赖迭代接口，因此邻接表和邻接矩阵可以互换而不改调用代码。"
+    },
+    {
+      "question_id": "quick-dsa-44",
+      "question_type": "单选",
+      "question": "用深度优先遍历（DFS）找到的从起点到终点的路径，有什么特点？",
+      "options": [
+        "是一条可行路径，但不保证边数最少",
+        "一定是最短路径",
+        "一定是唯一路径",
+        "一定经过所有顶点"
+      ],
+      "answer": "是一条可行路径，但不保证边数最少",
+      "knowledge_tag": "dsa-graph-theory-path",
+      "knowledge_point": "深度优先寻路",
+      "difficulty": "Lv2中等",
+      "analysis": "DFS 只保证沿边走通，找到的路径取决于访问顺序；要求边数最少应使用 BFS。"
     }
   ]
 }

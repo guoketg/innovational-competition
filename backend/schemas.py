@@ -115,6 +115,7 @@ class QASaveRequest(BaseModel):
     mind_map: Optional[dict] = None          # 模型自主生成的思维导图
     learning_analysis: Optional[dict] = None # 只读学情分析证据摘要
     memory_updates: Optional[list] = None    # 本轮长期记忆新增/更新/确认事件
+    graph_references: Optional[list] = None  # 本轮回答参考的知识图谱知识点
 
 class QAFeedbackRequest(BaseModel):
     qa_history_id: int
@@ -131,7 +132,11 @@ class LearningPathGenerateRequest(BaseModel):
     timeline: str = ""
     learning_depth: str = Field(default="标准")  # 基础/标准/深入
     diagnostic_session_id: Optional[int] = None
-    modules: Optional[List[str]] = None  # 选中的模块名列表，如 ["智能体基础通识", "大模型与提示词工程"]
+    modules: Optional[List[str]] = None  # 选中的模块名列表，如 ["线性结构", "排序算法"]
+    target_tags: Optional[List[str]] = None  # 目标知识点（tag），会优先排进路线
+    weekly_hours: Optional[float] = Field(default=None, ge=1, le=40)  # 每周可学习小时数
+    deadline_weeks: Optional[int] = Field(default=None, ge=1, le=52)  # 希望在几周内学完
+    preferred_mode: str = ""  # 均衡/补弱优先/目标优先/省时优先
 
 class DiagnosticTestRequest(BaseModel):
     goal: str = ""
@@ -171,6 +176,7 @@ class LLMConfigRequest(BaseModel):
     embedding_provider: Optional[str] = "siliconflow"
     embedding_model: Optional[str] = "BAAI/bge-large-zh-v1.5"
     search_api_key: Optional[str] = ""  # Tavily API Key
+    jev_api_key: Optional[str] = ""  # OpenRouter API Key for Jev intent judge
 
 class LLMConfigResponse(BaseModel):
     provider: str = "openai"
@@ -185,6 +191,9 @@ class LLMConfigResponse(BaseModel):
     embedding_provider: str = "siliconflow"
     embedding_model: str = "BAAI/bge-large-zh-v1.5"
     search_api_key: str = ""  # masked
+    jev_api_key: str = ""  # masked (user-level OpenRouter key)
+    jev_configured: bool = False  # user key or server env key available
+    jev_source: str = ""  # "user" | "server" | ""
 
 # ===== Tutorial Documents =====
 class TutorialSaveRequest(BaseModel):

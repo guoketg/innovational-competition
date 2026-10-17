@@ -55,12 +55,12 @@ init_db()
 print("[启动检查] 验证数据文件...")
 _data_ok = True
 _checks = [
-    ("题库: module_01", os.path.join(os.path.dirname(__file__), "data", "dataset", "module_01_智能体基础通识.json")),
-    ("题库: module_02", os.path.join(os.path.dirname(__file__), "data", "dataset", "module_02_大模型与提示词工程.json")),
-    ("题库: module_03", os.path.join(os.path.dirname(__file__), "data", "dataset", "module_03_智能体四大核心能力模块.json")),
-    ("题库: module_04", os.path.join(os.path.dirname(__file__), "data", "dataset", "module_04_开发框架与工程实践.json")),
-    ("题库: module_05", os.path.join(os.path.dirname(__file__), "data", "dataset", "module_05_多智能体系统.json")),
-    ("题库: module_06", os.path.join(os.path.dirname(__file__), "data", "dataset", "module_06_评估安全与前沿拓展.json")),
+    ("题库: module_01", os.path.join(os.path.dirname(__file__), "data", "dataset", "module_01_线性结构.json")),
+    ("题库: module_02", os.path.join(os.path.dirname(__file__), "data", "dataset", "module_02_树与堆.json")),
+    ("题库: module_03", os.path.join(os.path.dirname(__file__), "data", "dataset", "module_03_图与并查集.json")),
+    ("题库: module_04", os.path.join(os.path.dirname(__file__), "data", "dataset", "module_04_排序算法.json")),
+    ("题库: module_05", os.path.join(os.path.dirname(__file__), "data", "dataset", "module_05_哈希与缓存.json")),
+    ("题库: module_06", os.path.join(os.path.dirname(__file__), "data", "dataset", "module_06_算法工具箱.json")),
     ("习题数据", os.path.join(os.path.dirname(__file__), "data", "exercises_processed.json")),
     ("资源索引", os.path.join(os.path.dirname(__file__), "data", "resources.json")),
     ("知识标签", os.path.join(os.path.dirname(__file__), "data", "knowledge_tags.json")),

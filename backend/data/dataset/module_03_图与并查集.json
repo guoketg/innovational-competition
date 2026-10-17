@@ -1,0 +1,120 @@
+{
+  "meta": {
+    "module": "模块三：图与并查集",
+    "total_qa": 10,
+    "source": "dsa-bank-v1 — 数据结构与算法课程题库",
+    "type_distribution": {
+      "multiple_choice": 6,
+      "true_false": 2,
+      "fill_in_blank": 2
+    }
+  },
+  "qa_pairs": [
+    {
+      "question": "用邻接矩阵存储含 n 个顶点的图，占用的空间是（ ）",
+      "answer": "O(n²)",
+      "options": ["O(n)", "O(n²)", "O(n log n)", "O(n + e)"],
+      "section": "模块三：图与并查集",
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "knowledge_tag": "图的表示与深度优先遍历",
+      "knowledge_point": "邻接矩阵的空间复杂度",
+      "analysis": "邻接矩阵是 n×n 的二维表，无论边多边少都要占用 n² 个单元，适合稠密图。稀疏图更适合邻接表，空间为 O(n+e)。"
+    },
+    {
+      "question": "深度优先遍历（DFS）通常借助哪种结构实现（ ）",
+      "answer": "栈（或递归调用栈）",
+      "options": ["栈（或递归调用栈）", "队列", "哈希表", "优先队列"],
+      "section": "模块三：图与并查集",
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "knowledge_tag": "图的表示与深度优先遍历",
+      "knowledge_point": "DFS 的实现方式",
+      "analysis": "DFS 沿一条路径尽可能深入，回退时回到上一个分叉点，符合栈的后进先出；递归写法本质上也使用系统调用栈。"
+    },
+    {
+      "question": "在无权图中求单源最短路径，最合适的算法是（ ）",
+      "answer": "广度优先遍历（BFS）",
+      "options": ["广度优先遍历（BFS）", "深度优先遍历（DFS）", "并查集", "堆排序"],
+      "section": "模块三：图与并查集",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "广度优先遍历与最短路径",
+      "knowledge_point": "BFS 求无权图最短路",
+      "analysis": "BFS 按距离一层一层扩展，第一次到达某个顶点时的层数就是最短边数，因此可用于无权图单源最短路。"
+    },
+    {
+      "question": "并查集同时使用路径压缩和按秩合并后，单次操作的均摊时间复杂度接近（ ）",
+      "answer": "O(α(n))",
+      "options": ["O(α(n))", "O(1) 严格常数", "O(log n)", "O(n)"],
+      "section": "模块三：图与并查集",
+      "type": "multiple_choice",
+      "difficulty": "hard",
+      "knowledge_tag": "并查集与路径压缩",
+      "knowledge_point": "并查集的均摊复杂度",
+      "analysis": "α(n) 是反阿克曼函数，增长极慢，实际可视为常数。注意它是均摊复杂度，不是严格的 O(1)。"
+    },
+    {
+      "question": "并查集合并两个集合时，为了控制树高，通常采用（ ）",
+      "answer": "按秩（或按大小）合并",
+      "options": ["按秩（或按大小）合并", "总是把左树接到右树", "随机合并", "按节点编号合并"],
+      "section": "模块三：图与并查集",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "并查集与路径压缩",
+      "knowledge_point": "并查集的合并策略",
+      "analysis": "把较矮的树接到较高的树下，避免树越来越高。配合路径压缩，可以把查找代价压到接近常数。"
+    },
+    {
+      "question": "含 n 个顶点、e 条边的无向图用邻接表存储，边结点的总数是（ ）",
+      "answer": "2e",
+      "options": ["2e", "e", "n + e", "n²"],
+      "section": "模块三：图与并查集",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "图的表示与深度优先遍历",
+      "knowledge_point": "邻接表的空间结构",
+      "analysis": "无向图的每条边 (u,v) 会在 u 的链表和 v 的链表中各存一次，所以边结点总数是 2e。有向图则是 e。"
+    },
+    {
+      "question": "DFS 可以用来判断有向图中是否存在环。",
+      "answer": "正确",
+      "section": "模块三：图与并查集",
+      "type": "true_false",
+      "difficulty": "medium",
+      "knowledge_tag": "图的表示与深度优先遍历",
+      "knowledge_point": "DFS 判环",
+      "analysis": "DFS 时若遇到仍在当前递归栈中的节点（回边），说明存在环。有向图判环需要区分“正在访问”和“已访问完成”两种状态。"
+    },
+    {
+      "question": "广度优先遍历（BFS）通常用栈来实现。",
+      "answer": "错误",
+      "section": "模块三：图与并查集",
+      "type": "true_false",
+      "difficulty": "easy",
+      "knowledge_tag": "广度优先遍历与最短路径",
+      "knowledge_point": "BFS 的实现方式",
+      "analysis": "BFS 用队列实现，保证按层访问；DFS 才用栈或递归。把 BFS 写成栈会变成深度优先。"
+    },
+    {
+      "question": "并查集中路径压缩的主要目的是（ ）。",
+      "answer": "降低树高",
+      "section": "模块三：图与并查集",
+      "type": "fill_in_blank",
+      "difficulty": "medium",
+      "knowledge_tag": "并查集与路径压缩",
+      "knowledge_point": "路径压缩的作用",
+      "analysis": "查找根节点时，把路径上的节点直接挂到根下，从而降低树高，让后续查找更快。"
+    },
+    {
+      "question": "在无权图中求某个起点到其他所有顶点的最少边数，应使用（ ）遍历。",
+      "answer": "广度优先",
+      "section": "模块三：图与并查集",
+      "type": "fill_in_blank",
+      "difficulty": "easy",
+      "knowledge_tag": "广度优先遍历与最短路径",
+      "knowledge_point": "BFS 求最短路径",
+      "analysis": "BFS 按距离逐层扩展，第一次访问到某顶点时经过的边数最少，因此可求无权图单源最短路径。"
+    }
+  ]
+}

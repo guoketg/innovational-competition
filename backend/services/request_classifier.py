@@ -111,6 +111,15 @@ _SCOPE_RE = re.compile(
     r"(?:不要|别|勿)\s*(?:改|动|碰)\s*(?:其他|别的|其他地方|其他文件)"
 )
 
+# ── 分步确认：学生要求"改一处先问我 / 一步一步来" → 禁止一次性全改 ──
+_STEP_CONFIRM_RE = re.compile(
+    r"(?:每|逐)\s*(?:改|修)\s*一?\s*(?:处|步|个)|"
+    r"改\s*(?:一?\s*(?:处|步)|完).{0,8}(?:问|确认|告诉我)|"
+    r"(?:确认|同意|批准)\s*(?:后|再)\s*(?:改|动|继续)|"
+    r"一步一步|逐步|一处一处|一处处来|分步(?:改|来)|"
+    r"先改.{0,12}再改|改完再(?:改|说|问)"
+)
+
 # ── 显式逃生门：工具性使用声明（只作先验，可被伪装话术绕过 → 需事件级留痕） ──
 _ESCAPE_RULES: tuple[tuple[str, str], ...] = (
     ("work_project", r"(?:工作|公司|业务|生产|线上)项目"),
@@ -130,6 +139,7 @@ class RequestSignal:
     has_urgency: bool               # 时间压力话术（仅记录，不改路径）
     scope_narrowed: bool            # 点了具体范围（只改一处 / 指定行）
     declares_tool_context: bool     # 命中显式逃生门（工具性使用声明）
+    step_confirm: bool = False      # 要求学生分步确认（每改一处先问）
     evidence: tuple[str, ...] = ()  # 命中的规则名，便于留痕与复盘
 
 
@@ -163,6 +173,7 @@ def classify_request(text: str) -> RequestSignal:
         has_urgency=bool(_URGENCY_RE.search(body)),
         scope_narrowed=bool(_SCOPE_RE.search(body)),
         declares_tool_context=declares,
+        step_confirm=bool(_STEP_CONFIRM_RE.search(body)),
         evidence=tuple(evidence),
     )
 

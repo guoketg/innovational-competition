@@ -47,7 +47,7 @@
           <el-button type="primary" size="large" @click="startDiagnosis" :loading="loading" :disabled="loading">
             <el-icon><Cpu /></el-icon> 从题库抽取试卷
           </el-button>
-          <el-text type="info" size="small" style="margin-left:12px">基于AI智能体学科题库，随机抽取测评题目</el-text>
+          <el-text type="info" size="small" style="margin-left:12px">基于数据结构与算法课程题库，随机抽取测评题目</el-text>
         </el-form-item>
       </el-form>
     </el-card>
@@ -235,7 +235,13 @@ async function submitAnswers() {
   loading.value = true
   stopTimer()
   try {
-    await store.submitAnswers(currentQuiz.value.session_id, answerList)
+    const result = await store.submitAnswers(currentQuiz.value.session_id, answerList)
+    if (result?.path_replan?.applied) {
+      ElMessage.success({
+        message: result.path_replan.message || '已按最新掌握度自动调整学习路线',
+        duration: 6000,
+      })
+    }
   } catch(e) { ElMessage.error('提交失败') }
   finally { loading.value = false }
 }

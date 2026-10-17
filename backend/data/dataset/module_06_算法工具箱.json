@@ -1,0 +1,124 @@
+{
+  "meta": {
+    "module": "模块六：算法工具箱与综合",
+    "total_qa": 10,
+    "source": "dsa-bank-v1 — 数据结构与算法课程题库",
+    "type_distribution": {
+      "multiple_choice": 6,
+      "true_false": 2,
+      "fill_in_blank": 2
+    }
+  },
+  "qa_pairs": [
+    {
+      "question": "在算法工具箱中，把「排序、查找、图遍历」等能力封装成统一入口后，新增一种算法通常应（ ）",
+      "answer": "新增一个实现并注册到分发映射中，入口保持不变",
+      "options": ["修改入口函数的全部调用方", "新增一个实现并注册到分发映射中，入口保持不变", "复制一份入口函数", "重写所有已有算法"],
+      "section": "模块六：算法工具箱与综合",
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "knowledge_tag": "算法工具箱：统一入口与分发",
+      "knowledge_point": "统一入口与分发设计",
+      "analysis": "统一入口 + 分发映射（如按算法名查表）符合开闭原则：扩展时只新增实现与注册项，不必改动调用方。"
+    },
+    {
+      "question": "判断一个算法能否在可接受时间内完成，通常关注的是（ ）",
+      "answer": "时间复杂度随输入规模的增长速度",
+      "options": ["代码行数", "时间复杂度随输入规模的增长速度", "变量个数", "注释是否完整"],
+      "section": "模块六：算法工具箱与综合",
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "knowledge_tag": "算法工具箱：统一入口与分发",
+      "knowledge_point": "复杂度分析的实际意义",
+      "analysis": "代码行数属于常数因素，真正决定大规模输入能否跑完的是增长阶，例如 O(n²) 与 O(n log n) 在 n 很大时差距巨大。"
+    },
+    {
+      "question": "同一问题有 O(n²) 与 O(n log n) 两种正确算法，当输入规模 n 非常大时，一般应优先选择（ ）",
+      "answer": "O(n log n) 的算法",
+      "options": ["O(n²) 的算法", "O(n log n) 的算法", "两者完全等价", "代码更短的算法"],
+      "section": "模块六：算法工具箱与综合",
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "knowledge_tag": "算法工具箱：统一入口与分发",
+      "knowledge_point": "复杂度的量级比较",
+      "analysis": "n 足够大时低阶项和常数可忽略，O(n log n) 的增长速度明显慢于 O(n²)，实际耗时更短。"
+    },
+    {
+      "question": "下面哪种场景最适合使用「哈希表」而不是「有序数组 + 二分查找」？（ ）",
+      "answer": "频繁按 key 查询、基本不需要有序遍历",
+      "options": ["需要频繁按区间查询", "频繁按 key 查询、基本不需要有序遍历", "需要频繁找最大值", "需要按顺序输出全部元素"],
+      "section": "模块六：算法工具箱与综合",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "算法工具箱：统一入口与分发",
+      "knowledge_point": "数据结构选型",
+      "analysis": "哈希表擅长等值查询但无序；有序数组支持二分与区间查询，但插入删除需要移动元素。选型要看主要操作。"
+    },
+    {
+      "question": "在「先判断问题类型，再调用对应算法」的工具箱里，最关键的健壮性设计是（ ）",
+      "answer": "对未知问题类型给出明确失败提示，而不是静默返回错误结果",
+      "options": ["吞掉所有异常返回空结果", "对未知问题类型给出明确失败提示，而不是静默返回错误结果", "把所有问题都当成同一类型", "忽略输入校验"],
+      "section": "模块六：算法工具箱与综合",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "算法工具箱：统一入口与分发",
+      "knowledge_point": "分发入口的健壮性",
+      "analysis": "统一入口是调用方唯一可见的边界，遇到不支持的类型应显式报错，避免错误结果被上层当作正确值继续传播。"
+    },
+    {
+      "question": "对一个规模为 n 的输入，下面哪个复杂度在 n 增大时增长最快？（ ）",
+      "answer": "O(2ⁿ)",
+      "options": ["O(n log n)", "O(n²)", "O(2ⁿ)", "O(n)"],
+      "section": "模块六：算法工具箱与综合",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "算法工具箱：统一入口与分发",
+      "knowledge_point": "常见复杂度排序",
+      "analysis": "常见增长阶由慢到快为 O(1) < O(log n) < O(n) < O(n log n) < O(n²) < O(2ⁿ)，指数级增长最快。"
+    },
+    {
+      "question": "在算法工具箱中，只要入口函数不变，内部更换算法实现通常不会影响调用方代码。（ ）",
+      "answer": "正确",
+      "options": ["正确", "错误"],
+      "section": "模块六：算法工具箱与综合",
+      "type": "true_false",
+      "difficulty": "easy",
+      "knowledge_tag": "算法工具箱：统一入口与分发",
+      "knowledge_point": "接口与实现分离",
+      "analysis": "调用方依赖的是入口的输入输出约定，内部实现替换只要满足同一约定，就无需改动调用方。"
+    },
+    {
+      "question": "算法的时间复杂度越低，程序在任何机器上的实际运行时间就一定越短。（ ）",
+      "answer": "错误",
+      "options": ["正确", "错误"],
+      "section": "模块六：算法工具箱与综合",
+      "type": "true_false",
+      "difficulty": "medium",
+      "knowledge_tag": "算法工具箱：统一入口与分发",
+      "knowledge_point": "复杂度与实际耗时的区别",
+      "analysis": "复杂度描述增长趋势，小规模输入时常数因子、语言实现和机器性能可能占主导，低阶算法未必更快。"
+    },
+    {
+      "question": "把「算法名 → 具体实现」的对应关系集中存放在一张表里，这种分发方式通常称为________映射。",
+      "answer": "字典（哈希）",
+      "options": [],
+      "section": "模块六：算法工具箱与综合",
+      "type": "fill_in_blank",
+      "difficulty": "easy",
+      "knowledge_tag": "算法工具箱：统一入口与分发",
+      "knowledge_point": "分发映射的实现方式",
+      "analysis": "用字典保存算法名到函数对象的映射，入口按名称查表并调用，扩展时只需注册新条目。"
+    },
+    {
+      "question": "在评估两份代码性能时，除了时间复杂度，还应关注________复杂度，避免内存占用过大。",
+      "answer": "空间",
+      "options": [],
+      "section": "模块六：算法工具箱与综合",
+      "type": "fill_in_blank",
+      "difficulty": "easy",
+      "knowledge_tag": "算法工具箱：统一入口与分发",
+      "knowledge_point": "空间复杂度",
+      "analysis": "时间复杂度衡量运行时间增长，空间复杂度衡量额外内存增长，二者共同决定算法在真实环境中的可用性。"
+    }
+  ]
+}

@@ -109,6 +109,36 @@
                     </div>
                   </div>
                 </div>
+                <!-- 知识图谱参考知识点 -->
+                <div v-if="msg.graphReferences && msg.graphReferences.length" class="graph-refs-block">
+                  <div class="graph-refs-header" @click="msg.graphRefsExpanded = !msg.graphRefsExpanded">
+                    <el-icon :size="14"><component :is="msg.graphRefsExpanded !== false ? 'ArrowDown' : 'ArrowRight'" /></el-icon>
+                    <el-icon color="#E6A23C"><Collection /></el-icon>
+                    <span>参考知识点（知识图谱 {{ msg.graphReferences.length }} 个）</span>
+                  </div>
+                  <div v-show="msg.graphRefsExpanded !== false" class="graph-refs-list">
+                    <div v-for="(ref, ri) in msg.graphReferences" :key="ri" class="graph-ref-item">
+                      <div class="graph-ref-title">
+                        <span class="graph-ref-name">{{ ref.name }}</span>
+                        <el-tag
+                          v-if="ref.mastery !== null && ref.mastery !== undefined"
+                          size="small"
+                          effect="plain"
+                          :type="ref.mastery >= 0.7 ? 'success' : ref.mastery >= 0.4 ? 'warning' : 'danger'"
+                        >我的掌握 {{ Math.round(ref.mastery * 100) }}%</el-tag>
+                        <span v-if="ref.mastery_confidence_label" class="graph-ref-evidence">
+                          证据 {{ ref.mastery_evidence || 0 }} 次 · {{ ref.mastery_confidence_label }}
+                        </span>
+                      </div>
+                      <div v-if="ref.definition" class="graph-ref-def">{{ ref.definition }}</div>
+                      <div class="graph-ref-meta">
+                        <span v-if="ref.key_points && ref.key_points.length">要点：{{ ref.key_points.join('；') }}</span>
+                        <span v-if="ref.prerequisites && ref.prerequisites.length">前置：{{ ref.prerequisites.join('、') }}</span>
+                        <span v-if="ref.confusable && ref.confusable.length">易混：{{ ref.confusable.join('、') }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <!-- 联网搜索结果 -->
                 <div v-if="msg.searchResults && msg.searchResults.length" class="search-results-block">
                   <div class="search-header" @click="msg.searchResultsExpanded = !msg.searchResultsExpanded">
@@ -372,7 +402,8 @@ function _persistOrphanBackup(convId) {
     tool_events: bm.toolEvents || null,
     mind_map: bm.mindMap || null,
     learning_analysis: bm.learningAnalysis || null,
-    memory_updates: bm.memoryUpdates || null
+    memory_updates: bm.memoryUpdates || null,
+    graph_references: bm.graphReferences || null
   }).then(() => {
     _clearBackup(convId)
     _invalidateConversationCache()
@@ -429,6 +460,7 @@ const feedbackGiven = ref(false)
 const searchResultsData = ref(null)
 const searchQuery = ref('')
 const ragSourcesData = ref(null)
+const graphReferencesData = ref(null)
 const ragUnavailableMsg = ref('')
 const searchUnavailableMsg = ref('')
 const toolEventsData = ref([])
@@ -443,6 +475,20 @@ function openMindMap(map) {
   activeMindMap.value = map
   mindMapDialogVisible.value = true
 }
+
+/** 把图谱参考里的对象数组压平成可读名称，便于模板直接展示 */
+function normalizeGraphReferences(refs) {
+  return (refs || []).map((ref) => ({
+    ...ref,
+    key_points: Array.isArray(ref.key_points) ? ref.key_points.slice(0, 3) : [],
+    prerequisites: (ref.prerequisites || [])
+      .map((item) => (typeof item === 'string' ? item : item?.name))
+      .filter(Boolean),
+    confusable: (ref.confusable || [])
+      .map((item) => (typeof item === 'string' ? item : item?.name))
+      .filter(Boolean)
+  }))
+}
 const conversationId = ref(null)
 const loadingMore = ref(false)
 const hasMoreMessages = ref(false)
@@ -453,11 +499,11 @@ const MSG_BATCH_SIZE = 20                 // 每次加载消息的批次大小
 
 const quickQuestions = [
   '你对我有什么认识？',
-  'AI智能体和大模型有什么区别？',
-  '什么是思维链(Chain-of-Thought)提示？',
-  'Agent的工具调用(Tool Use)是如何工作的？',
-  '多智能体系统如何解决冲突？',
-  'LangChain框架的核心组件有哪些？'
+  '数组和链表有什么区别？',
+  '二分搜索树的查找为什么是 O(log n)？',
+  '堆的上浮和下沉分别在什么时候用？',
+  '并查集的路径压缩是怎么加速的？',
+  '归并排序和快速排序该怎么选？'
 ]
 
 const TOOL_NAMES = {
@@ -928,6 +974,7 @@ async function sendMessage() {
   searchResultsData.value = null
   searchQuery.value = ''
   ragSourcesData.value = null
+  graphReferencesData.value = null
   ragUnavailableMsg.value = ''
   searchUnavailableMsg.value = ''
   toolEventsData.value = []
@@ -981,6 +1028,13 @@ async function sendMessage() {
         ragUnavailableMsg.value = ''
         _bk({
           message: { ...(messages.value[assistantIdx] || {}), ragSources: sources, ragUnavailable: null }
+        })
+      },
+      onGraphReferences(references) {
+        const normalized = normalizeGraphReferences(references)
+        graphReferencesData.value = normalized
+        _bk({
+          message: { ...(messages.value[assistantIdx] || {}), graphReferences: normalized }
         })
       },
       onRagUnavailable(message) {
@@ -1039,6 +1093,10 @@ async function sendMessage() {
             msg.ragSourcesExpanded = true
             msg._selectedSourceIndex = -1
           }
+          if (graphReferencesData.value) {
+            msg.graphReferences = graphReferencesData.value
+            msg.graphRefsExpanded = true
+          }
           if (searchResultsData.value) {
             msg.searchResults = searchResultsData.value
             msg.searchQuery = searchQuery.value
@@ -1068,6 +1126,10 @@ async function sendMessage() {
           msg.ragSources = ragSourcesData.value
           msg.ragSourcesExpanded = false
           msg._selectedSourceIndex = -1
+        }
+        if (graphReferencesData.value) {
+          msg.graphReferences = graphReferencesData.value
+          msg.graphRefsExpanded = false
         }
         if (searchResultsData.value) {
           msg.searchResults = searchResultsData.value
@@ -1105,7 +1167,8 @@ async function sendMessage() {
           tool_events: toolEventsData.value,
           mind_map: mindMapData.value,
           learning_analysis: learningAnalysisData.value,
-          memory_updates: memoryUpdatesData.value
+          memory_updates: memoryUpdatesData.value,
+          graph_references: graphReferencesData.value
         }).then((result) => {
           if (result && result.conversation_id) conversationId.value = result.conversation_id
           _fetchConversations(true).then(res => { conversations.value = sortConversations(res) }).catch(() => {})
@@ -1124,7 +1187,8 @@ async function sendMessage() {
             tool_events: toolEventsData.value,
             mind_map: mindMapData.value,
             learning_analysis: learningAnalysisData.value,
-            memory_updates: memoryUpdatesData.value
+            memory_updates: memoryUpdatesData.value,
+            graph_references: graphReferencesData.value
           }).then((res2) => {
             if (res2 && res2.id) currentQaId.value = res2.id
             if (res2 && res2.conversation_id) conversationId.value = res2.conversation_id
@@ -1311,6 +1375,11 @@ function _restoreMessages(rawMessages) {
       restored.ragSources = m.rag_sources
       restored.ragSourcesExpanded = false  // 加载后默认折叠
       restored._selectedSourceIndex = -1
+    }
+    // 恢复知识图谱参考知识点
+    if (m.graph_references && Array.isArray(m.graph_references) && m.graph_references.length) {
+      restored.graphReferences = normalizeGraphReferences(m.graph_references)
+      restored.graphRefsExpanded = false
     }
     // 恢复联网搜索结果
     if (m.search_results && Array.isArray(m.search_results) && m.search_results.length) {
@@ -1532,6 +1601,43 @@ function openContextLab(context) {
 .thinking-content :deep(code) { font-size: 11px; background: #fef9e7; color: #b45309; }
 .thinking-content :deep(pre) { font-size: 11px; background: #fffbeb; }
 
+/* 知识图谱参考知识点 */
+.graph-refs-block {
+  margin-bottom: 10px;
+  background: #fffaf0;
+  border: 1px solid #f3d19e;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.graph-refs-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #b88230;
+  background: #fdf6ec;
+  cursor: pointer;
+  user-select: none;
+}
+.graph-refs-header:hover { background: #faecd8; }
+.graph-refs-list { padding: 4px 10px 8px; }
+.graph-ref-item {
+  padding: 7px 10px;
+  margin: 4px 0;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid #f5e6cc;
+}
+.graph-ref-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.graph-ref-name { font-size: 13px; font-weight: 600; color: #8a5a12; }
+.graph-ref-evidence { font-size: 11px; color: #909399; }
+.graph-ref-def { margin-top: 4px; font-size: 12px; color: #606266; line-height: 1.6; }
+.graph-ref-meta {
+  display: flex; flex-direction: column; gap: 2px;
+  margin-top: 4px; font-size: 11px; color: #8b95a8; line-height: 1.6;
+}
 /* 联网搜索结果 */
 /* RAG 知识库暂不可用 */
 .rag-unavailable-block {

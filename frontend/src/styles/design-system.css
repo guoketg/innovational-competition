@@ -117,6 +117,18 @@ button, input, textarea, select { font: inherit; }
 }
 .el-button--primary:hover { border-color: var(--primary-dark) !important; background: var(--primary-dark) !important; transform: translateY(-1px); }
 .el-button.is-text { box-shadow: none; }
+.el-button--primary.is-text {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--primary) !important;
+  box-shadow: none;
+}
+.el-button--primary.is-text:hover {
+  border-color: transparent !important;
+  background: rgba(15, 82, 186, .08) !important;
+  color: var(--primary-dark) !important;
+  transform: none;
+}
 
 .el-input__wrapper, .el-select__wrapper, .el-textarea__inner {
   border-radius: 11px !important;

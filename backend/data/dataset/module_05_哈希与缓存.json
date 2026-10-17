@@ -1,0 +1,124 @@
+{
+  "meta": {
+    "module": "模块五：哈希与缓存",
+    "total_qa": 10,
+    "source": "dsa-bank-v1 — 数据结构与算法课程题库",
+    "type_distribution": {
+      "multiple_choice": 6,
+      "true_false": 2,
+      "fill_in_blank": 2
+    }
+  },
+  "qa_pairs": [
+    {
+      "question": "哈希表在理想情况下（哈希函数均匀、冲突少）查找一个元素的平均时间复杂度是（ ）",
+      "answer": "O(1)",
+      "options": ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
+      "section": "模块五：哈希与缓存",
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "knowledge_tag": "哈希表与 LRU 缓存",
+      "knowledge_point": "哈希表的平均查找复杂度",
+      "analysis": "哈希表通过哈希函数直接计算出桶下标，理想情况下无需遍历，平均查找、插入、删除都是 O(1)。"
+    },
+    {
+      "question": "开放寻址法处理哈希冲突时，若表中元素越来越多，最直接的影响是（ ）",
+      "answer": "探测次数增加，性能下降",
+      "options": ["哈希函数失效", "探测次数增加，性能下降", "元素自动扩容", "表的容量自动减半"],
+      "section": "模块五：哈希与缓存",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "哈希表与 LRU 缓存",
+      "knowledge_point": "开放寻址与装载因子",
+      "analysis": "开放寻址法把冲突元素放到同表的其他空位，装载因子越高，连续占用越严重，探测链越长，单次操作趋近 O(n)。"
+    },
+    {
+      "question": "链地址法（拉链法）解决哈希冲突时，每个桶通常存放（ ）",
+      "answer": "一个链表或其他容器的头节点",
+      "options": ["一个整数计数", "一个链表或其他容器的头节点", "一个哈希函数", "一个红黑树根节点（必须）"],
+      "section": "模块五：哈希与缓存",
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "knowledge_tag": "哈希表与 LRU 缓存",
+      "knowledge_point": "链地址法的基本结构",
+      "analysis": "链地址法把哈希到同一桶的元素串成链表，冲突时只需在对应链表中继续查找，删除也无需搬运其他元素。"
+    },
+    {
+      "question": "实现 LRU 缓存时，要求「查询 O(1)」和「按访问顺序淘汰」同时满足，通常组合使用（ ）",
+      "answer": "哈希表 + 双向链表",
+      "options": ["数组 + 二分查找", "哈希表 + 双向链表", "堆 + 并查集", "栈 + 队列"],
+      "section": "模块五：哈希与缓存",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "哈希表与 LRU 缓存",
+      "knowledge_point": "LRU 的数据结构组合",
+      "analysis": "哈希表负责 O(1) 定位节点，双向链表负责 O(1) 把节点移动到最近使用端或删除最久未使用节点。"
+    },
+    {
+      "question": "LRU 缓存发生命中（get 成功）后，需要把该节点（ ）",
+      "answer": "移动到链表头部，标记为最近使用",
+      "options": ["从链表中删除", "移动到链表头部，标记为最近使用", "移动到链表尾部", "保持不变"],
+      "section": "模块五：哈希与缓存",
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "knowledge_tag": "哈希表与 LRU 缓存",
+      "knowledge_point": "LRU 命中后的顺序维护",
+      "analysis": "LRU 按「最近使用」排序，命中说明刚刚被访问，应移动到最近使用端；链表尾部才是下一次淘汰的对象。"
+    },
+    {
+      "question": "LRU 缓存在容量已满且发生未命中时，应淘汰（ ）",
+      "answer": "链表尾部的最久未使用节点",
+      "options": ["链表头部的最新节点", "链表尾部的最久未使用节点", "随机一个节点", "哈希值最大的节点"],
+      "section": "模块五：哈希与缓存",
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "knowledge_tag": "哈希表与 LRU 缓存",
+      "knowledge_point": "LRU 的淘汰策略",
+      "analysis": "LRU 即 Least Recently Used，容量满时淘汰最久没有被访问的节点，也就是链表尾部节点。"
+    },
+    {
+      "question": "哈希表的装载因子等于「已存元素个数 ÷ 桶数组长度」，装载因子过大时应考虑扩容。（ ）",
+      "answer": "正确",
+      "options": ["正确", "错误"],
+      "section": "模块五：哈希与缓存",
+      "type": "true_false",
+      "difficulty": "easy",
+      "knowledge_tag": "哈希表与 LRU 缓存",
+      "knowledge_point": "装载因子的含义",
+      "analysis": "装载因子衡量哈希表拥挤程度，过大意味着冲突概率上升，通常超过阈值（如 0.75）就扩容并重新散列。"
+    },
+    {
+      "question": "哈希表的查找时间复杂度在任何情况下都严格是 O(1)。（ ）",
+      "answer": "错误",
+      "options": ["正确", "错误"],
+      "section": "模块五：哈希与缓存",
+      "type": "true_false",
+      "difficulty": "medium",
+      "knowledge_tag": "哈希表与 LRU 缓存",
+      "knowledge_point": "哈希表的最坏情况",
+      "analysis": "所有元素都冲突到同一个桶时，查找退化为遍历链表，最坏复杂度是 O(n)，因此 O(1) 只是平均情况。"
+    },
+    {
+      "question": "在链地址法实现的哈希表中，当某个桶的链表过长时，Java 8 的 HashMap 会把该链表转换为________，把查找复杂度降到 O(log n)。",
+      "answer": "红黑树",
+      "options": [],
+      "section": "模块五：哈希与缓存",
+      "type": "fill_in_blank",
+      "difficulty": "hard",
+      "knowledge_tag": "哈希表与 LRU 缓存",
+      "knowledge_point": "哈希冲突的树化优化",
+      "analysis": "JDK 8 在链表长度达到 8 且桶数组容量足够时，把链表树化为红黑树，使极端冲突下的查找从 O(n) 降为 O(log n)。"
+    },
+    {
+      "question": "LRU 缓存中，为了在 O(1) 时间内删除任意节点，双向链表节点必须额外保存________指针。",
+      "answer": "前驱（prev）",
+      "options": [],
+      "section": "模块五：哈希与缓存",
+      "type": "fill_in_blank",
+      "difficulty": "medium",
+      "knowledge_tag": "哈希表与 LRU 缓存",
+      "knowledge_point": "双向链表的删除操作",
+      "analysis": "单链表删除节点需要先找到前驱，平均 O(n)；双向链表节点保存 prev 和 next，可直接在 O(1) 内摘除。"
+    }
+  ]
+}

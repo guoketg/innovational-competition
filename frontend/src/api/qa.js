@@ -90,7 +90,7 @@ export const saveAssistantMessage = (data) => request.post('/qa/save-assistant-m
 export function askQuestionStream(data, {
   onChunk, onDone, onError, onSearchResults, onSearchUnavailable,
   onLearningContext, onRagSources, onRagUnavailable, onToolEvents,
-  onMindMap, onLearningAnalysis
+  onMindMap, onLearningAnalysis, onGraphReferences
 }) {
   const token = localStorage.getItem('token')
   const controller = new AbortController()
@@ -155,6 +155,9 @@ export function askQuestionStream(data, {
             }
             if (parsed.learning_analysis && onLearningAnalysis) {
               onLearningAnalysis(parsed.learning_analysis)
+            }
+            if (parsed.graph_references && onGraphReferences) {
+              onGraphReferences(parsed.graph_references)
             }
             // DeepSeek 原生 reasoning_content → 每个 chunk 返回的是累积文本，直接替换
             if (parsed.reasoning) {

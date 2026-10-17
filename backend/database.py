@@ -125,6 +125,22 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(id)
         );
 
+        -- 学习路径版本（#45 重排留痕：版本号、触发来源、变更原因与差异）
+        CREATE TABLE IF NOT EXISTS learning_path_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            path_id INTEGER,
+            version INTEGER NOT NULL,
+            trigger TEXT DEFAULT 'manual',
+            trigger_label TEXT DEFAULT '',
+            reason_json TEXT DEFAULT '{}',
+            diff_json TEXT DEFAULT '{}',
+            snapshot_json TEXT DEFAULT '[]',
+            summary TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+
         -- 每日任务
         CREATE TABLE IF NOT EXISTS daily_tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -291,6 +307,21 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(id)
         );
 
+        -- 知识图谱版本快照：每次生成 / 审核 / 回滚都留一份整图，可追溯到上一版
+        CREATE TABLE IF NOT EXISTS knowledge_graph_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            graph_id INTEGER,
+            curriculum_version TEXT DEFAULT '',
+            version INTEGER NOT NULL,
+            change_type TEXT DEFAULT 'save',
+            change_note TEXT DEFAULT '',
+            created_by INTEGER,
+            node_count INTEGER DEFAULT 0,
+            edge_count INTEGER DEFAULT 0,
+            payload TEXT DEFAULT '{}',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE INDEX IF NOT EXISTS idx_conversation_user_active
             ON conversation_sessions(user_id, last_active_at);
         CREATE INDEX IF NOT EXISTS idx_conversation_messages_session
@@ -342,6 +373,7 @@ def init_db():
     _run_migration(conn, "user_llm_config", "embedding_api_key TEXT DEFAULT ''", "LLM配置表迁移: 添加 embedding_api_key 列")
     _run_migration(conn, "user_llm_config", "embedding_model TEXT DEFAULT 'BAAI/bge-large-zh-v1.5'", "LLM配置表迁移: 添加 embedding_model 列")
     _run_migration(conn, "user_llm_config", "search_api_key TEXT DEFAULT ''", "LLM配置表迁移: 添加 search_api_key 列")
+    _run_migration(conn, "user_llm_config", "jev_api_key TEXT DEFAULT ''", "LLM配置表迁移: 添加 jev_api_key 列")
     _run_migration(conn, "conversation_messages", "metadata TEXT DEFAULT '{}'", "对话消息表迁移: 添加 metadata 列")
     _run_migration(conn, "learning_stats", "mastery_detail_json TEXT DEFAULT '{}'", "学习统计表迁移: 添加 mastery_detail_json 列")
     _run_migration(conn, "qa_history", "rag_sources_json TEXT DEFAULT ''", "QA历史表迁移: 添加 rag_sources_json 列")
@@ -495,7 +527,7 @@ def init_db():
         if not existing:
             conn.execute(
                 "INSERT INTO users (username, password_hash, nickname, grade, learning_stage, learning_goal) VALUES (?, ?, ?, ?, ?, ?)",
-                ("demo", hash_password("demo123"), "Demo学员", "大一/计算机科学", "入门", "系统掌握AI智能体学科知识")
+                ("demo", hash_password("demo123"), "Demo学员", "大一/计算机科学", "入门", "系统掌握数据结构与算法知识")
             )
             conn.execute(
                 "INSERT INTO learning_stats (user_id, date, study_duration, questions_done, correct_rate) VALUES (1, date('now'), 45, 12, 0.75)"
@@ -716,7 +748,7 @@ def _seed_pg_data(conn):
             conn.execute(
                 "INSERT INTO users (username, password_hash, nickname, grade, learning_stage, learning_goal) "
                 "VALUES (%s, %s, %s, %s, %s, %s)",
-                ("demo", hash_password("demo123"), "Demo学员", "大一/计算机科学", "入门", "系统掌握AI智能体学科知识")
+                ("demo", hash_password("demo123"), "Demo学员", "大一/计算机科学", "入门", "系统掌握数据结构与算法知识")
             )
             conn.execute(
                 "INSERT INTO learning_stats (user_id, date, study_duration, questions_done, correct_rate) "

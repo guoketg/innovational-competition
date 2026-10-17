@@ -170,12 +170,12 @@ def get_user_knowledge_profile(user_id: int) -> dict:
     # ---- 第4步：代码练习完成度 ----
     # 模块号 → 分类名的映射
     module_to_categories = {
-        1: ["智能体基础概念"],
-        2: ["大模型基座原理", "提示词工程"],
-        3: ["智能体算法逻辑"],
-        4: ["智能体框架开发"],
-        5: ["多智能体应用"],
-        6: [],  # 模块六暂无独立知识标签
+        1: ["线性结构"],
+        2: ["树与堆"],
+        3: ["图与并查集"],
+        4: ["排序算法", "哈希与缓存", "算法工具箱与综合"],
+        5: [],  # 模块五暂无独立代码练习
+        6: [],  # 模块六为综合模块，无独立代码练习
     }
 
     # 读取代码提交记录，按模块聚合完成率
@@ -797,8 +797,8 @@ async def generate_report(questions: list, answer_details: list, correct_rate: f
     所有分析数据均来源于本次测评的实际作答，无任何硬编码占位值。
     """
     # ===== 第一步：按知识点统计正确率 =====
-    # 注意：answer_details 中的 knowledge_tag 是分类名（如"智能体基础概念"），
-    # knowledge_point 才是具体知识点名（如"AI智能体定义"）
+    # 注意：answer_details 中的 knowledge_tag 是知识图谱节点名，
+    # knowledge_point 才是更细的考点名
     knowledge_stats = {}
     for ad in answer_details:
         # 优先用 knowledge_point（更细粒度），回退到 knowledge_tag
@@ -810,14 +810,27 @@ async def generate_report(questions: list, answer_details: list, correct_rate: f
             knowledge_stats[tag]["correct"] += 1
 
     # ===== 第二步：能力维度分析（基于实际作答数据） =====
-    # 关键认知：knowledge_tag 字段存储的是分类名（如"智能体基础概念"），
-    # 直接与 ability_map 的 categories 做精确匹配即可，无需通过 tag_to_category 中转。
+    # knowledge_tag 字段存储的是知识图谱节点名，直接与 ability_map 做精确匹配即可。
     ability_map = {
-        "概念理解": ["智能体基础概念"],
-        "原理辨析": ["大模型基座原理"],
-        "算法逻辑": ["智能体算法逻辑"],
-        "代码实操": ["智能体框架开发"],
-        "应用分析": ["多智能体应用", "提示词工程"]
+        "概念理解": ["线性结构：顺序表 / 链表 / 栈"],
+        "原理辨析": [
+            "二分搜索树：插入与查找",
+            "二分搜索树：中序与层序遍历",
+            "堆：上浮与下沉",
+        ],
+        "算法逻辑": [
+            "图的表示与深度优先遍历",
+            "并查集与路径压缩",
+            "广度优先遍历与最短路径",
+        ],
+        "代码实操": [
+            "哈希表与 LRU 缓存",
+            "归并排序与性能基准",
+        ],
+        "综合应用": [
+            "堆排序",
+            "算法工具箱：统一入口与分发",
+        ],
     }
 
     ability_stats = {}
@@ -916,13 +929,13 @@ async def generate_report(questions: list, answer_details: list, correct_rate: f
 
     # 建议4：实操引导（只在涉及代码实操维度且有失分时出现）
     has_code_dimension = any(
-        ad.get("knowledge_tag", "") in ["智能体框架开发"]
+        ad.get("knowledge_tag", "") in ["哈希表与 LRU 缓存", "归并排序与性能基准"]
         for ad in answer_details
     )
     if has_code_dimension:
         code_ability = ability_stats.get("代码实操", {})
         if code_ability.get("score", 1) < 0.7:
-            suggestions.append("编程实操类题目失分较多，建议在「写代码」模块多动手练习，重点理解框架的API用法和设计模式")
+            suggestions.append("编程实操类题目失分较多，建议在「写代码」模块多动手练习，重点理解数据结构的手工实现与边界处理")
 
     # ===== 第六步：综合评语（基于多维度实际表现） =====
     if correct_rate >= 0.9:

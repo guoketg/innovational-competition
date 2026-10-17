@@ -166,6 +166,22 @@ CREATE TABLE learning_paths (
 );
 CREATE INDEX idx_path_user ON learning_paths(user_id);
 
+-- 6.1 learning_path_versions — 学习路径版本（#45 重排留痕）
+CREATE TABLE learning_path_versions (
+    id             SERIAL PRIMARY KEY,
+    user_id        INTEGER NOT NULL REFERENCES users(id),
+    path_id        INTEGER,
+    version        INTEGER NOT NULL,          -- 同一用户的递增版本号
+    trigger        TEXT DEFAULT 'manual',     -- baseline / graph / quick_quiz / quiz / lab / manual
+    trigger_label  TEXT DEFAULT '',           -- 触发来源的人话名称
+    reason_json    JSONB DEFAULT '{}',        -- 掌握度变化等重排原因
+    diff_json      JSONB DEFAULT '{}',        -- 任务新增/移除/换位/时长/快进状态差异
+    snapshot_json  JSONB DEFAULT '[]',        -- 该版本的任务快照
+    summary        TEXT DEFAULT '',           -- 一句人话摘要
+    created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_path_versions_user ON learning_path_versions(user_id, version DESC);
+
 -- 7. daily_tasks — 每日任务
 CREATE TABLE daily_tasks (
     id              SERIAL PRIMARY KEY,
@@ -214,6 +230,7 @@ CREATE TABLE user_llm_config (
     embedding_api_key   TEXT DEFAULT '',
     embedding_model     TEXT DEFAULT 'text-embedding-v3',
     search_api_key      TEXT DEFAULT '',
+    jev_api_key         TEXT DEFAULT '',
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     updated_at          TIMESTAMPTZ DEFAULT NOW()
 );

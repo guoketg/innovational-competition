@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 from auth import get_current_user
 from schemas import APIResponse
-from services import capability_service
+from services import capability_service, learning_service
 
 
 router = APIRouter()
@@ -79,10 +79,27 @@ async def record_events(session_id: int, req: EventBatchRequest, current_user: d
         _bad_request(exc)
 
 
+async def _replan_after_lab(user_id: int, session_id: int, data: dict) -> dict:
+    """#45 实验产生新证据后自动重排路线；失败不影响主流程。"""
+    try:
+        data["path_replan"] = await learning_service.maybe_auto_replan_after_assessment(
+            user_id,
+            trigger="lab",
+            trigger_label="代码实验",
+            session_id=session_id,
+        )
+    except Exception as exc:
+        print(f"[lab] 自动重排跳过: {exc}")
+        data["path_replan"] = {"applied": False, "reason": "replan_error"}
+    return data
+
+
 @router.post("/sessions/{session_id}/code-passed", response_model=APIResponse)
 async def mark_code_passed(session_id: int, req: CodePassedRequest, current_user: dict = Depends(get_current_user)):
     try:
-        return APIResponse(data=capability_service.mark_code_passed(current_user["id"], session_id, req.code))
+        data = capability_service.mark_code_passed(current_user["id"], session_id, req.code)
+        await _replan_after_lab(current_user["id"], session_id, data)
+        return APIResponse(data=data)
     except Exception as exc:
         _bad_request(exc)
 
@@ -111,9 +128,11 @@ async def submit_defense(
 @router.post("/sessions/{session_id}/repair", response_model=APIResponse)
 async def submit_repair(session_id: int, req: RepairRequest, current_user: dict = Depends(get_current_user)):
     try:
-        return APIResponse(data=capability_service.submit_repair(
+        data = capability_service.submit_repair(
             current_user["id"], session_id, req.code, req.explanation
-        ))
+        )
+        await _replan_after_lab(current_user["id"], session_id, data)
+        return APIResponse(data=data)
     except Exception as exc:
         _bad_request(exc)
 

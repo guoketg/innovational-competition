@@ -1,7 +1,7 @@
 """题库服务 — 从6个分模块题库文件中加载题目并提供抽题功能
 
-题库来源：module_01 ~ module_06，每个模块100题，共600题。
-包含所有题型（单选/填空/简答等）并经过质量过滤。"""
+题库来源：数据结构与算法课程的 module_01 ~ module_06。
+包含单选、判断、填空等题型，并经过质量过滤。"""
 import json
 import os
 import random
@@ -14,22 +14,22 @@ from config import DATASET_DIR
 
 # 6个分模块题库文件
 MODULE_FILES = [
-    "module_01_智能体基础通识.json",
-    "module_02_大模型与提示词工程.json",
-    "module_03_智能体四大核心能力模块.json",
-    "module_04_开发框架与工程实践.json",
-    "module_05_多智能体系统.json",
-    "module_06_评估安全与前沿拓展.json",
+    "module_01_线性结构.json",
+    "module_02_树与堆.json",
+    "module_03_图与并查集.json",
+    "module_04_排序算法.json",
+    "module_05_哈希与缓存.json",
+    "module_06_算法工具箱.json",
 ]
 
 # 测评维度（短名称）→ 题库模块关键词（用于模糊匹配 q.module 字段）
 MODULE_KEYWORDS = {
-    "智能体基础通识": "模块一",
-    "大模型与提示词工程": "模块二",
-    "智能体四大核心能力模块": "模块三",
-    "开发框架与工程实践": "模块四",
-    "多智能体系统": "模块五",
-    "评估安全与前沿拓展": "模块六",
+    "线性结构": "模块一",
+    "树与堆": "模块二",
+    "图与并查集": "模块三",
+    "排序算法": "模块四",
+    "哈希与缓存": "模块五",
+    "算法工具箱与综合": "模块六",
 }
 
 # 数据集难度 → 测评难度映射
@@ -62,60 +62,34 @@ TYPE_MAP = {
 # 知识点分类（section → category 映射关键词）
 KNOWLEDGE_CATEGORY_MAP = {
     # 完整 section 名称精确匹配（优先级高于部分关键词匹配）
-    "大模型基座原理": "大模型基座原理",
-    "提示词工程": "提示词工程",
-    "智能体基础概念": "智能体基础概念",
-    "智能体框架开发": "智能体框架开发",
-    "多智能体应用": "多智能体应用",
-    "智能体算法逻辑": "智能体算法逻辑",
+    "线性结构": "线性结构",
+    "树与堆": "树与堆",
+    "图与并查集": "图与并查集",
+    "排序算法": "排序算法",
+    "哈希与缓存": "哈希与缓存",
+    "算法工具箱": "算法工具箱与综合",
     # 部分关键词匹配
-    "Transformer": "大模型基座原理",
-    "多智能体": "多智能体应用",
-    "LLM": "大模型基座原理",
-    "语言模型": "大模型基座原理",
-    "预训练": "大模型基座原理",
-    "微调": "大模型基座原理",
-    "LoRA": "大模型基座原理",
-    "上下文": "大模型基座原理",
-    "参数": "大模型基座原理",
-    "量化": "大模型基座原理",
-    "提示": "提示词工程",
-    "Prompt": "提示词工程",
-    "Agent": "智能体基础概念",
-    "智能体": "智能体基础概念",
-    "框架": "智能体框架开发",
-    "MCP": "智能体框架开发",
-    "A2A": "多智能体应用",
-    "协作": "多智能体应用",
-    "工具": "智能体框架开发",
-    "记忆": "智能体算法逻辑",
-    "规划": "智能体算法逻辑",
-    "决策": "智能体算法逻辑",
-    "推理": "智能体算法逻辑",
-    "评估": "智能体算法逻辑",
-    "部署": "智能体框架开发",
-    "安全": "多智能体应用",
-    "伦理": "智能体基础概念",
-    "模型": "大模型基座原理",
-    "大模型": "大模型基座原理",
-    "训练": "大模型基座原理",
-    "RAG": "智能体框架开发",
-    "检索": "智能体框架开发",
-    "工作流": "智能体框架开发",
-    "流程": "智能体框架开发",
-    "对话": "多智能体应用",
-    "交互": "多智能体应用",
-    "协议": "智能体框架开发",
-    "API": "智能体框架开发",
-    "插件": "智能体框架开发",
-    "调用": "智能体框架开发",
-    "扣子": "智能体框架开发",
-    "Coze": "智能体框架开发",
-    "思维树": "提示词工程",
-    "ReAct": "智能体算法逻辑",
-    "反思": "智能体算法逻辑",
-    "嵌入": "智能体算法逻辑",
-    "Embedding": "智能体算法逻辑",
+    "顺序表": "线性结构",
+    "链表": "线性结构",
+    "栈": "线性结构",
+    "队列": "线性结构",
+    "二分搜索树": "树与堆",
+    "二叉树": "树与堆",
+    "堆": "树与堆",
+    "并查集": "图与并查集",
+    "图": "图与并查集",
+    "深度优先": "图与并查集",
+    "广度优先": "图与并查集",
+    "最短路径": "图与并查集",
+    "归并排序": "排序算法",
+    "堆排序": "排序算法",
+    "快速排序": "排序算法",
+    "排序": "排序算法",
+    "哈希": "哈希与缓存",
+    "LRU": "哈希与缓存",
+    "缓存": "哈希与缓存",
+    "复杂度": "算法工具箱与综合",
+    "算法": "算法工具箱与综合",
 }
 
 _question_bank_cache: Optional[list] = None
@@ -241,7 +215,7 @@ def _infer_knowledge_category(section: str) -> str:
     for keyword in sorted_keywords:
         if keyword.lower() in section.lower():
             return KNOWLEDGE_CATEGORY_MAP[keyword]
-    return "智能体基础概念"
+    return "算法工具箱与综合"
 
 
 def _map_difficulty(difficulty: str) -> str:
@@ -592,6 +566,8 @@ def select_questions(
         answer = q.get("answer", "请参考教材相关章节")
         difficulty_label = _map_difficulty(q.get("difficulty", "medium"))
         clean_question = _clean_question_text(q.get("question", ""), question_type)
+        # 优先使用题库中标注的图谱节点名，保证小测证据能映射到知识图谱
+        knowledge_tag = (q.get("knowledge_tag") or "").strip() or _infer_knowledge_category(section)
         knowledge_category = _infer_knowledge_category(section)
 
         # 优先使用题库JSON中预定义的精选选项，否则自动生成干扰项
@@ -627,7 +603,7 @@ def select_questions(
                 )
             ),
             "option_analysis": option_analysis,
-            "knowledge_tag": knowledge_category,
+            "knowledge_tag": knowledge_tag,
             "knowledge_category": knowledge_category,
             "difficulty": difficulty_label,
             "module": q.get("module", ""),

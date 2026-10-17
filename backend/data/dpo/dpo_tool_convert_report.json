@@ -1,29 +1,33 @@
 {
   "train": {
-    "input": 1044,
-    "converted": 484,
+    "input": 1074,
+    "converted": 514,
     "text_only": 560,
     "multiturn_upgraded": 66,
     "dropped_chosen_violation": 0,
     "dropped_rejected_clean": 0,
     "no_bug_confirmation": 26,
     "decisions": {
+      "narrow_vs_overreach": 20,
+      "step_confirm_vs_all": 10,
       "modify_vs_hint": 166,
       "hint_vs_modify": 202,
       "answer_vs_hint": 90,
       "answer_vs_modify": 26
     },
-    "output": 1044
+    "output": 1074
   },
   "eval": {
-    "input": 308,
-    "converted": 225,
+    "input": 317,
+    "converted": 234,
     "text_only": 82,
     "multiturn_upgraded": 33,
     "dropped_chosen_violation": 1,
     "dropped_rejected_clean": 0,
     "no_bug_confirmation": 13,
     "decisions": {
+      "narrow_vs_overreach": 6,
+      "step_confirm_vs_all": 3,
       "answer_vs_modify": 13,
       "modify_vs_hint": 72,
       "answer_vs_hint": 41,
@@ -32,8 +36,8 @@
     "chosen_violation_reasons": {
       "give_hint 无动作(空洞引导)": 1
     },
-    "output": 307
+    "output": 316
   },
-  "sample_file": "F:\\code\\MyPython\\computer-cross-education\\tiaozhanbei\\student\\backend\\data\\dpo\\dpo_pairs_tools.sample.txt",
-  "sample_n": 209
+  "sample_file": "F:\\code\\MyPython\\computer-cross-education\\tiaozhanbei\\backend\\data\\dpo\\dpo_pairs_tools.sample.txt",
+  "sample_n": 215
 }

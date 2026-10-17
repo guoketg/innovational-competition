@@ -45,7 +45,13 @@
   python scripts/evaluate_behavior_channel.py
   python scripts/evaluate_behavior_channel.py --judge jev          # 需 OPENROUTER_API_KEY
   python scripts/evaluate_behavior_channel.py --judge both         # 对比，写 *.compare.json
+  python scripts/evaluate_behavior_channel.py --judge jev --calibrate   # 阈值扫描，只调一次 API
   python scripts/evaluate_behavior_channel.py --from-log data/answer_guard_log.jsonl
+
+标签（expected_intent / expected_kind）:
+  用例可选带 ``expected_intent``（learning | tool_use | disguised）与
+  ``expected_kind``（modify | hint | none），用于度量判定器本身而不是放行结果；
+  缺省时对应准确率记 0 并标 ``n_labeled``。
 """
 
 from __future__ import annotations
@@ -73,9 +79,14 @@ DEFAULT_CASES = BACKEND / "data" / "eval" / "behavior_channel_cases.jsonl"
 DEFAULT_REPORT = BACKEND / "data" / "eval" / "behavior_channel_report.json"
 # --judge both 写独立文件，避免覆盖默认的平铺 schema 报告（下游期望平铺结构）。
 DEFAULT_COMPARE_REPORT = BACKEND / "data" / "eval" / "behavior_channel_report.compare.json"
+DEFAULT_CALIBRATION_REPORT = BACKEND / "data" / "eval" / "behavior_channel_calibration.json"
 DEFAULT_LOG = BACKEND / "data" / "answer_guard_log.jsonl"
+DEFAULT_THRESHOLDS = "0.40,0.45,0.50,0.55,0.60,0.65,0.70"
 
 INTENT_CONTEXTS = {"learning", "tool", "disguised"}
+# 判定器标签口径（与 IntentJudgment.choice / kind 取值一致）。
+EXPECTED_INTENTS = {"learning", "tool_use", "disguised"}
+EXPECTED_KINDS = {"modify", "hint", "none"}
 # 违规类型：over_block（该放却拦）、unrequested_modify（未请求主动改）、
 # hint_escalation（只要提示却被升格代改）。主轴由 premature_modify 收窄为
 # unrequested_modify（方案 C）。2026-10-14 新增轨迹级三类（§3.10 ③，BC-21..25）：
@@ -107,6 +118,10 @@ def validate_case(case: dict) -> list[str]:
             errors.append(f"缺少字段 {key}")
     if case.get("intent_context") not in INTENT_CONTEXTS:
         errors.append(f"intent_context 非法: {case.get('intent_context')!r}")
+    if "expected_intent" in case and case["expected_intent"] not in EXPECTED_INTENTS:
+        errors.append(f"expected_intent 非法: {case.get('expected_intent')!r}")
+    if "expected_kind" in case and case["expected_kind"] not in EXPECTED_KINDS:
+        errors.append(f"expected_kind 非法: {case.get('expected_kind')!r}")
     for flag in _BOOL_FIELDS:
         if not isinstance(case.get(flag), bool):
             errors.append(f"{flag} 必须为布尔值")
@@ -190,6 +205,8 @@ def score(cases: list[dict], judge=None, judge_name: str = "rule") -> dict:
         released, _warn, reason = decide_channel(judgment, valve_released=valve_released(case))
         expect = bool(case["expect_release"])
         match = released == expect
+        expected_intent = case.get("expected_intent")
+        expected_kind = case.get("expected_kind")
         error = ""
         if not match:
             error = "over_block" if expect else case["failure_mode"]
@@ -209,9 +226,15 @@ def score(cases: list[dict], judge=None, judge_name: str = "rule") -> dict:
             "judge_score": round(judgment.score, 3),
             "judge_noul": round(judgment.noul_score, 3),
             "judge_fallback": judgment.fallback,
+            "expected_intent": expected_intent,
+            "expected_kind": expected_kind,
+            "intent_match": None if expected_intent is None else judgment.choice == expected_intent,
+            "kind_match": None if expected_kind is None else judgment.kind == expected_kind,
         })
 
     n = len(rows)
+    intent_rows = [r for r in rows if r["intent_match"] is not None]
+    kind_rows = [r for r in rows if r["kind_match"] is not None]
     should_block = [r for r in rows if not r["expect_release"]]
     should_release = [r for r in rows if r["expect_release"]]
     unrequested = [r for r in should_block if r["released"]]
@@ -262,6 +285,9 @@ def score(cases: list[dict], judge=None, judge_name: str = "rule") -> dict:
             "n_should_block": len(should_block),
             "n_should_release": len(should_release),
             "n_warn_once_expected": sum(1 for r in rows if r["expect_warn_once"]),
+            "intent_accuracy": _rate(sum(bool(r["intent_match"]) for r in intent_rows), len(intent_rows)),
+            "kind_accuracy": _rate(sum(bool(r["kind_match"]) for r in kind_rows), len(kind_rows)),
+            "n_labeled": len(intent_rows),
         },
         "by_intent_context": by_intent,
         "known_gap": (
@@ -275,6 +301,110 @@ def score(cases: list[dict], judge=None, judge_name: str = "rule") -> dict:
         ),
         "rows": rows,
     }
+
+
+def _parse_thresholds(raw: str) -> list[float]:
+    """解析逗号分隔的阈值列表，去重并升序。"""
+    values = sorted({round(float(part), 4) for part in raw.split(",") if part.strip()})
+    if not values:
+        raise SystemExit("[behavior-channel] --thresholds 不能为空")
+    return values
+
+
+def calibrate(cases: list[dict], judge, thresholds: list[float]) -> dict:
+    """阈值校准：同一批模型回答只调用一次 API，再对每个阈值复算放行决策。
+
+    置信度（Score / Noul / ctx_conf）由模型给出，阈值只决定"是否采信"。
+    因此先 ``evaluate`` 每条用例拿到原始 answers（同文缓存复用），再对每个
+    候选阈值调用 ``map_answers(threshold=...)`` + ``decide_channel``，统计：
+    恰当代改率、未请求主动代改率、过度拦截率、意图/请求类型准确率、回落率。
+    """
+    pairs: dict[str, tuple] = {}
+    for case in cases:
+        pairs[case["case_id"]] = judge.evaluate(
+            case.get("request", ""), context=case.get("signals"),
+        )
+    api_failures = sum(1 for _judgment, raw in pairs.values() if raw is None)
+
+    results: list[dict] = []
+    for cutoff in thresholds:
+        rows: list[dict] = []
+        for case in cases:
+            judgment, raw = pairs[case["case_id"]]
+            if raw is not None:
+                try:
+                    judgment = judge.map_answers(raw.get("answers") or {}, threshold=cutoff)
+                except Exception:  # noqa: BLE001 —— 响应形状异常沿用已回落的规则判定
+                    pass
+            released, _warn, _reason = decide_channel(
+                judgment, valve_released=valve_released(case),
+            )
+            expect = bool(case["expect_release"])
+            expected_intent = case.get("expected_intent")
+            expected_kind = case.get("expected_kind")
+            rows.append({
+                "expect_release": expect,
+                "released": released,
+                "match": released == expect,
+                "fallback": judgment.fallback,
+                "intent_match": None if expected_intent is None else judgment.choice == expected_intent,
+                "kind_match": None if expected_kind is None else judgment.kind == expected_kind,
+            })
+
+        should_block = [r for r in rows if not r["expect_release"]]
+        should_release = [r for r in rows if r["expect_release"]]
+        intent_rows = [r for r in rows if r["intent_match"] is not None]
+        kind_rows = [r for r in rows if r["kind_match"] is not None]
+        results.append({
+            "threshold": cutoff,
+            "appropriate_rate": _rate(sum(r["match"] for r in rows), len(rows)),
+            "unrequested_modify_rate": _rate(
+                sum(1 for r in should_block if r["released"]), len(should_block),
+            ),
+            "over_block_rate": _rate(
+                sum(1 for r in should_release if not r["released"]), len(should_release),
+            ),
+            "intent_accuracy": _rate(sum(bool(r["intent_match"]) for r in intent_rows), len(intent_rows)),
+            "kind_accuracy": _rate(sum(bool(r["kind_match"]) for r in kind_rows), len(kind_rows)),
+            "fallback_rate": _rate(sum(1 for r in rows if r["fallback"]), len(rows)),
+        })
+
+    best = max(
+        results,
+        key=lambda r: (
+            r["appropriate_rate"],
+            r["intent_accuracy"],
+            r["kind_accuracy"],
+            -r["fallback_rate"],
+        ),
+    )
+    return {
+        "metric_basis": "jev_calibration",
+        "model": getattr(judge, "model", "unknown"),
+        "default_threshold": getattr(judge, "threshold", None),
+        "n": len(cases),
+        "n_api_failures": api_failures,
+        "thresholds": results,
+        "best_threshold": best["threshold"],
+        "best": best,
+        "note": (
+            "同一批模型回答只调用一次 API；阈值只决定是否采信模型给出的置信度。"
+            "最优阈值按（恰当代改率, 意图准确率, 请求类型准确率, 低回落率）取最大。"
+            "API 失败行自动回落规则版，见 n_api_failures。"
+        ),
+    }
+
+
+def _print_calibration(report: dict) -> None:
+    print(f"[calibration] 模型: {report['model']}  用例数: {report['n']}"
+          f"  API 失败回落: {report['n_api_failures']}")
+    for r in report["thresholds"]:
+        mark = " ← 最优" if r["threshold"] == report["best_threshold"] else ""
+        print(f"  阈值 {r['threshold']:.2f}: 恰当率={r['appropriate_rate']}"
+              f" 未请求改率={r['unrequested_modify_rate']} 过度拦率={r['over_block_rate']}"
+              f" 意图={r['intent_accuracy']} 类型={r['kind_accuracy']}"
+              f" 回落率={r['fallback_rate']}{mark}")
+    print(f"  建议阈值: {report['best_threshold']:.2f}（当前默认 {report['default_threshold']}）")
 
 
 def replay_log(path: Path) -> dict:
@@ -310,6 +440,8 @@ def _print_report(report: dict, title: str) -> None:
     print(f"  恰当代改率: {s['appropriate_rate']}  (该放 {s['n_should_release']} / 该拦 {s['n_should_block']})")
     print(f"  未请求主动代改率: {s['unrequested_modify_rate']}   过度拦截率: {s['over_block_rate']}")
     print(f"  路由错误率: {s['routing_error_rate']}   提示 1 次后放行预期: {s['n_warn_once_expected']}")
+    print(f"  意图准确率: {s['intent_accuracy']}   请求类型准确率: {s['kind_accuracy']}"
+          f"  （已标注 {s['n_labeled']} 条）")
     for ctx, m in report["by_intent_context"].items():
         print(f"    - {ctx}: n={m['n']} 恰当率={m['appropriate_rate']} "
               f"未请求改={m['unrequested_count']} 过度拦={m['over_block_count']}")
@@ -338,6 +470,14 @@ def main(argv=None) -> int:
     parser.add_argument("--report", default=str(DEFAULT_REPORT), help="报告输出路径")
     parser.add_argument("--judge", choices=["rule", "jev", "both"], default="rule",
                         help="判定口径：rule（规则版镜像）/ jev（OpenRouter Decisions API）/ both（对比）")
+    parser.add_argument("--jev-threshold", dest="jev_threshold", type=float, default=None,
+                        help="覆盖 Jev 置信度阈值（默认 0.55 或环境变量 JEV_CONFIDENCE_THRESHOLD）")
+    parser.add_argument("--calibrate", action="store_true",
+                        help="阈值校准：同一批模型回答只调一次 API，扫描 --thresholds 并写校准报告")
+    parser.add_argument("--thresholds", default=DEFAULT_THRESHOLDS,
+                        help=f"校准候选阈值，逗号分隔（默认 {DEFAULT_THRESHOLDS}）")
+    parser.add_argument("--calibration-report", dest="calibration_report",
+                        default=str(DEFAULT_CALIBRATION_REPORT), help="校准报告输出路径")
     parser.add_argument("--from-log", dest="from_log", default=None,
                         help="影子回放：真实 guard 事件日志（默认 data/answer_guard_log.jsonl）")
     parser.add_argument("--check", action="store_true", help="仅校验用例集")
@@ -352,11 +492,29 @@ def main(argv=None) -> int:
         print(f"[behavior-channel] 用例集: {args.cases}")
         print(f"  用例数: {len(cases)}  (intent_context 分布: {dict(dist)})")
         print(f"  该放 {should_release} / 该拦 {len(cases) - should_release}  提示 1 次后放行 {warn_once}")
+        print(f"  已标注 expected_intent / expected_kind: "
+              f"{sum(1 for c in cases if c.get('expected_intent') and c.get('expected_kind'))} / {len(cases)}")
         print("[PASS] 用例集校验通过")
+        return 0
+
+    if args.calibrate:
+        judge, _ = _build_judge("jev")
+        if args.jev_threshold is not None:
+            judge.threshold = float(args.jev_threshold)
+        calibration = calibrate(cases, judge, _parse_thresholds(args.thresholds))
+        calibration["jev_usage"] = _sum_usage(judge)
+        _print_calibration(calibration)
+        report_path = Path(args.calibration_report)
+        report_path.write_text(
+            json.dumps(calibration, ensure_ascii=False, indent=2), encoding="utf-8",
+        )
+        print(f"  校准报告已写入: {report_path}")
         return 0
 
     if args.judge == "both":
         judge, _ = _build_judge("jev")
+        if args.jev_threshold is not None:
+            judge.threshold = float(args.jev_threshold)
         rule_report = score(cases, None, "rule")
         jev_report = score(cases, judge, "jev")
         _print_report(rule_report, "规则口径（下界）")
@@ -371,6 +529,8 @@ def main(argv=None) -> int:
         }
     else:
         judge, name = _build_judge(args.judge)
+        if judge is not None and args.jev_threshold is not None:
+            judge.threshold = float(args.jev_threshold)
         report = score(cases, judge, name)
         title = "规则口径（下界）" if judge is None else "Jev 实时口径"
         _print_report(report, title)

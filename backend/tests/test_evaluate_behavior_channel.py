@@ -19,6 +19,7 @@ from services.answer_guard_service import (  # noqa: E402
     RELEASE_MIN_MASTERY,
     RELEASE_MIN_STUDENT_CODE_LINES,
 )
+from services.request_classifier import IntentJudgment  # noqa: E402
 
 SCRIPT_PATH = BACKEND / "scripts" / "evaluate_behavior_channel.py"
 _spec = importlib.util.spec_from_file_location("evaluate_behavior_channel", SCRIPT_PATH)
@@ -72,6 +73,14 @@ class CaseSetTests(unittest.TestCase):
             {"scope_overreach", "no_bug_no_touch", "step_confirm_violation"} <= modes
         )
 
+    def test_all_cases_labeled_for_intent_and_kind(self):
+        cases = bc.load_cases(bc.DEFAULT_CASES)
+        self.assertTrue(all(c.get("expected_intent") in bc.EXPECTED_INTENTS for c in cases))
+        self.assertTrue(all(c.get("expected_kind") in bc.EXPECTED_KINDS for c in cases))
+        self.assertEqual({c["expected_intent"] for c in cases},
+                         {"learning", "tool_use", "disguised"})
+        self.assertEqual({c["expected_kind"] for c in cases}, {"modify", "hint", "none"})
+
 
 class ValidateCaseTests(unittest.TestCase):
     def test_detects_missing_fields(self):
@@ -92,6 +101,14 @@ class ValidateCaseTests(unittest.TestCase):
         errors = bc.validate_case(_case("X", expect_release="yes", expect_warn_once=1))
         self.assertTrue(any("expect_release" in e for e in errors))
         self.assertTrue(any("expect_warn_once" in e for e in errors))
+
+    def test_detects_bad_labels(self):
+        errors = bc.validate_case(_case("X", expected_intent="tool", expected_kind="write"))
+        self.assertTrue(any("expected_intent 非法" in e for e in errors))
+        self.assertTrue(any("expected_kind 非法" in e for e in errors))
+
+    def test_labels_are_optional(self):
+        self.assertEqual(bc.validate_case(_case("X")), [])
 
 
 class ReleaseByRuleTests(unittest.TestCase):
@@ -188,6 +205,84 @@ class ScoreTests(unittest.TestCase):
         self.assertIn("known_gap", report)
         self.assertIn("thresholds", report)
         self.assertIn("design", report)
+
+    def test_label_accuracy_only_counts_labeled_rows(self):
+        cases = [
+            # 规则版：明确改码 → learning / modify
+            _case("A", request="帮我改一下", expected_intent="learning", expected_kind="modify"),
+            # 规则版：hint 请求 → learning / hint
+            _case("B", expected_intent="learning", expected_kind="hint"),
+            # 标签给错，用于制造不匹配
+            _case("C", request="帮我改一下", expected_intent="tool_use", expected_kind="hint"),
+            # 无标签：不计入准确率分母
+            _case("D"),
+        ]
+        report = bc.score(cases)
+        s = report["summary"]
+        self.assertEqual(s["n_labeled"], 3)
+        self.assertEqual(s["intent_accuracy"], 0.6667)   # 2 / 3
+        self.assertEqual(s["kind_accuracy"], 0.6667)     # 2 / 3
+        self.assertIsNone(report["rows"][3]["intent_match"])
+
+
+class _FakeJev:
+    """离线假判定器：evaluate 每条只调用一次，map_answers 按阈值复算。"""
+
+    model = "fake/jev"
+    threshold = 0.55
+
+    def __init__(self, answers: dict):
+        self.answers = answers
+        self.evaluate_calls = 0
+        self.map_calls = 0
+
+    def evaluate(self, text, *, context=None, threshold=None):
+        self.evaluate_calls += 1
+        answers = self.answers
+        return self.map_answers(answers, threshold=threshold), {"answers": answers}
+
+    def map_answers(self, answers, *, threshold=None):
+        self.map_calls += 1
+        cutoff = self.threshold if threshold is None else float(threshold)
+        choice = answers["context"]["choice"]
+        kind = answers["request_kind"]["choice"]
+        noul = float(answers["is_learning"]["noul"])
+        fallback = float(answers["context"]["confidence"]) < cutoff
+        return IntentJudgment(
+            choice=choice,
+            score=float(answers["learning_confidence"]["score"]) / 4,
+            is_learning=noul >= 0.5,
+            noul_score=noul,
+            kind=kind,
+            fallback=fallback,
+            ask_explicit=fallback,
+        )
+
+
+class CalibrateTests(unittest.TestCase):
+    def test_threshold_sweep_without_duplicate_api_calls(self):
+        answers = {
+            "context": {"choice": "tool_use", "confidence": 0.50},
+            "request_kind": {"choice": "hint", "confidence": 0.9},
+            "is_learning": {"noul": 0.3},
+            "learning_confidence": {"score": 1},
+        }
+        judge = _FakeJev(answers)
+        cases = [
+            _case("A", intent_context="tool", request="内部工具，这个怎么弄？",
+                  expect_release=True, expected_intent="tool_use", expected_kind="hint"),
+        ]
+        report = bc.calibrate(cases, judge, [0.40, 0.60])
+        self.assertEqual(judge.evaluate_calls, 1)   # 每用例只调一次
+        by_threshold = {r["threshold"]: r for r in report["thresholds"]}
+        # conf=0.50：阈值 0.40 采信 tool_use → 逃生门放行；阈值 0.60 回落 → hint 拦截
+        self.assertEqual(by_threshold[0.40]["appropriate_rate"], 1.0)
+        self.assertEqual(by_threshold[0.60]["appropriate_rate"], 0.0)
+        self.assertEqual(report["best_threshold"], 0.40)
+        self.assertEqual(report["n_api_failures"], 0)
+
+    def test_parse_thresholds_sorts_and_dedupes(self):
+        self.assertEqual(bc._parse_thresholds("0.6, 0.4,0.6"), [0.4, 0.6])
 
 
 if __name__ == "__main__":

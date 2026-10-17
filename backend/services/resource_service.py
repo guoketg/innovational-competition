@@ -278,21 +278,13 @@ def find_resource_by_knowledge(knowledge: str) -> dict:
             best_score = score
             best_match = res
 
-    # 如果没有任何匹配（得分为0），返回该知识分类下的第一个资源作为兜底
+    # 如果没有任何匹配（得分为0），按数据结构与算法分类关键词兜底
     if best_score == 0:
+        dsa_keywords = ["线性", "树", "堆", "图", "并查集", "排序", "哈希", "算法"]
         for res in all_resources:
-            for kw in keywords:
-                if len(kw) >= 2:
-                    # 尝试模糊匹配分类
-                    cat = res.get("category", "")
-                    if any(c in cat for c in ["智能体", "模型", "提示", "框架", "算法", "应用"]):
-                        if any(c in knowledge for c in ["智能体", "模型", "提示", "框架", "算法"]):
-                            if cat[0:2] == knowledge[0:2] if len(knowledge) >= 2 else False:
-                                best_match = res
-                                break
-                if best_match:
-                    break
-            if best_match:
+            cat = res.get("category", "")
+            if any(k in cat for k in dsa_keywords) and any(k in knowledge for k in dsa_keywords):
+                best_match = res
                 break
 
     if best_match and best_score > 0:

@@ -1,19 +1,57 @@
 {
-  "curriculum_version": "dsa-prereq-v1",
-  "description": "数据结构与算法知识点先修依赖表。value 为直接前置知识点列表，边方向为「前置 → 后继」，即拓扑序方向。knowledge_tag 与 services/agent_course.py 的项目制课程、data/dsa_tutorial_seed.json 的教程、旗舰关 knowledge_tag 对齐。个人化学习路径生成时先对本表做拓扑排序，得到先修的合法区间。",
+  "curriculum_version": "dsa-prereq-v2",
+  "description": "数据结构与算法知识点先修依赖表。value 为直接前置知识点列表，边方向为「前置 → 后继」，即拓扑序方向。共 44 个节点，与 services/agent_course.py 的知识点清单、data/dsa_tutorial_seed.json 的 44 篇教程一一对齐；其中前 11 个核心节点同时对应 12 个实训项目。个人化学习路径生成时先对本表做拓扑排序，得到先修的合法区间。",
   "prerequisites": {
-    "dsa-data-structures-tutorial": [],
+    "dsa-data-structures-tutorial": ["dsa-dsa-intro"],
     "dsa-dsa-intro": [],
     "dsa-dsa-linear-data-structures": ["dsa-dsa-intro"],
-    "dsa-binary-search-tree-insert": ["dsa-dsa-linear-data-structures"],
-    "dsa-binary-search-traverse": ["dsa-binary-search-tree-insert"],
-    "dsa-heap-shift-up": ["dsa-binary-search-tree-insert"],
-    "dsa-heap-sort": ["dsa-heap-shift-up"],
-    "dsa-graph-theory-deep": ["dsa-dsa-linear-data-structures"],
-    "dsa-union-find-compress": ["dsa-graph-theory-deep"],
-    "dsa-graph-theory-short-path": ["dsa-graph-theory-deep", "dsa-dsa-linear-data-structures"],
     "dsa-dsa-basic-algorithm": ["dsa-dsa-linear-data-structures"],
+
+    "dsa-dsa-tree": ["dsa-dsa-linear-data-structures"],
+    "dsa-dsa-graph": ["dsa-dsa-linear-data-structures"],
+    "dsa-dsa-divide-and-conquer": ["dsa-dsa-basic-algorithm"],
+    "dsa-dsa-greedy-algorithm": ["dsa-dsa-basic-algorithm"],
+    "dsa-dsa-dynamic-programming": ["dsa-dsa-basic-algorithm", "dsa-dsa-divide-and-conquer"],
+    "dsa-dsa-advanced-tree": ["dsa-dsa-tree", "dsa-binary-search-tree-insert"],
+    "dsa-dsa-advanced-graph": ["dsa-dsa-graph", "dsa-graph-theory-deep"],
+
+    "dsa-dsa-sorting": ["dsa-dsa-basic-algorithm", "dsa-dsa-linear-data-structures"],
+    "dsa-insertion-sort": ["dsa-dsa-sorting"],
+    "dsa-shell-sort": ["dsa-insertion-sort"],
     "dsa-merge-sort": ["dsa-dsa-basic-algorithm"],
+    "dsa-random-quick-sort": ["dsa-insertion-sort"],
+    "dsa-2way-quick-sort": ["dsa-random-quick-sort"],
+    "dsa-3way-qiuck-sort": ["dsa-2way-quick-sort"],
+    "dsa-sorting-algorithm-derivative-problem": ["dsa-merge-sort", "dsa-3way-qiuck-sort"],
+
+    "dsa-heap-storage": ["dsa-dsa-tree"],
+    "dsa-heap-shift-up": ["dsa-binary-search-tree-insert"],
+    "dsa-heap-shift-down": ["dsa-heap-shift-up"],
+    "dsa-heap-sort": ["dsa-heap-shift-up"],
+    "dsa-heap-sort-optimization": ["dsa-heap-sort"],
+    "dsa-heap-index": ["dsa-heap-shift-down", "dsa-heap-sort"],
+
+    "dsa-binary-search-tree": ["dsa-dsa-tree"],
+    "dsa-binary-search-tree-insert": ["dsa-dsa-linear-data-structures", "dsa-binary-search-tree"],
+    "dsa-binary-search-tree-search": ["dsa-binary-search-tree-insert"],
+    "dsa-binary-search-traverse": ["dsa-binary-search-tree-insert"],
+    "dsa-binary-search-level-traverse": ["dsa-binary-search-traverse"],
+    "dsa-binary-search-remove": ["dsa-binary-search-tree-search", "dsa-binary-search-level-traverse"],
+    "dsa-binary-search-feature": ["dsa-binary-search-tree-insert", "dsa-binary-search-traverse"],
+
+    "dsa-union-find-basic": ["dsa-dsa-linear-data-structures"],
+    "dsa-union-find-quick": ["dsa-union-find-basic"],
+    "dsa-union-find-quick-merge": ["dsa-union-find-quick"],
+    "dsa-union-find-size": ["dsa-union-find-quick-merge"],
+    "dsa-union-find-rank": ["dsa-union-find-size"],
+    "dsa-union-find-compress": ["dsa-graph-theory-deep", "dsa-union-find-rank"],
+
+    "dsa-graph-theory": ["dsa-dsa-graph"],
+    "dsa-graph-theory-iter": ["dsa-graph-theory"],
+    "dsa-graph-theory-deep": ["dsa-dsa-linear-data-structures", "dsa-graph-theory"],
+    "dsa-graph-theory-path": ["dsa-graph-theory-deep"],
+    "dsa-graph-theory-short-path": ["dsa-graph-theory-deep", "dsa-dsa-linear-data-structures"],
+
     "dsa-dsa-hash-table": ["dsa-dsa-linear-data-structures", "dsa-dsa-basic-algorithm"]
   }
 }

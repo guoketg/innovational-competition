@@ -75,7 +75,7 @@
                 </el-form-item>
                 <el-form-item label="学习目标" prop="learning_goal">
                   <el-select v-model="regForm.learning_goal" placeholder="选择目标" size="large" style="width:100%">
-                    <el-option label="课程预习与复习" value="课程预习" /><el-option label="期末备考冲刺" value="期末备考" /><el-option label="智能体开发实操" value="开发实操" /><el-option label="竞赛项目落地" value="竞赛项目" /><el-option label="深度学习研究" value="深度学习" />
+                    <el-option label="课程预习与复习" value="课程预习" /><el-option label="期末备考冲刺" value="期末备考" /><el-option label="数据结构与算法实训" value="算法实训" /><el-option label="竞赛项目落地" value="竞赛项目" /><el-option label="深度学习研究" value="深度学习" />
                   </el-select>
                 </el-form-item>
               </div>
