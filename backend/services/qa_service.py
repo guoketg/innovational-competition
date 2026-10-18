@@ -266,31 +266,7 @@ async def answer_question(user_id: int, question: str, question_type: str = "tex
         ]
         response = await call_llm(user_id, retry_messages, temperature=0.7, max_tokens=4096)
 
-        async def _retry_after_guard(feedback: str) -> str:
-            """护栏重生成：以追加 user 消息的方式注入纠正反馈。"""
-            return await call_llm(
-                user_id,
-                [*retry_messages, {"role": "user", "content": feedback}],
-                temperature=0.7, max_tokens=4096,
-            )
-
-    # 输入侧关卡识别 + 输出侧护栏：命中关卡问题才拦，通用问题不触发。
-    # 必须在落库之前拦截，否则历史记录里仍是未过滤的泄题文本。
-    # 被拦时走「重生成再检」：带纠正反馈重新生成一次并复检，通过则用新答案。
-    # 时机释放阀：学生贴了自己的代码 / 已被拦多轮 → 不拦不重生成，直接放行讲解。
-    from services.answer_guard_service import (
-        detect_exercise, evaluate_release, regenerate_and_recheck,
-    )
-    exercise_id = detect_exercise(question)
-    if exercise_id:
-        _release, _release_reason = evaluate_release(user_id, exercise_id, question)
-        response, verdict, _regen_attempts = await regenerate_and_recheck(
-            response, _retry_after_guard, exercise_id,
-            log_context={
-                "channel": "qa_ask", "user_id": user_id, "exercise_id": exercise_id,
-            },
-            release=_release, release_reason=_release_reason,
-        )
+        # 内容通道（防泄题护栏）已于 2026-10-18 下线：问答回答原样返回、原样落库。
 
     # 识别涉及的知识点
     knowledge_tags = identify_knowledge_tags(question)

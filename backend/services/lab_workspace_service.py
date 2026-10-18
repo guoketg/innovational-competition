@@ -2291,33 +2291,7 @@ async def ask_assistant(
         )
         if answer.startswith("LLM调用异常:"):
             raise ValueError(answer)
-        from services.answer_guard_service import (
-            evaluate_release, log_guard_event, regenerate_and_recheck,
-        )
-
-        async def _retry_after_guard(feedback: str) -> str:
-            retry_answer = await call_llm(
-                user_id,
-                [*llm_messages, {"role": "user", "content": feedback}],
-                temperature=0.2,
-                max_tokens=900,
-            )
-            if retry_answer.startswith("LLM调用异常:"):
-                raise ValueError(retry_answer)
-            return retry_answer
-
-        # 时机释放阀：学生贴了自己的代码 / 已被拦多轮 → 放行完整参考讲解
-        _release, _release_reason = evaluate_release(user_id, exercise_id, question)
-        answer, guard, _regen_attempts = await regenerate_and_recheck(
-            answer,
-            _retry_after_guard,
-            exercise_id,
-            log_context={"channel": "assistant", "exercise": exercise_id, "user": user_id},
-            release=_release, release_reason=_release_reason,
-        )
-        if guard.severity == "ok" and _regen_attempts == 0:
-            # 保持原口径：每轮都记一条判定（helper 只在 partial/blocked/重生成时记）
-            log_guard_event(guard, {"channel": "assistant", "exercise": exercise_id, "user": user_id})
+        # 内容通道（防泄题护栏）已于 2026-10-18 下线：回答原样返回，不再按文字重合拦截。
         if hint_level:
             state.setdefault("tutor_hint_levels", {})[current_stage["id"]] = hint_level
         log_decision(state, decision, question, current_stage["id"])
@@ -2332,7 +2306,6 @@ async def ask_assistant(
             "pedagogical_move": teaching_move,
             "hint_level": hint_level,
             "decision_confidence": decision.get("confidence"),
-            "guard": guard.to_dict(),
             "observations": observations,
             "learning_context": public_learning_context(learning_context),
         }
@@ -2767,15 +2740,11 @@ async def ask_assistant_streaming(
     observations = []
     collected_answer = ""
 
-    from services.answer_guard_service import (
-        GuardVerdict, GuardedStreamFilter, REGEN_FEEDBACK, apply_guard, evaluate_release,
-        load_guard_references, log_guard_event,
-    )
+    from services.answer_guard_service import GuardVerdict, evaluate_release, log_guard_event
     from services.request_classifier import classify_request, decide_channel
-    # 内容通道释放阀：学生贴了自己的代码 / 已被拦多轮 → 文本侧放行（仅内容通道用）
-    _stream_release, _stream_release_reason = evaluate_release(
-        user_id, exercise_id, question,
-    )
+    # 内容通道（防泄题护栏）已于 2026-10-18 下线：不再做文本侧重合拦截。
+    # 释放阀保留，它现在只作为行为通道的「免提示加速通道」（见 decide_channel）。
+    _stream_release, _ = evaluate_release(user_id, exercise_id, question)
     # 行为通道（方案 C + Jev 三原语路由）：请求轴独立决策，与内容通道解耦——
     #   工具性逃生门 → 放行；明确改码请求 → 放行；未请求 → 拦截；
     #   明确请求但免提示阀未满足 → 提示 1 次后放行；
@@ -2803,21 +2772,6 @@ async def ask_assistant_streaming(
         "ask_explicit": _judgment.ask_explicit,
         "evidence": list(_judgment.evidence),
     }
-    guard_filter = GuardedStreamFilter(
-        load_guard_references(exercise_id),
-        release=_stream_release,
-        release_reason=_stream_release_reason,
-        log_context={"channel": "stream", "exercise": exercise_id, "user": user_id},
-    )
-
-    def _guarded_events(parts):
-        """过滤器产物 → SSE 行序列（text 原样下发，guard 事件单独下发）。"""
-        for kind, payload in parts:
-            if kind == "event":
-                yield _json.dumps(payload, ensure_ascii=False) + "\n"
-            else:
-                yield _json.dumps({"type": "text", "content": payload}, ensure_ascii=False) + "\n"
-
     try:
         # Disable DeepSeek thinking mode — prevents reasoning_content which
         # requires round-trip preservation across all messages in conversation.
@@ -2845,8 +2799,7 @@ async def ask_assistant_streaming(
                     chunk_content = chunk.content if hasattr(chunk, 'content') and chunk.content else ""
                     if chunk_content:
                         full_content += chunk_content
-                        for guard_line in _guarded_events(guard_filter.feed(chunk_content)):
-                            yield guard_line
+                        yield _json.dumps({"type": "text", "content": chunk_content}, ensure_ascii=False) + "\n"
 
                     # Reasoning content (DeepSeek thinking mode) — must preserve for API
                     try:
@@ -2859,13 +2812,8 @@ async def ask_assistant_streaming(
 
                 if merged_chunk is not None:
                     tool_calls_buffer = _normalized_lab_tool_calls(merged_chunk)
-                # 轮次边界：结算未闭合围栏，防止跨轮错位
-                for guard_line in _guarded_events(guard_filter.end_round()):
-                    yield guard_line
             except Exception as stream_err:
                 logger.warning("Lab tutor stream error in round %s: %s", _round, stream_err)
-                for guard_line in _guarded_events(guard_filter.end_round()):
-                    yield guard_line
                 if merged_chunk is not None:
                     tool_calls_buffer = _normalized_lab_tool_calls(merged_chunk)
                 # If we have tool calls accumulated, try to execute them and continue
@@ -3015,10 +2963,7 @@ async def ask_assistant_streaming(
                     summary = await llm_with_tools.ainvoke(llm_messages)
                     collected_answer = summary.content or ""
                     if collected_answer:
-                        for guard_line in _guarded_events(guard_filter.feed(collected_answer)):
-                            yield guard_line
-                        for guard_line in _guarded_events(guard_filter.end_round()):
-                            yield guard_line
+                        yield _json.dumps({"type": "text", "content": collected_answer}, ensure_ascii=False) + "\n"
                 except Exception:
                     collected_answer = "（工具调用完成，请根据结果继续提问）"
 
@@ -3034,62 +2979,13 @@ async def ask_assistant_streaming(
         }, ensure_ascii=False) + "\n"
         return
 
-    # Persist conversation（持久化前兜底过一遍护栏，防止泄漏答案进入对话历史）
-    final_guard = None
-    regen_status = None
+    # 内容通道（防泄题护栏）已下线：对话历史直接持久化原始回答，不再兜底复检。
     if collected_answer:
-        collected_answer, final_guard = apply_guard(
-            collected_answer, load_guard_references(exercise_id),
-            release=_stream_release,
-        )
-        if final_guard.blocked and not guard_filter.blocked_count:
-            log_guard_event(final_guard, {"channel": "assistant_stream", "exercise": exercise_id, "user": user_id})
-        # 重生成再检：兜底复检仍被拦时，带纠正反馈重新生成一次并复检；
-        # 通过则用新答案替换（流式已下发的占位拦截文本不撤回，新答案追加下发）
-        if final_guard.blocked:
-            try:
-                retry_msg = await llm.ainvoke(
-                    [*llm_messages, HumanMessage(content=REGEN_FEEDBACK)]
-                )
-                retry_text = str(getattr(retry_msg, "content", "") or "")
-                retry_text, retry_verdict = apply_guard(
-                    retry_text, load_guard_references(exercise_id)
-                )
-                if not retry_verdict.blocked:
-                    collected_answer = retry_text
-                    final_guard = retry_verdict
-                    regen_status = "passed"
-                    log_guard_event(retry_verdict, {
-                        "channel": "assistant_stream_regen", "exercise": exercise_id,
-                        "user": user_id, "attempts": 1, "status": "passed",
-                    })
-                    yield _json.dumps({
-                        "type": "guard_regen", "status": "passed", "attempts": 1,
-                    }, ensure_ascii=False) + "\n"
-                    note = "\n\n---\n**【防泄题护栏·重新生成】** 上一版回答被拦截，以下是按引导重新生成并通过复检的回答：\n\n"
-                    yield _json.dumps({
-                        "type": "text", "content": note + retry_text,
-                    }, ensure_ascii=False) + "\n"
-                else:
-                    regen_status = "failed"
-                    log_guard_event(retry_verdict, {
-                        "channel": "assistant_stream_regen", "exercise": exercise_id,
-                        "user": user_id, "attempts": 1, "status": "failed",
-                    })
-                    yield _json.dumps({
-                        "type": "guard_regen", "status": "failed", "attempts": 1,
-                    }, ensure_ascii=False) + "\n"
-            except Exception as regen_err:
-                # 重生成失败不影响已完成的主回答与持久化
-                logger.warning("Lab tutor guard regen failed for user=%s exercise=%s: %s", user_id, exercise_id, regen_err)
         if hint_level:
             state.setdefault("tutor_hint_levels", {})[current_stage["id"]] = hint_level
         log_decision(state, decision, question, current_stage["id"])
         _append_tutor_turn(state, question, collected_answer)
         _write_state(root, state)
-
-    for guard_line in _guarded_events(guard_filter.close()):
-        yield guard_line
 
     done_payload = {
         "type": "done",
@@ -3102,11 +2998,4 @@ async def ask_assistant_streaming(
         "decision_confidence": decision.get("confidence"),
         "observations": observations,
     }
-    if final_guard is not None:
-        done_payload["guard"] = {
-            **final_guard.to_dict(),
-            "blocked_blocks": guard_filter.blocked_count,
-        }
-        if regen_status is not None:
-            done_payload["guard"]["regen_status"] = regen_status
     yield _json.dumps(done_payload, ensure_ascii=False) + "\n"

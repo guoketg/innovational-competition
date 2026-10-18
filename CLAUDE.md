@@ -173,6 +173,24 @@ python backend/rag_builder.py --provider siliconflow --api-key <你的SiliconFlo
 - 用户提出**讲解/解释类请求**时，默认**不要**加载可视化模块（dynamic-ui / Inline Visuals / PureShowWidget），直接以文字 + 代码引用作答。
 - 如 agent 认为可视化确实更有助于理解，可**先询问**用户："可视化更容易理解，你需要补充吗？"，经用户同意后再渲染，禁止默认直接启动可视化。
 
+## 关键决策记录
+
+### 2026-10-18：内容通道护栏（防泄题护栏）下线
+
+**决定**：断开防泄题护栏在运行时的全部调用，AI 输出的代码不再做「与参考答案文字重合」拦截。行为通道（工具代改护栏）保持不变。
+
+- **动的 4 个调用点**：`backend/routers/qa_router.py`（流式问答）、`backend/services/qa_service.py`（非流式问答）、`backend/services/lab_workspace_service.py`（关卡导师的流式与非流式两条链路，含轮末兜底复检与「重生成再检」）。
+- **未删文件**：`backend/services/answer_guard_service.py` 与其单测 `backend/tests/test_answer_guard_service.py` 完整保留，供随时回滚与离线评测复用；`backend/scripts/` 下的内容通道评测脚本同样保留（历史基线数据不丢）。
+- **保留的一处复用**：关卡导师里的 `evaluate_release()`（释放阀）现在只作为**行为通道的免提示加速通道**喂给 `decide_channel(valve_released=...)`，不再影响任何内容输出。
+
+**下线理由（用户决策）**：
+
+1. **与 DPO 的「请求轴」原则冲突**。DPO 训练模型「用户发起 → 给；AI 主动 → 不给」，而内容护栏不看用户意图、只比文字重合——用户明确索要答案时仍被拦。用户原话：「代码要不要是用户发起，我们的系统是没资格拦截代码的。」
+2. **项目自己的评测口径本就否定这种做法**。`backend/scripts/evaluate_direct_code_rate.py` 的标注规则写明：`give_hint 且诉求为答案/改码 → 该拦(over_block 过度拦截)`，即「用户要答案、AI 只给提示」被判为错误。
+3. **有实证**：扫描 `backend/data/dpo/` 全部 5562 条（chosen/rejected 两臂）后，**48 条「用户明确要答案/要改码 + chosen 给答案」的偏好样本会被护栏判为违规**；作为对照，用户只要提示（hint_only）时被拦的只有 2 条。
+
+**连带影响（需同步口径）**：PPT 创新点 2（检测与在线判定）、创新点 3（基于多维证据的时机干预）失去运行时实现，答辩口径应改为「拦截 AI **未经请求**主动泄题」而非「系统拦截代码」，或另作调整；内容通道基线指标（如过度拦截率 0.1429）保留为历史数据，不再由运行时产生新日志。
+
 ## 重要注意事项
 - `backend/docker-entrypoint.sh` 必须是 **LF** 行尾符（不是 CRLF），否则容器启动报 `Illegal option -`
 - Demo 账号：`demo` / `demo123`
