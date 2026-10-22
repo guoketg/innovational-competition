@@ -1,6 +1,6 @@
 /**
  * 共享的 markdown 渲染器 — 为代码块添加"复制"按钮 + 语法高亮
- * 用于 LearningDocs.vue / Resources.vue 等不需要"运行"按钮的页面
+ * 用于 LearningDocs.vue 等不需要"运行"按钮的页面
  */
 import { marked } from 'marked'
 import hljs from 'highlight.js'
@@ -60,6 +60,10 @@ const renderer = new marked.Renderer()
 
 renderer.code = function (code, infostring) {
   const lang = infostring || 'plaintext'
+  // Mermaid 图表：保留原始代码，交给 useMermaid 在挂载后画成图
+  if (lang.trim().toLowerCase() === 'mermaid') {
+    return `<div class="mermaid">${escapeHtml(code)}</div>`
+  }
   const highlighted = highlightCode(code, infostring)
   return `<div class="code-block-wrapper">
     <div class="code-toolbar">

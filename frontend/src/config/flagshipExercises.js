@@ -6,7 +6,7 @@ export const MODULES = [
     name: '阶段一：线性结构与基础容器',
     level: '入门',
     project: '算法工具箱',
-    description: '从顺序表开始，用 C++ 标准库实现线性结构与基础容器；每一关的函数都会收进「算法工具箱」，供后续关卡复用。',
+    description: '从顺序表开始，用 C++ 标准库实现线性结构与基础容器；每关只做本关自己的那道题，代码互不影响。',
     tasks: [
       { id: '1-1', title: '实现顺序表插入', duration: '45分钟' },
       { id: '1-2', title: '反转单链表', duration: '60分钟' },

@@ -57,7 +57,6 @@ async def get_llm_config(current_user: dict = Depends(get_current_user)):
             temperature=r.get("temperature", 0.7),
             max_tokens=r.get("max_tokens", 4096),
             is_configured=bool(r.get("api_key")),
-            image_api_key=_mask_api_key(r.get("image_api_key", "")),
             embedding_api_key=_mask_api_key(r.get("embedding_api_key", "")),
             embedding_provider=r.get("embedding_provider", "siliconflow"),
             embedding_model=r.get("embedding_model", "BAAI/bge-large-zh-v1.5"),
@@ -85,7 +84,7 @@ async def save_llm_config(req: LLMConfigRequest, current_user: dict = Depends(ge
     """
     conn = get_db()
     existing = conn.execute(
-        "SELECT api_key, image_api_key, embedding_api_key, search_api_key, jev_api_key "
+        "SELECT api_key, embedding_api_key, search_api_key, jev_api_key "
         "FROM user_llm_config WHERE user_id = ?",
         (current_user["id"],)
     ).fetchone()
@@ -99,7 +98,6 @@ async def save_llm_config(req: LLMConfigRequest, current_user: dict = Depends(ge
         return old_encrypted or ""
 
     final_api_key = _keep_or_set(req.api_key, old.get("api_key"))
-    final_image_key = _keep_or_set(req.image_api_key, old.get("image_api_key"))
     final_embedding_key = _keep_or_set(req.embedding_api_key, old.get("embedding_api_key"))
     final_search_key = _keep_or_set(req.search_api_key, old.get("search_api_key"))
     final_jev_key = _keep_or_set(req.jev_api_key, old.get("jev_api_key"))
@@ -109,12 +107,12 @@ async def save_llm_config(req: LLMConfigRequest, current_user: dict = Depends(ge
         conn.execute(
             """UPDATE user_llm_config
                SET provider=?, api_key=?, base_url=?, model_name=?,
-                   temperature=?, max_tokens=?, image_api_key=?,
+                   temperature=?, max_tokens=?,
                    embedding_api_key=?, embedding_provider=?, embedding_model=?,
                    search_api_key=?, jev_api_key=?, updated_at=?
                WHERE user_id=?""",
             (req.provider, final_api_key, req.base_url, req.model_name,
-             req.temperature, req.max_tokens, final_image_key,
+             req.temperature, req.max_tokens,
              final_embedding_key, req.embedding_provider or "siliconflow",
              req.embedding_model or "BAAI/bge-large-zh-v1.5",
              final_search_key, final_jev_key, now, current_user["id"])
@@ -122,11 +120,11 @@ async def save_llm_config(req: LLMConfigRequest, current_user: dict = Depends(ge
     else:
         conn.execute(
             """INSERT INTO user_llm_config
-               (user_id, provider, api_key, base_url, model_name, temperature, max_tokens, image_api_key,
+               (user_id, provider, api_key, base_url, model_name, temperature, max_tokens,
                 embedding_api_key, embedding_provider, embedding_model, search_api_key, jev_api_key, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (current_user["id"], req.provider, final_api_key, req.base_url,
-             req.model_name, req.temperature, req.max_tokens, final_image_key,
+             req.model_name, req.temperature, req.max_tokens,
              final_embedding_key, req.embedding_provider or "siliconflow",
              req.embedding_model or "BAAI/bge-large-zh-v1.5",
              final_search_key, final_jev_key, now)

@@ -50,7 +50,14 @@
     </div>
 
     <div class="stats-grid">
-      <button type="button" class="stat-card" v-for="stat in statsCards" :key="stat.label" @click="router.push(stat.route)">
+      <button
+        type="button"
+        class="stat-card"
+        :class="{ 'stat-card--flat': !stat.route }"
+        v-for="stat in statsCards"
+        :key="stat.label"
+        @click="stat.route && router.push(stat.route)"
+      >
         <div class="stat-icon-wrap" :style="{ background: stat.bg }">
           <el-icon :size="21" :style="{ color: stat.color }"><component :is="stat.icon" /></el-icon>
         </div>
@@ -58,7 +65,7 @@
           <div class="stat-label">{{ stat.label }}</div>
           <div class="stat-value">{{ stat.value }}</div>
         </div>
-        <span class="stat-arrow">↗</span>
+        <span v-if="stat.route" class="stat-arrow">↗</span>
       </button>
     </div>
 
@@ -116,11 +123,6 @@
             <div v-if="dailyTasks.study_tips" class="tips-bar">
               <el-icon><InfoFilled /></el-icon> {{ dailyTasks.study_tips }}
             </div>
-            <div class="task-footer">
-              <el-button type="primary" :disabled="dailyTasks?.completed" @click="markTaskDone">
-                {{ dailyTasks?.completed ? '✓ 今日任务已完成' : '完成今日所有任务' }}
-              </el-button>
-            </div>
           </div>
           <el-empty v-else description="暂无今日任务">
             <el-button type="primary" @click="router.push('/learning-docs')">去学习文档</el-button>
@@ -164,15 +166,12 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { useStatStore } from '../stores/statStore'
 import { getDailyTasks, recordStudyVisit } from '../api/learning'
-import { useLearningStore } from '../stores/learning'
-import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { relativeTime } from '../composables/useTime'
 
 const router = useRouter()
 const userStore = useUserStore()
 const statStore = useStatStore()
-const learningStore = useLearningStore()
 
 const dailyTasks = ref({})
 const growthChart = ref(null)
@@ -202,29 +201,20 @@ const welcomeQuote = ref(welcomeQuotes[Math.floor(Math.random() * welcomeQuotes.
 const quickActions = computed(() => [
   { label: '学情自测', desc: '定位知识盲区', icon: 'EditPen', bg: 'linear-gradient(145deg, #0F52BA, #7B61FF)', route: '/diagnosis' },
   { label: '学习文档', desc: '系统学习教程', icon: 'Guide', bg: 'linear-gradient(145deg, #FF9F43, #FFB976)', route: '/learning-docs' },
-  { label: '学习资源', desc: '精选可信资料', icon: 'Collection', bg: 'linear-gradient(145deg, #36D399, #5EE8B0)', route: '/resources' },
   { label: '错题本', desc: '回看薄弱环节', icon: 'Notebook', bg: 'linear-gradient(145deg, #FF9F43, #ecad55)', route: '/error-book' },
-  { label: '学情复盘', desc: '看见真实成长', icon: 'DataAnalysis', bg: 'linear-gradient(145deg, #7B61FF, #8c73c4)', route: '/analytics' },
 ])
 
 // ===== 统计卡片（computed 从 Pinia 取值，保证响应式） =====
+// 「学情复盘」页面已下线，它的指标全部并到这里；没有落点的卡片不再做成可点击。
 const statsCards = computed(() => [
-  { label: '学习天数', value: statStore.studyDays, icon: 'Timer', bg: '#eef2fb', color: '#0F52BA', route: '/analytics', trend: null },
-  { label: '做题总数', value: statStore.totalQuestions, icon: 'EditPen', bg: '#e9f8f2', color: '#36D399', route: '/error-book', trend: null },
-  { label: '平均正确率', value: Number(statStore.avgCorrectRate).toFixed(1) + '%', icon: 'TrendCharts', bg: '#fff5ed', color: '#FF9F43', route: '/analytics', trend: null },
+  { label: '学习天数', value: statStore.studyDays, icon: 'Timer', bg: '#eef2fb', color: '#0F52BA', route: null },
+  { label: '做题总数', value: statStore.totalQuestions, icon: 'EditPen', bg: '#e9f8f2', color: '#36D399', route: '/error-book' },
+  { label: '平均正确率', value: Number(statStore.avgCorrectRate).toFixed(1) + '%', icon: 'TrendCharts', bg: '#fff5ed', color: '#FF9F43', route: null },
+  { label: '测评次数', value: statStore.quizCount, icon: 'DocumentChecked', bg: '#f3f0ff', color: '#7B61FF', route: null },
 ])
 
 // ===== 今日任务 =====
 function enrichTasks(data) { if (!data?.tasks) return data; data.tasks = data.tasks.map(t => ({ ...t, done: data.completed })); return data }
-
-async function markTaskDone() {
-  try {
-    const isCompleted = dailyTasks.value?.completed
-    await learningStore.finishTask('', isCompleted ? 0 : 1)
-    dailyTasks.value = enrichTasks(await getDailyTasks()) || {}
-    ElMessage.success(isCompleted ? '任务已重新打开' : '今日任务全部完成！')
-  } catch (e) { ElMessage.error('更新失败') }
-}
 
 // ===== 页面挂载：先注册 watcher，再拉数据（watcher 能捕获初始赋值） =====
 onMounted(async () => {
@@ -298,11 +288,12 @@ function initRadarChart() {
 .welcome-meta { display: flex; align-items: center; gap: 14px; }.stage-badge { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border: 1px solid rgba(255,255,255,.14); border-radius: 999px; color: rgba(255,255,255,.84); background: rgba(255,255,255,.07); font-size: 11px; font-weight: 650; }.stage-badge i { width: 6px; height: 6px; border-radius: 50%; background: #ff927a; }.welcome-date { color: rgba(255,255,255,.4); font-size: 11px; }
 .welcome-stats-row { display: flex; gap: 8px; }.welcome-mini-stat { min-width: 94px; padding: 14px 16px; border: 1px solid rgba(255,255,255,.11); border-radius: 15px; text-align: center; background: rgba(255,255,255,.07); backdrop-filter: blur(8px); }.wms-value { color: #fff; font-family: Georgia, serif; font-size: 27px; }.wms-label { margin-top: 5px; color: rgba(255,255,255,.43); font-size: 10px; }
 .section-heading { display: flex; align-items: end; justify-content: space-between; margin: 0 2px 13px; }.section-eyebrow { color: var(--primary); font-size: 9px; font-weight: 800; letter-spacing: .16em; }.section-heading h2 { margin: 4px 0 0; color: var(--ink-950); font-size: 18px; }.section-link { padding: 0 2px 2px; border: 0; color: var(--ink-600); background: transparent; font-size: 11px; font-weight: 700; cursor: pointer; }.section-link span { margin-left: 5px; color: var(--primary); }.section-link:hover { color: var(--primary); }
-.quick-actions { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 11px; margin-bottom: 14px; }.qa-card { position: relative; display: grid; grid-template-columns: 38px 1fr; grid-template-rows: auto auto; column-gap: 11px; overflow: hidden; padding: 13px; border: 1px solid var(--line); border-radius: 15px; text-align: left; background: rgba(255,255,255,.94); box-shadow: var(--shadow-sm); cursor: pointer; transition: .22s ease; }.qa-card:hover { border-color: #cfd5f3; transform: translateY(-2px); box-shadow: 0 11px 25px rgba(30,45,84,.09); }.qa-icon { display: flex; grid-row: 1 / 3; width: 38px; height: 38px; align-items: center; justify-content: center; border-radius: 11px; color: #fff; box-shadow: 0 7px 15px rgba(44,57,101,.14); }.qa-label { align-self: end; color: var(--ink-950); font-size: 12px; font-weight: 720; }.qa-desc { align-self: start; margin-top: 3px; color: var(--ink-400); font-size: 9px; white-space: nowrap; }
+.quick-actions { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 11px; margin-bottom: 14px; }.qa-card { position: relative; display: grid; grid-template-columns: 38px 1fr; grid-template-rows: auto auto; column-gap: 11px; overflow: hidden; padding: 13px; border: 1px solid var(--line); border-radius: 15px; text-align: left; background: rgba(255,255,255,.94); box-shadow: var(--shadow-sm); cursor: pointer; transition: .22s ease; }.qa-card:hover { border-color: #cfd5f3; transform: translateY(-2px); box-shadow: 0 11px 25px rgba(30,45,84,.09); }.qa-icon { display: flex; grid-row: 1 / 3; width: 38px; height: 38px; align-items: center; justify-content: center; border-radius: 11px; color: #fff; box-shadow: 0 7px 15px rgba(44,57,101,.14); }.qa-label { align-self: end; color: var(--ink-950); font-size: 12px; font-weight: 720; }.qa-desc { align-self: start; margin-top: 3px; color: var(--ink-400); font-size: 9px; white-space: nowrap; }
 .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }.stat-card { position: relative; display: flex; align-items: center; gap: 12px; overflow: hidden; min-width: 0; padding: 15px 16px; border: 1px solid var(--line); border-radius: 15px; text-align: left; background: rgba(255,255,255,.94); box-shadow: var(--shadow-sm); cursor: pointer; transition: .2s ease; }.stat-card:hover { border-color: #ccd3ef; transform: translateY(-2px); box-shadow: 0 10px 26px rgba(30,45,84,.09); }.stat-icon-wrap { display: flex; width: 40px; height: 40px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 12px; }.stat-body { min-width: 0; flex: 1; }.stat-value { margin-top: 2px; color: var(--ink-950); font-family: Georgia, serif; font-size: 23px; font-weight: 650; line-height: 1.05; }.stat-label { color: var(--ink-400); font-size: 10px; }.stat-arrow { color: #ccd2df; font-size: 13px; }
+.stat-card--flat { cursor: default; }.stat-card--flat:hover { border-color: var(--line); transform: none; box-shadow: var(--shadow-sm); }
 .card-header { display: flex; align-items: center; justify-content: space-between; }.card-title { display: flex; align-items: center; gap: 8px; font-size: 14px; }
-.task-row { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid #edf0f6; }.task-row:last-child { border: 0; }.task-check { padding-top: 2px; }.task-topic { color: var(--ink-800); font-size: 13px; font-weight: 650; }.task-topic.done { color: var(--ink-400); text-decoration: line-through; }.task-action { margin-top: 4px; color: var(--ink-400); font-size: 11px; }.tips-bar { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding: 11px 14px; border: 1px solid #dce4fb; border-radius: 11px; color: var(--primary); background: #f3f5ff; font-size: 12px; }.task-footer { margin-top: 16px; text-align: center; }.activity-desc { color: var(--ink-600); font-size: 12px; }
-@media (max-width: 1240px) { .quick-actions { grid-template-columns: repeat(3,1fr); }.welcome-stats-row { display: none; } }
+.task-row { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid #edf0f6; }.task-row:last-child { border: 0; }.task-check { padding-top: 2px; }.task-topic { color: var(--ink-800); font-size: 13px; font-weight: 650; }.task-topic.done { color: var(--ink-400); text-decoration: line-through; }.task-action { margin-top: 4px; color: var(--ink-400); font-size: 11px; }.tips-bar { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding: 11px 14px; border: 1px solid #dce4fb; border-radius: 11px; color: var(--primary); background: #f3f5ff; font-size: 12px; }.activity-desc { color: var(--ink-600); font-size: 12px; }
+@media (max-width: 1240px) { .welcome-stats-row { display: none; } }
 @media (max-width: 980px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
 @media (max-width: 720px) { .welcome-banner { padding: 25px 22px; border-radius: 19px; }.welcome-title { font-size: 24px; }.welcome-date { display: none; }.section-link { display: none; }.quick-actions { grid-template-columns: repeat(2,1fr); gap: 9px; }.qa-card { padding: 12px; }.stat-card { padding: 13px; }.stat-value { font-size: 22px; } }
 @media (max-width: 430px) { .quick-actions, .stats-grid { grid-template-columns: 1fr; } }

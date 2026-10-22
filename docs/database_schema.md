@@ -319,7 +319,6 @@ CREATE TABLE user_llm_config (
     model_name        TEXT DEFAULT 'gpt-4o',
     temperature       REAL DEFAULT 0.7,
     max_tokens        INTEGER DEFAULT 4096,
-    image_api_key     TEXT DEFAULT '',
     embedding_provider TEXT DEFAULT '',
     embedding_api_key TEXT DEFAULT '',
     embedding_model   TEXT DEFAULT 'text-embedding-v3',
@@ -340,7 +339,6 @@ CREATE TABLE user_llm_config (
 | model_name | TEXT | DEFAULT 'gpt-4o' | 模型名 |
 | temperature | REAL | DEFAULT 0.7 | 温度参数 |
 | max_tokens | INTEGER | DEFAULT 4096 | 最大 token |
-| image_api_key | TEXT | DEFAULT '' | 生图 API Key |
 | embedding_provider | TEXT | DEFAULT '' | 嵌入提供商 |
 | embedding_api_key | TEXT | DEFAULT '' | 嵌入 API Key |
 | embedding_model | TEXT | DEFAULT 'text-embedding-v3' | 嵌入模型 |
@@ -348,7 +346,7 @@ CREATE TABLE user_llm_config (
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 | updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 更新时间 |
 
-> ⚠️ `image_api_key`, `embedding_*`, `search_api_key` 通过 migration 添加
+> ⚠️ `embedding_*`, `search_api_key` 通过 migration 添加
 
 ---
 

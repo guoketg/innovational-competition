@@ -23,8 +23,8 @@ const routes = [
       { path: 'lab-history', name: 'LabHistory', component: () => import('../views/LabHistory.vue'), meta: { title: '编程实验室 · 已完成记录' } },
       { path: 'code-runner', name: 'CodeRunner', component: () => import('../views/CodeRunner.vue'), meta: { title: '代码运行器', workspace: true } },
       { path: 'error-book', name: 'ErrorBook', component: () => import('../views/ErrorBook.vue'), meta: { title: '错题本' } },
-      { path: 'analytics', name: 'Analytics', component: () => import('../views/Analytics.vue'), meta: { title: '学情复盘' } },
-      { path: 'resources', name: 'Resources', component: () => import('../views/Resources.vue'), meta: { title: '学习资源' } },
+      // 学情复盘已并入学习控制台，旧链接（书签 / 浏览器历史）回到控制台，避免打开空白页
+      { path: 'analytics', redirect: '/dashboard' },
       { path: 'profile', name: 'Profile', component: () => import('../views/Profile.vue'), meta: { title: '个人中心' } },
     ]
   },

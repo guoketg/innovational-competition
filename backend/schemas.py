@@ -171,7 +171,6 @@ class LLMConfigRequest(BaseModel):
     model_name: Optional[str] = "gpt-4o"
     temperature: Optional[float] = 0.7
     max_tokens: Optional[int] = 4096
-    image_api_key: Optional[str] = ""  # Replicate API key for image generation
     embedding_api_key: Optional[str] = ""  # SiliconFlow BGE API key for RAG query embedding
     embedding_provider: Optional[str] = "siliconflow"
     embedding_model: Optional[str] = "BAAI/bge-large-zh-v1.5"
@@ -186,7 +185,6 @@ class LLMConfigResponse(BaseModel):
     temperature: float = 0.7
     max_tokens: int = 4096
     is_configured: bool = False  # whether user has set a custom config
-    image_api_key: str = ""  # masked: "r8_...xyz"
     embedding_api_key: str = ""  # masked
     embedding_provider: str = "siliconflow"
     embedding_model: str = "BAAI/bge-large-zh-v1.5"

@@ -91,7 +91,7 @@ def validate_student_sql(sql: str) -> str:
 
 async def generate_student_sql(user_id: int, question: str) -> dict[str, str]:
     schema_text = "\n".join(f"- {table}({columns})" for table, columns in ALLOWED_SCHEMAS.items())
-    prompt = f"""把学生的自然语言问题转换为一条 SQLite/PostgreSQL 都可执行的只读 SQL。
+    prompt = f"""把学生的自然语言问题转换为一条 SQLite 只读 SQL。
 
 可用表：
 {schema_text}

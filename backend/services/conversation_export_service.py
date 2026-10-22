@@ -34,7 +34,7 @@ def _safe_value(value: Any, anonymize: bool) -> Any:
         return {
             str(key): _safe_value(item, anonymize)
             for key, item in value.items()
-            if str(key).lower() not in {"api_key", "search_api_key", "embedding_api_key", "image_api_key"}
+            if str(key).lower() not in {"api_key", "search_api_key", "embedding_api_key"}
         }
     if isinstance(value, list):
         return [_safe_value(item, anonymize) for item in value]

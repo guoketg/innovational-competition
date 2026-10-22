@@ -17,7 +17,7 @@ from config import BASE_DIR
 from database import get_db
 from services.secret_store import decrypt_config
 
-# ── 简易 TTL 内存缓存（降低远程 PostgreSQL 的网络往返延迟）──
+# ── 简易 TTL 内存缓存（减少重复查询开销）──
 _cache_store: dict[str, tuple[float, Any]] = {}
 
 
@@ -1335,7 +1335,7 @@ def get_knowledge_point_detail(user_id: int, fact_key: str, fact_value: str = ""
 
     conn = get_db()
     try:
-        # 用 content LIKE 搜索匹配的会话（content 是纯文本，跨 SQLite/PostgreSQL 兼容）
+        # 用 content LIKE 搜索匹配的会话（content 是纯文本）
         like_clauses = " OR ".join(["cm2.content LIKE ?" for _ in search_keywords])
         sql = (
             """SELECT cm.role, cm.content, cm.created_at,

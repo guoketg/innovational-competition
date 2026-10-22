@@ -2,12 +2,12 @@
 import os
 from config import DATABASE_PATH
 
-# 统一数据库连接（支持 SQLite / PostgreSQL 切换）
-from db import get_db, is_postgresql, json_load
+# 统一数据库连接（SQLite）
+from db import get_db, json_load
 
 # 保留本地 get_db 引用，所有现有 import 不受影响
 # from database import get_db → 实际调用 db.get_db()
-__all__ = ["get_db", "init_db", "is_postgresql", "json_load"]
+__all__ = ["get_db", "init_db", "json_load"]
 
 def _run_migration(conn, table, column_sql, label):
     """安全执行数据库迁移（列已存在则跳过）"""
@@ -22,26 +22,13 @@ def _run_migration(conn, table, column_sql, label):
             print(f"[WARN] 迁移未执行（{label}）: {e}")
 
 def init_db():
-    """初始化数据库，创建所有表
-
-    - SQLite 模式: 创建表 + 迁移 + 种子数据
-    - PostgreSQL 模式: 表已通过 merged_schema.sql 创建，仅做连接验证 + 种子数据
-    """
+    """初始化数据库，创建所有表（含迁移与种子数据）"""
     # 测试和本地工具会临时替换 database.DATABASE_PATH；同步到底层连接模块，
     # 避免仍然打开生产 SQLite 文件。
-    if not is_postgresql():
-        import db as _db_module
-        _db_module.DATABASE_PATH = DATABASE_PATH
+    import db as _db_module
+    _db_module.DATABASE_PATH = DATABASE_PATH
     os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
     conn = get_db()
-
-    if is_postgresql():
-        print("[DB] 使用 PostgreSQL: " + os.getenv("DATABASE_URL", "")[:50] + "...")
-        _seed_pg_data(conn)
-        conn.commit()
-        conn.close()
-        print("[OK] PostgreSQL database connection verified")
-        return
 
     # 使用 connection.executescript 而非 cursor.executescript，
     # 避免 cursor 状态异常导致后续 migration 静默失败
@@ -184,7 +171,6 @@ def init_db():
             model_name TEXT DEFAULT 'gpt-4o',
             temperature REAL DEFAULT 0.7,
             max_tokens INTEGER DEFAULT 4096,
-            image_api_key TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id)
@@ -368,7 +354,6 @@ def init_db():
 
     # 数据库迁移
     _run_migration(conn, "error_questions", "session_id INTEGER", "错题表迁移: 添加 session_id 列")
-    _run_migration(conn, "user_llm_config", "image_api_key TEXT DEFAULT ''", "LLM配置表迁移: 添加 image_api_key 列")
     _run_migration(conn, "user_llm_config", "embedding_provider TEXT DEFAULT 'siliconflow'", "LLM配置表迁移: 添加 embedding_provider 列")
     _run_migration(conn, "user_llm_config", "embedding_api_key TEXT DEFAULT ''", "LLM配置表迁移: 添加 embedding_api_key 列")
     _run_migration(conn, "user_llm_config", "embedding_model TEXT DEFAULT 'BAAI/bge-large-zh-v1.5'", "LLM配置表迁移: 添加 embedding_model 列")
@@ -735,132 +720,6 @@ def _import_svgs_to_db():
         print(f"[OK] 已导入 {imported} 张 SVG 配图到数据库")
     conn.commit()
     conn.close()
-
-def _seed_pg_data(conn):
-    """PostgreSQL 模式下验证/补充种子数据（服务器可能已有数据，使用 ON CONFLICT 安全插入）"""
-    import json as _json
-
-    # ── Demo 用户 ──
-    try:
-        from auth import hash_password, verify_password
-        existing = conn.execute("SELECT * FROM users WHERE username = 'demo'").fetchone()
-        if not existing:
-            conn.execute(
-                "INSERT INTO users (username, password_hash, nickname, grade, learning_stage, learning_goal) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
-                ("demo", hash_password("demo123"), "Demo学员", "大一/计算机科学", "入门", "系统掌握数据结构与算法知识")
-            )
-            conn.execute(
-                "INSERT INTO learning_stats (user_id, date, study_duration, questions_done, correct_rate) "
-                "VALUES (1, CURRENT_DATE, 45, 12, 0.75) "
-                "ON CONFLICT (user_id, date) DO NOTHING"
-            )
-            conn.commit()
-            print("[OK] Demo account created: demo / demo123")
-        elif not verify_password("demo123", existing["password_hash"]):
-            # 已有用户但密码不匹配 → 更新为正确密码
-            conn.execute(
-                "UPDATE users SET password_hash = %s WHERE username = 'demo'",
-                (hash_password("demo123"),)
-            )
-            conn.commit()
-            print("[OK] Demo password reset to demo123")
-    except Exception as e:
-        print(f"[WARN] PG demo seed failed: {e}")
-
-    # ── Knowledge Tags ──
-    try:
-        _tag_exist = conn.execute("SELECT COUNT(*) AS cnt FROM knowledge_tags").fetchone()
-        if _tag_exist["cnt"] == 0:
-            _tags_path = os.path.join(os.path.dirname(__file__), "data", "knowledge_tags.json")
-            if os.path.exists(_tags_path):
-                with open(_tags_path, "r", encoding="utf-8") as _f:
-                    _tag_data = _json.load(_f)
-                _tag_count = 0
-                for _cat in _tag_data:
-                    _cat_name = _cat.get("category", "")
-                    for _tag in _cat.get("tags", []):
-                        _tag_name = _tag.get("name", "")
-                        if not _tag_name:
-                            continue
-                        conn.execute(
-                            "INSERT INTO knowledge_tags (name, category, description) "
-                            "VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
-                            (_tag_name, _cat_name, _tag.get("description", ""))
-                        )
-                        _tag_count += 1
-                conn.commit()
-                print(f"[OK] PG: 已导入 {_tag_count} 条知识标签")
-    except Exception as e:
-        print(f"[WARN] PG knowledge_tags seed failed: {e}")
-
-    # ── Exercise Metadata ──
-    try:
-        _exist = conn.execute("SELECT COUNT(*) AS cnt FROM exercise_test_metadata").fetchone()
-        if _exist["cnt"] == 0:
-            _ex_path = os.path.join(os.path.dirname(__file__), "data", "exercises_processed.json")
-            if os.path.exists(_ex_path):
-                import re as _re
-                with open(_ex_path, "r", encoding="utf-8") as _f:
-                    _exercises = _json.load(_f)
-                _ex_count = 0
-                for _ex in _exercises:
-                    _raw = _ex.get("skeleton_code", "") or _ex.get("starter_code", "")
-                    _funcs = _re.findall(r'def\s+(\w+)\s*\(', _raw)
-                    _target = ""
-                    for _fn in _funcs:
-                        if not _fn.startswith("_") and _fn != "__init__":
-                            _target = _fn
-                            break
-                    if not _target and _funcs:
-                        _target = _funcs[0]
-                    _cls = _re.search(r'class\s+(\w+)', _raw)
-                    _etype = "class_method" if _cls else "function"
-                    _guide = f"# 请在此处实现 {_target}() 函数功能" if _target else "# 请在此处编写代码"
-                    conn.execute(
-                        "INSERT INTO exercise_test_metadata "
-                        "(exercise_id, exercise_type, target_function, locked_code, guide_comment, test_cases_json) "
-                        "VALUES (%s, %s, %s, %s, %s, %s) "
-                        "ON CONFLICT (exercise_id) DO NOTHING",
-                        (_ex["id"], _etype, _target, _raw, _guide, "[]")
-                    )
-                    _ex_count += 1
-                conn.commit()
-                print(f"[OK] PG: 已导入 {_ex_count} 条习题元数据")
-    except Exception as e:
-        print(f"[WARN] PG exercise metadata seed failed: {e}")
-
-    # ── Tutorial Seed Documents ──
-    try:
-        _seed_path = os.path.join(os.path.dirname(__file__), "data", "tutorial_seed.json")
-        if os.path.exists(_seed_path):
-            with open(_seed_path, "r", encoding="utf-8") as _f:
-                _seed_docs = _json.load(_f)
-            _imported = 0
-            for _doc in _seed_docs:
-                _existing = conn.execute(
-                    "SELECT 1 FROM tutorial_documents WHERE knowledge_tag = %s AND source_type = 'seed' AND user_id IS NULL",
-                    (_doc["knowledge_tag"],)
-                ).fetchone()
-                if _existing:
-                    continue
-                conn.execute(
-                    "INSERT INTO tutorial_documents "
-                    "(knowledge_tag, title, content, source_type, user_id, parent_id, curriculum_version) "
-                    "VALUES (%s, %s, %s, 'seed', NULL, NULL, %s)",
-                    (_doc["knowledge_tag"], _doc.get("title", ""), _doc["content"],
-                     _doc.get("curriculum_version", ""))
-                )
-                _imported += 1
-            conn.commit()
-            if _imported:
-                print(f"[OK] PG: Imported {_imported} tutorial seed documents")
-    except Exception as e:
-        print(f"[WARN] PG tutorial seed failed: {e}")
-
-    # ── SVG Images（PG 模式跳过 — 配图按需生成，无需预导入 189 个大文件） ──
-    print("[OK] PG: SVG 配图跳过（按需生成）")
-
 
 if __name__ == "__main__":
     init_db()

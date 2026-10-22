@@ -58,9 +58,3 @@ async def generate_image(user_id, prompt, style="educational"):
         return {"success": True, "svg": svg, "cached": False}
     except Exception as e:
         return {"success": False, "error": str(e)}
-
-def get_cached_images(user_id):
-    conn = get_db()
-    rows = conn.execute("SELECT prompt_hash, file_path FROM generated_images WHERE user_id=? AND file_path IS NOT NULL ORDER BY created_at DESC LIMIT 500", (user_id,)).fetchall()
-    conn.close()
-    return [{"prompt_hash": r["prompt_hash"], "url": "/api/images/"+os.path.basename(r["file_path"])} for r in rows if os.path.exists(r["file_path"])]

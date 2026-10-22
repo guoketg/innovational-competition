@@ -178,19 +178,7 @@ def _stage_hints(stage_id: str, exercise: dict, targets: list[str], track: dict,
     target_label = "、".join(targets) or "核心函数"
     steps = [str(item).strip() for item in exercise.get("steps", []) if str(item).strip()]
     acceptance = [str(item).strip() for item in exercise.get("acceptance", []) if str(item).strip()]
-    if stage_id == "structure":
-        texts = [
-            f"本关只有一个文件 {solution_file}——不需要虚拟环境，也不需要 requirements.txt。",
-            f"打开 {solution_file}，先看清目标函数的签名、参数顺序和返回值契约，这些不能改动。",
-            f"如果找不到文件，确认项目根目录下 {solution_file} 存在且大小写完全一致。",
-        ]
-    elif stage_id == "doc_intro":
-        texts = [
-            "先明确三件事：这一步要实现什么函数？输入输出是什么？验收标准有哪些？",
-            "打开「项目文档」（面板标题栏 📚 图标）或本卡片里的「查看文档讲解」，通读配套教程的前两节。",
-            "文档里带「插入编辑器」按钮的示例代码可以先点进去看，但先理解结构再动手写自己的版本。",
-        ]
-    elif stage_id == "first_llm_call":
+    if stage_id == "first_llm_call":
         texts = [
             f"先别管函数签名，用最朴素的方式把这件事在 {solution_file} 里做一遍，怎么方便怎么来。",
             "写完点【自测】跑一次样例，看清每一步发生了什么，再回头看下面的现象描述对不对得上。",
@@ -335,15 +323,9 @@ def _course(exercise_id: str) -> dict:
     targets = [str(item) for item in declared_targets]
     if spec.get("mode") == "checkpoint":
         targets = ["save_checkpoint", "load_checkpoint"]
-    # 本关自己的函数排在首位，其后是从上一关累积下来的「算法工具箱」函数。
-    # 判分只看 spec["target"]，这里多出来的名字只用于「函数是否还在工具箱里」的结构检查。
-    # 阶段一是累积式项目（1-2 继承 1-1、1-3 继承 1-2）。只在前一关与本关语言
-    # 相同时才继承：1-1 改成 C++ 后，1-2 再宣称「继承 1-1 的 solution.py」就是假话，
-    # 而且 _carry_over_toolbox 也找不到那个文件。
-    _CARRIES_FROM = {"1-2": "1-1", "1-3": "1-2"}
-    previous = _CARRIES_FROM.get(exercise_id, "")
-    carries_from = previous if previous and lab_language(previous) == lab_language(exercise_id) else ""
-    carried_targets = targets[1:] if carries_from else []
+    # 每关只考本关自己的函数，工作区也只放本关的骨架与学生的实现。
+    # 早期版本让 1-2 / 1-3 继承上一关的 solution（「算法工具箱」），结果打开
+    # 关卡看到的是上一关的代码，已在 2026-10-22 移除该机制。
 
     # 每个实验对应的配套文档（tutorial_documents 种子中的 knowledge_tag）
     _KNOWLEDGE_TAGS = {
@@ -362,24 +344,6 @@ def _course(exercise_id: str) -> dict:
         "4-3": "dsa-dsa-hash-table",
     }
     knowledge_tag = _KNOWLEDGE_TAGS.get(exercise_id, "")
-    # 学习文档的内部标签（如 dsa-dsa-linear-data-structures）对用户不友好，
-    # 卡片里改显示「文档 › 小节」的可读名称。
-    _KNOWLEDGE_LABELS = {
-        "1-1": "数据结构与算法 › 线性数据结构 › 数组（Array）",
-        "1-2": "数据结构与算法 › 线性数据结构 › 链表（Linked List）",
-        "1-3": "数据结构与算法 › 线性数据结构 › 栈（Stack）",
-        "2-1": "数据结构与算法 › 二叉搜索树 › 插入与查找",
-        "2-2": "数据结构与算法 › 二叉搜索树 › 遍历",
-        "2-3": "数据结构与算法 › 堆 › 上浮与下沉",
-        "2-4": "数据结构与算法 › 堆 › 堆排序",
-        "3-1": "数据结构与算法 › 图论 › 深度优先遍历",
-        "3-2": "数据结构与算法 › 并查集 › 路径压缩",
-        "3-3": "数据结构与算法 › 图论 › 最短路径",
-        "4-1": "数据结构与算法 › 基础算法 › 模块化与接口",
-        "4-2": "数据结构与算法 › 排序算法 › 归并排序",
-        "4-3": "数据结构与算法 › 哈希表（Hash Table）",
-    }
-    knowledge_label = _KNOWLEDGE_LABELS.get(exercise_id, knowledge_tag)
 
     implementation_steps = [str(item).strip() for item in exercise.get("steps", []) if str(item).strip()]
     implementation_hint = (
@@ -910,33 +874,7 @@ def _course(exercise_id: str) -> dict:
     # solution.cpp）。故障修复与变式迁移阶段会另行生成 repair_target.* /
     # VARIANT_TASK.md，但那由 capability_service 负责，不进入这里的结构检查。
     project_files = [solution_file]
-    stages = [
-        {
-            "id": "doc_intro", "title": "文档讲解入门", "icon": "Reading",
-            "instruction": (
-                f"写代码之前先读文档：点击下方「查看文档讲解」，打开本关配套教程"
-                f"（{knowledge_label}）。\n\n"
-                "重点通读『我们要解决什么问题』和『本节目标』两节，搞清楚：\n"
-                "1. 这一步要实现什么（目标函数 / 项目产物）\n"
-                "2. 输入输出契约是什么、验收标准有哪些\n"
-                "3. 文档里的示例代码可以点「插入编辑器」放进编辑器，但先理解再动手\n\n"
-                "读完文档后点击「AI 检查本阶段」完成入门，再开始搭项目骨架。"
-            ),
-            "command": "", "checks": ["已打开并阅读配套文档讲解"],
-            "target_file": "",
-        },
-        {
-            "id": "structure", "title": "确认题目文件", "icon": "FolderOpened",
-            "instruction": (
-                f"本关的项目文件是 {', '.join(project_files)}，文件名必须完全一致。\n\n"
-                f"打开 {solution_file}，里面已经给出目标函数的骨架与返回值契约，"
-                "你的任务就是把它实现出来。不需要创建虚拟环境、不需要声明或安装依赖——"
-                f"本关只用 {language_label} 标准库。"
-            ),
-            "command": "", "checks": [f"{solution_file} 存在", "文件名大小写一致"],
-            "target_file": solution_file,
-        },
-    ]
+    stages = []
 
     # 热身阶段：13 关都有（旧注释曾写「仅 Track 1」，与代码不符）。让学生在写正式
     # 实现之前先把这件事手工做一遍、点自测看现象，再进入 solution.py 的正式实现。
@@ -1017,8 +955,6 @@ def _course(exercise_id: str) -> dict:
         "packages": [] if language != "python" else track["packages"],
         "framework_imports": [] if language != "python" else track["imports"],
         "targets": targets,
-        "carried_targets": carried_targets,
-        "carries_from": carries_from,
         "project_files": project_files,
         "starter_code": exercise.get("starter_code", ""),
         "input_output": exercise.get("input_output", ""),
@@ -1318,37 +1254,10 @@ def reset_assistant(user_id: int, exercise_id: str) -> dict:
     }
 
 
-def _carry_over_toolbox(root: Path, course: dict) -> None:
-    """把上一关通过后的实现文件带进本关，形成累积的「算法工具箱」。
-
-    只在本地还没有实现文件时写入，绝不覆盖学生已经写好的代码。
-    优先取上一关的通关快照，没有快照时退回读它的工作区文件。
-    """
-    previous = str(course.get("carries_from") or "")
-    if not previous:
-        return
-    target = root / _course_solution_file(course)
-    if target.is_file():
-        return
-    source_root = root.parent / _safe_part(previous)
-    code = str(_read_state(source_root).get("passed_solution_code") or "")
-    if not code.strip():
-        legacy = source_root / lab_solution_file(previous)
-        if legacy.is_file():
-            code = legacy.read_text(encoding="utf-8")
-    if code.strip():
-        target.write_text(code, encoding="utf-8")
-
-
 def _seed(root: Path, course: dict, preserved_state: dict | None = None) -> None:
     solution_file = _course_solution_file(course)
     language_label = str(course.get("language_label") or "Python")
     conventions = [f"- 全部实现写在 `{solution_file}` 里，本关不需要其他文件"]
-    if course.get("carries_from"):
-        conventions.append(
-            f"- 本关会在上一关（{course['carries_from']}）的 `{solution_file}` 基础上继续累积："
-            "已经写好的函数请保留，不要删掉"
-        )
     if str(course.get("language") or "python") == "cpp":
         conventions += [
             "- 判题会把你的 `solution.cpp` 和一份自动生成的 `main.cpp` 一起用 "
@@ -1389,16 +1298,22 @@ def _seed(root: Path, course: dict, preserved_state: dict | None = None) -> None
 def _ensure_solution_file(root: Path, course: dict) -> None:
     """补齐本关要求的实现文件骨架，已有内容绝不覆盖。
 
-    structure 阶段要求「打开 solution.cpp 就能看到目标函数的骨架与返回值契约」，
-    first_llm_call 阶段也要拿它当「还没动过」的比较基准；缺了这一步，学生一进关
-    就只看到 README，两处判定都无从谈起。
+    first_llm_call 阶段拿它当「还没动过」的比较基准；缺了这一步，学生一进关
+    就只看到 README，判定无从谈起。
+
+    例外：文件存在但一个本关目标函数都没有（旧版本遗留、或历史「算法工具箱」
+    串关复制过来的别关代码），此时按陈旧文件处理，重写成本关骨架。
     """
-    # 累积式关卡（阶段一）先把上一关的算法工具箱带进本关
-    _carry_over_toolbox(root, course)
     solution = root / _course_solution_file(course)
-    if solution.is_file():
-        return
     starter = str(course.get("starter_code") or "")
+    if solution.is_file():
+        if not starter.strip():
+            return
+        content = solution.read_text(encoding="utf-8", errors="ignore")
+        expected = [t for t in (course.get("targets") or []) if t and t in starter]
+        if expected and not any(t in content for t in expected):
+            solution.write_text(starter, encoding="utf-8")
+        return
     if starter.strip():
         solution.write_text(starter, encoding="utf-8")
 
@@ -1434,7 +1349,7 @@ def get_workspace(user_id: int, exercise_id: str, reset: bool = False) -> dict:
     else:
         # 工作区非空却缺本关的实现文件：早期版本留下的工作区（只有 README.md /
         # .lab-state.json，甚至上一版语言的 solution.py）会让 _seed 因「目录非空」
-        # 被整段跳过，solution.cpp 永远不生成，学生卡在「确认题目文件」阶段——而
+        # 被整段跳过，solution.cpp 永远不生成，学生一进关就看不到题目文件——而
         # 前端并没有手动新建文件的入口，第一步就死住。这里补一次自愈：只补种缺失
         # 的骨架，绝不覆盖学生已经写好的代码。
         _ensure_solution_file(root, course)
@@ -1833,15 +1748,6 @@ def _judge_case_feedback(judged: dict) -> list[dict]:
 
 
 
-def mark_doc_viewed(user_id: int, exercise_id: str) -> dict:
-    """记录学生已打开过本关的文档讲解（doc_intro 阶段的判定依据）。"""
-    root = _root(user_id, exercise_id)
-    state = _read_state(root)
-    state["doc_viewed"] = True
-    _write_state(root, state)
-    return {"doc_viewed": True}
-
-
 def run_samples(user_id: int, exercise_id: str) -> dict:
     """自测：拿当前的解决方案文件跑一遍公开样例。
 
@@ -1984,16 +1890,7 @@ def check_stage(
             item["cases"] = cases
         checks.append(item)
 
-    if stage_id == "doc_intro":
-        state = _read_state(root)
-        viewed = bool(state.get("doc_viewed"))
-        add("已阅读配套文档讲解", viewed,
-            "已打开并阅读文档，可以开始搭项目" if viewed else "请先点击「查看文档讲解」打开本关配套教程，读完后回来点检查")
-    elif stage_id == "structure":
-        for name in course["project_files"]:
-            ok = (root / name).is_file()
-            add(name, ok, "文件存在，名称完全一致" if ok else f"请在项目根目录创建 {name}")
-    elif stage_id == "first_llm_call":
+    if stage_id == "first_llm_call":
         solution_file = _course_solution_file(course)
         path = root / solution_file
         if not path.is_file():
@@ -2055,14 +1952,9 @@ def check_stage(
                         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
                     }
             if language != "cpp":
-                carried = set(course.get("carried_targets") or [])
                 for target in course["targets"]:
                     if target in names:
                         add(target, True, "目标函数已定义")
-                    elif target in carried:
-                        add(target, False,
-                            f"算法工具箱里还缺上一关的 {target}；"
-                            f"请先完成上一关让它带过来，或者在本关把它一起补上")
                     else:
                         add(target, False, f"还没有定义 {target}")
             if all(target in names for target in course["targets"]):
@@ -2395,7 +2287,7 @@ def _lab_tool_schemas(*, allow_writes: bool = False, solution_file: str = "solut
                     "properties": {
                         "stage_id": {
                             "type": "string",
-                            "description": "阶段标识符，如 structure, environment, dependencies, first_llm_call, implementation, integration, acceptance"
+                            "description": "阶段标识符，如 first_llm_call, implementation, acceptance"
                         }
                     },
                     "required": ["stage_id"],

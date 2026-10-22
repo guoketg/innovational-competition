@@ -225,7 +225,6 @@ CREATE TABLE user_llm_config (
     model_name          TEXT DEFAULT 'gpt-4o',
     temperature         REAL DEFAULT 0.7,
     max_tokens          INTEGER DEFAULT 4096,
-    image_api_key       TEXT DEFAULT '',
     embedding_provider  TEXT DEFAULT '',
     embedding_api_key   TEXT DEFAULT '',
     embedding_model     TEXT DEFAULT 'text-embedding-v3',

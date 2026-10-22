@@ -145,8 +145,8 @@
                   </ol>
                 </div>
                 <button v-if="stage.id === 'implementation'" class="outline-button full" @click="insertStarter">插入本关函数骨架</button>
-                <button v-if="['implementation', 'doc_intro'].includes(stage.id) && course.knowledge_tag" class="doc-button" @click="openDocBrowser()">
-                  <el-icon><Notebook /></el-icon>{{ stage.id === 'doc_intro' ? '查看文档讲解（必读）' : '查看文档讲解' }}
+                <button v-if="stage.id === 'implementation' && course.knowledge_tag" class="doc-button" @click="openDocBrowser()">
+                  <el-icon><Notebook /></el-icon>查看文档讲解
                 </button>
                 <button class="check-button" :disabled="checkingStage === stage.id" @click="checkStage(stage)">
                   <el-icon v-if="checkingStage === stage.id" class="is-loading"><Loading /></el-icon>
@@ -686,7 +686,7 @@ import { oneDark } from '@codemirror/theme-one-dark'
 import {
   askLabAssistant, checkLabStage,
   getLabWorkspace, saveLabFile, runLabSamples, runLabJudge,
-  streamLabAssistant, resetLabAssistant, getLearningDocument, getLearningDocuments, markDocViewed,
+  streamLabAssistant, resetLabAssistant, getLearningDocument, getLearningDocuments,
 } from '../api/workspace'
 import { bindCodeBlockActions, renderMarkdown } from '../composables/useCodeBlockRenderer'
 import {
@@ -709,7 +709,7 @@ const stages = computed(() => course.value.stages || [])
 const files = ref([])
 const directories = ref([])
 const completedStages = ref([])
-const currentStage = ref('structure')
+const currentStage = ref('')
 const stageResults = reactive({})
 const checkingStage = ref('')
 const docDialog = ref(false)
@@ -1141,10 +1141,6 @@ async function selectDoc(item) {
     const res = await getLearningDocument(item.knowledge_tag)
     docContent.value = res?.content || ''
     if (!docContent.value) ElMessage.warning('文档内容为空，请稍后重试')
-    // 打开过文档即标记「文档讲解入门」完成依据（doc_intro 阶段）
-    if (res?.content) {
-      markDocViewed(exerciseId.value).catch(() => {})
-    }
   } catch (error) {
     docContent.value = ''
     ElMessage.error(error.response?.data?.detail || error.message || '文档加载失败')
@@ -1380,7 +1376,7 @@ async function loadWorkspace(reset = false) {
     hydrateAssistant(payload, reset || !chatMessages.value.length)
     restoreHintProgress()
     const nextStage = stages.value.find(stage => !completedStages.value.includes(stage.id))
-    currentStage.value = nextStage?.id || stages.value.at(-1)?.id || 'structure'
+    currentStage.value = nextStage?.id || stages.value.at(-1)?.id || ''
     guideTab.value = 'goal'
     const stageTarget = currentStageRecord.value?.target_file
     // 故障修复阶段学生要改的是 repair_target.*，重新打开工作区时优先把它摆到前台，

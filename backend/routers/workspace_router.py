@@ -86,15 +86,6 @@ async def save_file(exercise_id: str, req: FileWriteRequest, current_user: dict 
         _fail(exc)
 
 
-@router.post("/{exercise_id}/doc-viewed", response_model=APIResponse)
-async def mark_doc_viewed(exercise_id: str, current_user: dict = Depends(get_current_user)):
-    """记录学生已打开本关的文档讲解（doc_intro 阶段判定依据）"""
-    try:
-        return APIResponse(data=lab_workspace_service.mark_doc_viewed(current_user["id"], exercise_id))
-    except Exception as exc:
-        _fail(exc)
-
-
 @router.delete("/{exercise_id}/file", response_model=APIResponse)
 async def delete_file(exercise_id: str, req: FileDeleteRequest, current_user: dict = Depends(get_current_user)):
     try:

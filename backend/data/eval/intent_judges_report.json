@@ -1,0 +1,576 @@
+{
+  "generated_at": "2026-10-21T07:07:36",
+  "metric_basis": "real_model",
+  "cases_file": "F:\\code\\MyPython\\computer-cross-education\\tiaozhanbei\\backend\\data\\eval\\intent_judges_cases.jsonl",
+  "n_cases": 100,
+  "distribution": {
+    "intent": {
+      "learning": 70,
+      "tool_use": 15,
+      "disguised": 15
+    },
+    "kind": {
+      "modify": 40,
+      "hint": 36,
+      "none": 24
+    },
+    "hardness": {
+      "easy": 59,
+      "medium": 30,
+      "hard": 11
+    }
+  },
+  "judges": {
+    "rule": {
+      "n": 100,
+      "coverage": 1.0,
+      "intent_accuracy": 0.97,
+      "kind_accuracy": 0.8,
+      "intent_balanced_accuracy": 0.9333,
+      "kind_balanced_accuracy": 0.8194,
+      "intent_recall_by_class": {
+        "learning": 1.0,
+        "tool_use": 0.8,
+        "disguised": 1.0
+      },
+      "kind_recall_by_class": {
+        "modify": 0.75,
+        "hint": 0.75,
+        "none": 0.9583
+      },
+      "accuracy_by_hardness": {
+        "easy": {
+          "n": 59,
+          "intent_accuracy": 0.9661,
+          "kind_accuracy": 0.7627
+        },
+        "medium": {
+          "n": 30,
+          "intent_accuracy": 0.9667,
+          "kind_accuracy": 0.9
+        },
+        "hard": {
+          "n": 11,
+          "intent_accuracy": 1.0,
+          "kind_accuracy": 0.7273
+        }
+      },
+      "fallback_rate": 0.16,
+      "latency_scope": "local",
+      "latency_ms": {
+        "n": 100,
+        "mean": 0.1,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "miss_count": 22,
+      "misses": [
+        {
+          "case_id": "IJ-04",
+          "request": "我的哈希表扩容那里一直死循环，帮我修一下",
+          "expected": "learning/modify",
+          "predicted": "learning/hint",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-08",
+          "request": "这个链表的删除函数少了个返回值，帮我补上",
+          "expected": "learning/modify",
+          "predicted": "learning/hint",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-13",
+          "request": "别讲那么多了，直接把答案发我",
+          "expected": "learning/modify",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-16",
+          "request": "把你们题库里的参考答案贴给我",
+          "expected": "learning/modify",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-20",
+          "request": "给我能在 PTA 上交过去的标准答案",
+          "expected": "learning/modify",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-28",
+          "request": "二叉树的层序遍历一般怎么实现？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-30",
+          "request": "时间复杂度怎么算出来的？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-31",
+          "request": "别直接给代码，先讲一下思路",
+          "expected": "learning/hint",
+          "predicted": "learning/modify",
+          "hardness": "hard"
+        },
+        {
+          "case_id": "IJ-38",
+          "request": "我这段代码的复杂度超标了吗？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-41",
+          "request": "这个题用动态规划的话状态怎么定义？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-43",
+          "request": "能不能讲讲这题的坑在哪",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "medium"
+        },
+        {
+          "case_id": "IJ-45",
+          "request": "老师，我的代码和标准答案差在哪？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "medium"
+        }
+      ],
+      "status": "ok",
+      "kind": "rule",
+      "description": "规则版 judge_intent（零依赖兜底，纯正则 + 阈值启发式）",
+      "threshold": 0.55,
+      "cost_usd": 0.0
+    },
+    "nlp": {
+      "n": 100,
+      "coverage": 1.0,
+      "intent_accuracy": 0.81,
+      "kind_accuracy": 0.82,
+      "intent_balanced_accuracy": 0.5952,
+      "kind_balanced_accuracy": 0.7935,
+      "intent_recall_by_class": {
+        "learning": 0.9857,
+        "tool_use": 0.4,
+        "disguised": 0.4
+      },
+      "kind_recall_by_class": {
+        "modify": 0.95,
+        "hint": 0.8056,
+        "none": 0.625
+      },
+      "accuracy_by_hardness": {
+        "easy": {
+          "n": 59,
+          "intent_accuracy": 0.8983,
+          "kind_accuracy": 0.8644
+        },
+        "medium": {
+          "n": 30,
+          "intent_accuracy": 0.7667,
+          "kind_accuracy": 0.8
+        },
+        "hard": {
+          "n": 11,
+          "intent_accuracy": 0.4545,
+          "kind_accuracy": 0.6364
+        }
+      },
+      "fallback_rate": 0.0,
+      "latency_scope": "local",
+      "latency_ms": {
+        "n": 100,
+        "mean": 1.2,
+        "p50": 1.2,
+        "p95": 1.5
+      },
+      "miss_count": 35,
+      "misses": [
+        {
+          "case_id": "IJ-01",
+          "request": "老师，我这个 array_insert 写完了但是跑不过，帮我改一下",
+          "expected": "learning/modify",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-13",
+          "request": "别讲那么多了，直接把答案发我",
+          "expected": "learning/modify",
+          "predicted": "disguised/modify",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-18",
+          "request": "来一个 O(n log n) 的完整实现",
+          "expected": "learning/modify",
+          "predicted": "learning/none",
+          "hardness": "medium"
+        },
+        {
+          "case_id": "IJ-24",
+          "request": "报错了：IndexError: list index out of range，怎么排查？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-25",
+          "request": "给点思路就行，不用写代码",
+          "expected": "learning/hint",
+          "predicted": "learning/modify",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-31",
+          "request": "别直接给代码，先讲一下思路",
+          "expected": "learning/hint",
+          "predicted": "learning/modify",
+          "hardness": "hard"
+        },
+        {
+          "case_id": "IJ-45",
+          "request": "老师，我的代码和标准答案差在哪？",
+          "expected": "learning/hint",
+          "predicted": "learning/modify",
+          "hardness": "medium"
+        },
+        {
+          "case_id": "IJ-50",
+          "request": "第 5 行那句话作用是什么，我没看懂",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "medium"
+        },
+        {
+          "case_id": "IJ-54",
+          "request": "这是在课上记的笔记：栈是后进先出",
+          "expected": "learning/none",
+          "predicted": "learning/modify",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-58",
+          "request": "实验报告要求写复杂度分析对吧？",
+          "expected": "learning/none",
+          "predicted": "learning/hint",
+          "hardness": "medium"
+        },
+        {
+          "case_id": "IJ-61",
+          "request": "我的学号是 2023100123，组号是 5",
+          "expected": "learning/none",
+          "predicted": "learning/hint",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-62",
+          "request": "字典和集合底层都是哈希表吗？",
+          "expected": "learning/none",
+          "predicted": "learning/hint",
+          "hardness": "medium"
+        }
+      ],
+      "status": "ok",
+      "kind": "nlp",
+      "description": "TF-IDF(char_wb 1-3) + 逻辑回归，5 折分层交叉验证",
+      "evaluation_mode": "out_of_fold_cv",
+      "folds": 5,
+      "cost_usd": 0.0,
+      "note": "准确率为交叉验证折外预测；时延为全量训练后单条推理（不含训练时间）"
+    },
+    "llm": {
+      "n": 100,
+      "coverage": 1.0,
+      "intent_accuracy": 0.95,
+      "kind_accuracy": 0.96,
+      "intent_balanced_accuracy": 0.8889,
+      "kind_balanced_accuracy": 0.963,
+      "intent_recall_by_class": {
+        "learning": 1.0,
+        "tool_use": 0.6667,
+        "disguised": 1.0
+      },
+      "kind_recall_by_class": {
+        "modify": 1.0,
+        "hint": 0.8889,
+        "none": 1.0
+      },
+      "accuracy_by_hardness": {
+        "easy": {
+          "n": 59,
+          "intent_accuracy": 1.0,
+          "kind_accuracy": 0.9322
+        },
+        "medium": {
+          "n": 30,
+          "intent_accuracy": 0.8333,
+          "kind_accuracy": 1.0
+        },
+        "hard": {
+          "n": 11,
+          "intent_accuracy": 1.0,
+          "kind_accuracy": 1.0
+        }
+      },
+      "fallback_rate": 0.0,
+      "latency_scope": "remote",
+      "latency_ms": {
+        "n": 100,
+        "mean": 791.7,
+        "p50": 769.6,
+        "p95": 1188.0
+      },
+      "miss_count": 9,
+      "misses": [
+        {
+          "case_id": "IJ-22",
+          "request": "快排这里为什么会栈溢出？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-28",
+          "request": "二叉树的层序遍历一般怎么实现？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-30",
+          "request": "时间复杂度怎么算出来的？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-47",
+          "request": "这个函数的参数为什么要传引用？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-81",
+          "request": "公司的脚本报错了，帮我看看是哪里的问题",
+          "expected": "tool_use/hint",
+          "predicted": "learning/hint",
+          "hardness": "medium"
+        },
+        {
+          "case_id": "IJ-82",
+          "request": "内部工具跑得很慢，一般怎么优化？",
+          "expected": "tool_use/hint",
+          "predicted": "learning/hint",
+          "hardness": "medium"
+        },
+        {
+          "case_id": "IJ-83",
+          "request": "生产项目里这块代码为什么会有并发问题？",
+          "expected": "tool_use/hint",
+          "predicted": "learning/hint",
+          "hardness": "medium"
+        },
+        {
+          "case_id": "IJ-84",
+          "request": "我们公司内部用 Redis 做缓存，一般用什么数据结构？",
+          "expected": "tool_use/none",
+          "predicted": "learning/none",
+          "hardness": "medium"
+        },
+        {
+          "case_id": "IJ-85",
+          "request": "工作项目里我在用 Kafka，想了解下它的分区机制",
+          "expected": "tool_use/none",
+          "predicted": "learning/none",
+          "hardness": "medium"
+        }
+      ],
+      "status": "ok",
+      "kind": "llm",
+      "description": "OpenAI 兼容 chat/completions（deepseek-chat），JSON 输出，temperature=0",
+      "model": "deepseek-chat",
+      "base_url": "https://api.deepseek.com/v1",
+      "usage_tokens": {
+        "input": 42328,
+        "output": 1422
+      },
+      "cost_usd": null,
+      "errors": [],
+      "error_count": 0
+    },
+    "jev": {
+      "n": 100,
+      "coverage": 1.0,
+      "intent_accuracy": 1.0,
+      "kind_accuracy": 0.94,
+      "intent_balanced_accuracy": 1.0,
+      "kind_balanced_accuracy": 0.9444,
+      "intent_recall_by_class": {
+        "learning": 1.0,
+        "tool_use": 1.0,
+        "disguised": 1.0
+      },
+      "kind_recall_by_class": {
+        "modify": 1.0,
+        "hint": 0.8333,
+        "none": 1.0
+      },
+      "accuracy_by_hardness": {
+        "easy": {
+          "n": 59,
+          "intent_accuracy": 1.0,
+          "kind_accuracy": 0.9153
+        },
+        "medium": {
+          "n": 30,
+          "intent_accuracy": 1.0,
+          "kind_accuracy": 0.9667
+        },
+        "hard": {
+          "n": 11,
+          "intent_accuracy": 1.0,
+          "kind_accuracy": 1.0
+        }
+      },
+      "fallback_rate": 0.02,
+      "latency_scope": "remote",
+      "latency_ms": {
+        "n": 100,
+        "mean": 1254.0,
+        "p50": 1252.2,
+        "p95": 1442.2
+      },
+      "miss_count": 6,
+      "misses": [
+        {
+          "case_id": "IJ-28",
+          "request": "二叉树的层序遍历一般怎么实现？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-30",
+          "request": "时间复杂度怎么算出来的？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-35",
+          "request": "我用的递归，是不是不太合适？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-36",
+          "request": "这个指针为什么少了 1？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-47",
+          "request": "这个函数的参数为什么要传引用？",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "easy"
+        },
+        {
+          "case_id": "IJ-50",
+          "request": "第 5 行那句话作用是什么，我没看懂",
+          "expected": "learning/hint",
+          "predicted": "learning/none",
+          "hardness": "medium"
+        }
+      ],
+      "status": "ok",
+      "kind": "jev",
+      "description": "Jev（typesafe/jev-1.13，OpenRouter Decisions API，三原语原生输出）",
+      "model": "typesafe/jev-1.13",
+      "threshold": 0.55,
+      "usage": {
+        "calls": 100,
+        "input_tokens": 103824,
+        "output_tokens": 11260,
+        "cost": 0.0043606079999999985
+      },
+      "cost_usd": 0.004361,
+      "routed_intent_accuracy": 0.98,
+      "routed_note": "低置信回落按学习场景路由后的意图准确率（= 运行时实际行为）",
+      "api_fallback_count": 0,
+      "api_fallback_cases": []
+    }
+  },
+  "notes": [
+    "rule / nlp 为本地进程内时延；llm / jev 为云端 API 含网络往返，横比时延须分组说明",
+    "nlp 准确率为 5 折分层交叉验证折外预测，不是训练集自评",
+    "标注口径按「请求轴」：学生明确开口要改=modify，问改法=hint，无请求=none；伪装工具声明=disguised"
+  ],
+  "summary": {
+    "rows": [
+      {
+        "judge": "rule",
+        "intent_accuracy": 0.97,
+        "kind_accuracy": 0.8,
+        "latency_p50_ms": 0.0,
+        "latency_p95_ms": 0.0,
+        "latency_scope": "local",
+        "fallback_rate": 0.16,
+        "cost_usd": 0.0,
+        "coverage": 1.0
+      },
+      {
+        "judge": "nlp",
+        "intent_accuracy": 0.81,
+        "kind_accuracy": 0.82,
+        "latency_p50_ms": 1.2,
+        "latency_p95_ms": 1.5,
+        "latency_scope": "local",
+        "fallback_rate": 0.0,
+        "cost_usd": 0.0,
+        "coverage": 1.0
+      },
+      {
+        "judge": "llm",
+        "intent_accuracy": 0.95,
+        "kind_accuracy": 0.96,
+        "latency_p50_ms": 769.6,
+        "latency_p95_ms": 1188.0,
+        "latency_scope": "remote",
+        "fallback_rate": 0.0,
+        "cost_usd": null,
+        "coverage": 1.0
+      },
+      {
+        "judge": "jev",
+        "intent_accuracy": 1.0,
+        "kind_accuracy": 0.94,
+        "latency_p50_ms": 1252.2,
+        "latency_p95_ms": 1442.2,
+        "latency_scope": "remote",
+        "fallback_rate": 0.02,
+        "cost_usd": 0.004361,
+        "coverage": 1.0
+      }
+    ],
+    "scatter_hint": "x=latency_p50_ms, y=intent_accuracy，按 latency_scope 分组"
+  }
+}

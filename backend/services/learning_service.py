@@ -1815,11 +1815,7 @@ _PATH_VERSIONS_TABLE_READY = False
 
 
 def _ensure_path_versions_table() -> bool:
-    """确保路径版本表存在。
-
-    线上 PostgreSQL 的预建表由运维同步；这里再用 CREATE TABLE IF NOT EXISTS 兜底，
-    保证新环境（或还没执行建表脚本的环境）也能正常记录版本。
-    """
+    """确保路径版本表存在（CREATE TABLE IF NOT EXISTS 兜底，保证新环境也能正常记录版本）。"""
     global _PATH_VERSIONS_TABLE_READY
     if _PATH_VERSIONS_TABLE_READY:
         return True

@@ -91,8 +91,8 @@ class LabWorkspaceServiceTests(unittest.TestCase):
         workspace = service.get_workspace(7, "1-1")
         files = {item["path"]: item["content"] for item in workspace["files"]}
 
-        # structure / first_llm_call 两个阶段都假定「打开 solution.cpp 就能看到
-        # 返回值契约」，骨架缺失会让这两处判定同时失去依据。
+        # first_llm_call 阶段假定「打开 solution.cpp 就能看到返回值契约」，
+        # 骨架缺失会让判定失去依据。
         self.assertIn("std::vector<int> array_insert", files[SOLUTION])
         self.assertIn("std::logic_error", files[SOLUTION])
 
@@ -104,9 +104,9 @@ class LabWorkspaceServiceTests(unittest.TestCase):
                 course = service._course(exercise_id)
                 self.assertEqual(course["project_files"], [lab_solution_file(exercise_id)])
                 stage_ids = [item["id"] for item in course["stages"]]
-                for removed in ("environment", "dependencies", "integration"):
+                for removed in ("doc_intro", "structure", "environment", "dependencies", "integration"):
                     self.assertNotIn(removed, stage_ids)
-                self.assertEqual(stage_ids[:2], ["doc_intro", "structure"])
+                self.assertIn(stage_ids[0], ("first_llm_call", "implementation"))
                 self.assertEqual(stage_ids[-1], "acceptance")
 
     def test_no_stage_asks_the_student_to_use_a_terminal(self):
@@ -374,13 +374,13 @@ class LabWorkspaceServiceTests(unittest.TestCase):
     def test_progress_overview_uses_the_same_stage_state_as_workspace(self):
         service.get_workspace(7, "1-1")
         root = service._root(7, "1-1")
-        service._write_state(root, {"completed_stages": ["structure", "environment"], "commands": []})
+        service._write_state(root, {"completed_stages": ["first_llm_call", "environment"], "commands": []})
         overview = service.get_progress_overview(7)
         # environment 已不属于任何一关（13 关统一去掉了工程化阶段）。
         # 读取路径必须按当前课程过滤，否则前端会显示 8/5 这种超过总数的进度。
-        self.assertEqual(overview["1-1"]["completed_stages"], ["structure"])
+        self.assertEqual(overview["1-1"]["completed_stages"], ["first_llm_call"])
         self.assertEqual(overview["1-1"]["total_stages"], len(service._course("1-1")["stages"]))
-        self.assertEqual(overview["1-1"]["total_stages"], 5)
+        self.assertEqual(overview["1-1"]["total_stages"], 3)
         self.assertNotIn("virtual_env", overview["1-1"])
 
     def test_passed_state_restores_project_and_each_stage_result(self):

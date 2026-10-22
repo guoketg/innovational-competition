@@ -55,7 +55,7 @@ SPECS = {
     },
     "1-2": {
         "target": "reverse_list",
-        "targets": ["reverse_list", "array_insert"],
+        "targets": ["reverse_list"],
         "language": "cpp",
         "cpp": {
             "signatures": {
@@ -78,7 +78,7 @@ SPECS = {
     },
     "1-3": {
         "target": "eval_rpn",
-        "targets": ["eval_rpn", "reverse_list", "array_insert"],
+        "targets": ["eval_rpn"],
         "language": "cpp",
         "cpp": {
             "signatures": {
@@ -226,7 +226,7 @@ SPECS = {
     },
     "2-4": {
         "target": "heap_sort",
-        "targets": ["heap_sort", "heap_shift_up", "heap_shift_down"],
+        "targets": ["heap_sort"],
         "language": "cpp",
         "cpp": {
             "signatures": {
@@ -335,7 +335,7 @@ SPECS = {
     },
     "3-3": {
         "target": "bfs_shortest_path",
-        "targets": ["bfs_shortest_path", "build_adjacency", "dfs_order"],
+        "targets": ["bfs_shortest_path"],
         "language": "cpp",
         "cpp": {
             "signatures": {

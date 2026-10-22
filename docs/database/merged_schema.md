@@ -558,7 +558,6 @@ CREATE TABLE users (
 | model_name | TEXT | DEFAULT 'gpt-4o' | 模型名 |
 | temperature | REAL | DEFAULT 0.7 | 温度 |
 | max_tokens | INTEGER | DEFAULT 4096 | 最大 token |
-| image_api_key | TEXT | DEFAULT '' | 生图 API Key |
 | embedding_provider | TEXT | DEFAULT '' | 嵌入提供商 |
 | embedding_api_key | TEXT | DEFAULT '' | 嵌入 API Key |
 | embedding_model | TEXT | DEFAULT 'text-embedding-v3' | 嵌入模型 |

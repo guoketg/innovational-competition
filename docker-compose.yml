@@ -16,7 +16,6 @@ services:
       - student_backend_data:/app/data
       - ./backend/data:/app/seed-data:ro
     environment:
-      - DATABASE_URL=${DATABASE_URL:-}
       # 生产环境必须通过 .env 显式设置强随机 JWT_SECRET_KEY；默认值仅供本地演示互通。
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-local-dev-jwt-secret-32}
       - CORS_ORIGIN=${CORS_ORIGIN:-}

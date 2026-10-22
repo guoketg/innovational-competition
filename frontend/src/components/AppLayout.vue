@@ -59,14 +59,14 @@
         <el-icon><Menu /></el-icon>
       </button>
       <el-main class="main-content" :class="{ 'is-fullscreen': route.meta.fullscreen, 'is-workspace': route.meta.workspace }">
-        <div v-if="!route.meta.fullscreen && bannerNotice" class="notify-banner">
+        <div v-if="!route.meta.fullscreen && bannerNotice" class="notify-banner" :class="{ 'is-sticky': bannerNotice.sticky }">
           <span class="notify-dot"></span>
           <div class="notify-text">
             <strong>{{ bannerNotice.title }}</strong>
             <span>{{ bannerNotice.content }}</span>
           </div>
-          <button class="notify-action" @click="openNotice(bannerNotice)">去处理</button>
-          <button class="notify-close" aria-label="关闭提醒" @click="dismissBanner(bannerNotice)">×</button>
+          <button class="notify-action" @click="openNotice(bannerNotice)">{{ bannerNotice.sticky ? '去配置' : '去处理' }}</button>
+          <button v-if="!bannerNotice.sticky" class="notify-close" aria-label="关闭提醒" @click="dismissBanner(bannerNotice)">×</button>
         </div>
         <router-view v-slot="{ Component }">
           <transition name="page-fade" mode="out-in">
@@ -105,9 +105,12 @@ const sidebarWidth = computed(() => sidebarCollapsed.value && !mobileOpen.value 
 const notices = ref([])
 const unreadCount = ref(0)
 const dismissedIds = ref(new Set())
-const bannerNotice = computed(() =>
-  notices.value.find(n => !n.is_read && !dismissedIds.value.has(n.id)) || null
-)
+// 常驻提醒（如 API Key 未配置）优先占用顶部横幅，且不接受关闭
+const bannerNotice = computed(() => {
+  const sticky = notices.value.find(n => n.sticky && !dismissedIds.value.has(n.id))
+  if (sticky) return sticky
+  return notices.value.find(n => !n.is_read && !dismissedIds.value.has(n.id)) || null
+})
 
 async function loadNotifications() {
   if (route.meta.fullscreen) return
@@ -121,17 +124,21 @@ async function loadNotifications() {
 }
 
 function dismissBanner(notice) {
+  if (!notice || notice.sticky) return
   dismissedIds.value.add(notice.id)
   dismissedIds.value = new Set(dismissedIds.value)
 }
 
 async function openNotice(notice) {
   if (!notice) return
-  try {
-    await markNotificationRead(notice.id)
-    notice.is_read = true
-    unreadCount.value = Math.max(0, unreadCount.value - 1)
-  } catch (e) { /* 忽略 */ }
+  // 常驻提醒不标已读：后端也会拒绝，这里直接跳转，保住未读数
+  if (!notice.sticky) {
+    try {
+      await markNotificationRead(notice.id)
+      notice.is_read = true
+      unreadCount.value = Math.max(0, unreadCount.value - 1)
+    } catch (e) { /* 忽略 */ }
+  }
   router.push(notice.action_url || '/dashboard')
 }
 
@@ -158,8 +165,6 @@ const menuItems = [
   { route: '/learning-path',label: '学习路线图', icon: 'MapLocation' },
   { route: '/learning-docs',label: '学习文档',   icon: 'Guide' },
   { route: '/error-book',   label: '错题本',     icon: 'EditPen' },
-  { route: '/analytics',    label: '学情复盘',   icon: 'TrendCharts' },
-  { route: '/resources',    label: '学习资源',   icon: 'Collection' },
   { route: '/code-lab',     label: '编程实验室', icon: 'Monitor' },
   { route: '/profile',      label: '个人中心',   icon: 'User' },
 ]
@@ -262,6 +267,12 @@ function handleLogout() {
 .notify-action:hover { background:#fff1eb; }
 .notify-close { border:0;background:transparent;color:var(--ink-400,#9aa2b1);font-size:18px;line-height:1;cursor:pointer;padding:0 4px; }
 .notify-close:hover { color:var(--ink-600,#4b5563); }
+/* 常驻提醒（API Key 未配置）：蓝色区分，且没有关闭按钮 */
+.notify-banner.is-sticky { border-color:#c9d8f6;background:linear-gradient(100deg,#f2f6ff,#fdfeff);box-shadow:0 6px 18px rgba(70,110,200,.08); }
+.notify-banner.is-sticky .notify-dot { background:#4c7dff;box-shadow:0 0 0 4px rgba(76,125,255,.15); }
+.notify-banner.is-sticky .notify-text strong { color:#1f4bb8; }
+.notify-banner.is-sticky .notify-action { border-color:rgba(76,125,255,.4);color:#1f4bb8; }
+.notify-banner.is-sticky .notify-action:hover { background:#eef3ff; }
 .notify-bell { position:fixed;z-index:19;right:14px;top:10px;display:grid;width:38px;height:38px;place-items:center;border:1px solid rgba(221,226,237,.9);border-radius:10px;color:#33415c;background:rgba(255,255,255,.92);box-shadow:0 7px 20px rgba(24,38,72,.12);cursor:pointer; }
 .notify-bell .el-icon { font-size:18px; }
 .notify-badge { position:absolute;right:-5px;top:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;color:#fff;background:#ff5a3c;font-size:10px;font-weight:700;line-height:17px;text-align:center;box-shadow:0 0 0 2px #fff; }

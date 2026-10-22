@@ -11,62 +11,58 @@
         <el-tag :type="deepseekConfigured ? 'success' : 'warning'" effect="plain">{{ deepseekConfigured ? '模型已配置' : '待配置模型' }}</el-tag>
       </template>
     </PageHero>
-    <el-row :gutter="20">
-      <el-col :span="8">
-        <el-card shadow="hover" class="profile-identity-card">
-          <el-avatar :size="80"><el-icon :size="40"><UserFilled /></el-icon></el-avatar>
-          <h2 style="margin:12px 0 4px">{{ userStore.user?.nickname || '未设置' }}</h2>
-          <el-tag>{{ userStore.user?.learning_stage || '入门' }} 学习者</el-tag>
-          <p style="color:#909399;margin-top:8px">{{ userStore.user?.learning_goal || '未设置学习目标' }}</p>
-          <el-divider />
-          <el-descriptions :column="1" size="small">
-            <el-descriptions-item label="用户名">{{ userStore.user?.username }}</el-descriptions-item>
-            <el-descriptions-item label="年级">{{ userStore.user?.grade || '未设置' }}</el-descriptions-item>
-            <el-descriptions-item label="技术背景">{{ userStore.user?.programming_background || '未设置' }}</el-descriptions-item>
-            <el-descriptions-item label="相关经验">{{ userStore.user?.years_experience || 0 }} 年</el-descriptions-item>
-            <el-descriptions-item label="讲解偏好">{{ userStore.user?.answer_preference || '分步清晰' }}</el-descriptions-item>
-          </el-descriptions>
-        </el-card>
-      </el-col>
-      <el-col :span="16">
-        <el-card shadow="hover">
-          <template #header><div class="page-title"><el-icon><Setting /></el-icon> 个人信息设置</div></template>
-          <el-form :model="form" label-width="100px" style="max-width:500px">
-            <el-form-item label="昵称"><el-input v-model="form.nickname" /></el-form-item>
-            <el-form-item label="年级/专业"><el-input v-model="form.grade" placeholder="如：大一/计算机科学" /></el-form-item>
-            <el-form-item label="技术/职业背景"><el-input v-model="form.programming_background" placeholder="如：Java 业务开发工程师" /></el-form-item>
-            <el-form-item label="相关经验">
-              <el-input-number v-model="form.years_experience" :min="0" :max="60" />
-              <span style="margin-left:8px;color:#909399">年</span>
-            </el-form-item>
-            <el-form-item label="AI讲解偏好">
-              <el-select v-model="form.answer_preference" style="width:100%">
-                <el-option label="直观简洁 · 先给结论" value="直观简洁" />
-                <el-option label="分步清晰 · 代码配解释" value="分步清晰" />
-                <el-option label="工程深入 · 重点讲业务取舍" value="工程深入" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="学习阶段">
-              <el-radio-group v-model="form.learning_stage">
-                <el-radio label="入门">入门</el-radio>
-                <el-radio label="进阶">进阶</el-radio>
-                <el-radio label="高阶">高阶</el-radio>
-              </el-radio-group>
-            </el-form-item>
-            <el-form-item label="学习目标">
-              <el-select v-model="form.learning_goal" style="width:100%">
-                <el-option label="课程预习与复习" value="课程预习" />
-                <el-option label="期末备考冲刺" value="期末备考" />
-                <el-option label="数据结构与算法实训" value="算法实训" />
-                <el-option label="竞赛项目落地" value="竞赛项目" />
-                <el-option label="深度学习研究" value="深度学习" />
-              </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="handleSave" :loading="saving">保存设置</el-button>
-            </el-form-item>
-          </el-form>
-        </el-card>
+    <el-card shadow="hover" class="profile-info-card">
+      <template #header><div class="page-title"><el-icon><Setting /></el-icon> 个人信息设置</div></template>
+      <div class="profile-identity">
+        <el-avatar :size="64"><el-icon :size="32"><UserFilled /></el-icon></el-avatar>
+        <div class="profile-identity-text">
+          <h2>{{ form.nickname || userStore.user?.nickname || '未设置昵称' }}</h2>
+          <div class="profile-identity-meta">
+            <el-tag effect="plain">{{ form.learning_stage || '入门' }} 学习者</el-tag>
+            <span>{{ form.learning_goal || '未设置学习目标' }}</span>
+          </div>
+        </div>
+      </div>
+      <el-divider />
+      <el-form :model="form" label-width="120px" class="profile-info-form">
+        <el-form-item label="用户名">
+          <el-input :model-value="userStore.user?.username" disabled />
+        </el-form-item>
+        <el-form-item label="昵称"><el-input v-model="form.nickname" /></el-form-item>
+        <el-form-item label="年级/专业"><el-input v-model="form.grade" placeholder="如：大一/计算机科学" /></el-form-item>
+        <el-form-item label="技术/职业背景"><el-input v-model="form.programming_background" placeholder="如：Java 业务开发工程师" /></el-form-item>
+        <el-form-item label="相关经验">
+          <el-input-number v-model="form.years_experience" :min="0" :max="60" />
+          <span style="margin-left:8px;color:#909399">年</span>
+        </el-form-item>
+        <el-form-item label="AI讲解偏好">
+          <el-select v-model="form.answer_preference" style="width:100%">
+            <el-option label="直观简洁 · 先给结论" value="直观简洁" />
+            <el-option label="分步清晰 · 代码配解释" value="分步清晰" />
+            <el-option label="工程深入 · 重点讲业务取舍" value="工程深入" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="学习阶段">
+          <el-radio-group v-model="form.learning_stage">
+            <el-radio label="入门">入门</el-radio>
+            <el-radio label="进阶">进阶</el-radio>
+            <el-radio label="高阶">高阶</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="学习目标">
+          <el-select v-model="form.learning_goal" style="width:100%">
+            <el-option label="课程预习与复习" value="课程预习" />
+            <el-option label="期末备考冲刺" value="期末备考" />
+            <el-option label="数据结构与算法实训" value="算法实训" />
+            <el-option label="竞赛项目落地" value="竞赛项目" />
+            <el-option label="深度学习研究" value="深度学习" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSave" :loading="saving">保存设置</el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
 
         <el-card shadow="hover" style="margin-top:20px" class="memory-overview-card">
           <template #header><div class="page-title"><el-icon><Connection /></el-icon> AI 个性化记忆</div></template>
@@ -343,10 +339,6 @@
                 <a href="https://cloud.siliconflow.cn/account/ak" target="_blank" style="color:#409EFF">获取 Key →</a>
               </div>
             </el-form-item>
-            <el-form-item label="图片生成 Key">
-              <el-input v-model="llmForm.image_api_key" type="password" show-password placeholder="r8_..." />
-              <div style="font-size:12px;color:#909399">Replicate API Key，用于AI配图生成。<a href="https://replicate.com/account/api-tokens" target="_blank" style="color:#409EFF">免费注册获取 →</a></div>
-            </el-form-item>
             <el-form-item label="温度参数">
               <el-slider v-model="llmForm.temperature" :min="0" :max="2" :step="0.1" show-stops style="width:200px" />
               <span style="margin-left:12px;color:#909399;font-size:12px">{{ llmForm.temperature }} (越高越随机)</span>
@@ -381,8 +373,6 @@
             <el-form-item><el-button @click="saveSettings">保存偏好</el-button></el-form-item>
           </el-form>
         </el-card>
-      </el-col>
-    </el-row>
   </div>
 </template>
 
@@ -560,7 +550,6 @@ const llmConfig = ref({
 const llmForm = reactive({
   provider: 'openai',
   api_key: '',
-  image_api_key: '',
   embedding_api_key: '',
   embedding_provider: 'siliconflow',
   embedding_model: 'BAAI/bge-large-zh-v1.5',
@@ -596,7 +585,25 @@ function quickSetupDeepSeek() {
   ElMessage.success('已切换到DeepSeek配置，请输入您的API Key后保存')
 }
 
+function syncFormFromUser(user) {
+  if (!user) return
+  Object.assign(form, {
+    nickname: user.nickname || '',
+    grade: user.grade || '',
+    learning_stage: user.learning_stage || '入门',
+    learning_goal: user.learning_goal || '',
+    programming_background: user.programming_background || '',
+    years_experience: Number(user.years_experience) || 0,
+    answer_preference: user.answer_preference || '分步清晰',
+  })
+}
+
 onMounted(async () => {
+  syncFormFromUser(userStore.user)
+  try {
+    await userStore.fetchProfile()
+    syncFormFromUser(userStore.user)
+  } catch(e) {}
   refreshMemoryOverview()
   try {
     const data = await getReminderSettings()
@@ -615,7 +622,6 @@ onMounted(async () => {
     jevSource.value = data.jev_source || ''
     if (data.is_configured) {
       llmForm.api_key = ''
-      llmForm.image_api_key = ''
       llmForm.embedding_api_key = ''
       llmForm.provider = data.provider || 'openai'
       llmForm.base_url = data.base_url
@@ -632,6 +638,7 @@ async function handleSave() {
   saving.value = true
   try {
     await userStore.updateUser(form)
+    syncFormFromUser(userStore.user)
     ElMessage.success('保存成功')
   } catch(e) { ElMessage.error('保存失败') }
   finally { saving.value = false }
@@ -678,8 +685,7 @@ async function handleSaveDeepSeek() {
       base_url: 'https://api.deepseek.com',
       model_name: 'deepseek-flash',
       temperature: 0.7,
-      max_tokens: 4096,
-      image_api_key: ''
+      max_tokens: 4096
     })
     deepseekConfigured.value = true
     deepseekApiKey.value = ''
@@ -864,7 +870,6 @@ async function handleResetLLM() {
     jevSource.value = data.jev_source || ''
     llmForm.provider = 'openai'
     llmForm.api_key = ''
-    llmForm.image_api_key = ''
     llmForm.embedding_api_key = ''
     llmForm.embedding_provider = 'siliconflow'
     llmForm.embedding_model = 'BAAI/bge-large-zh-v1.5'
@@ -974,12 +979,10 @@ async function handleResetLLM() {
   color: #909399;
 }
 .profile-page { padding-bottom: 32px; }
-.profile-identity-card { position: sticky; top: 0; text-align: center; }
-.profile-identity-card :deep(.el-card__body) { padding: 28px 22px !important; }
+.profile-identity { display: flex; align-items: center; gap: 16px; }
+.profile-identity-text h2 { margin: 0 0 6px; font-size: 20px; }
+.profile-identity-meta { display: flex; align-items: center; gap: 10px; color: #909399; font-size: 13px; }
+.profile-info-form { max-width: 640px; }
 .profile-page :deep(.el-form-item__label) { color: var(--ink-600); font-size: 12px; font-weight: 650; }
 .profile-page :deep(.el-card + .el-card) { margin-top: 16px !important; }
-@media (max-width: 900px) {
-  .profile-identity-card { position: static; margin-bottom: 14px; }
-  .profile-page :deep(.el-col) { max-width: 100%; flex: 0 0 100%; }
-}
 </style>

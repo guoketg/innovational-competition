@@ -22,10 +22,6 @@ export const getLabWorkspace = (exerciseId, reset = false) =>
 export const getLearningDocument = (knowledgeTag) =>
   request.get('/learning/resource', { params: { knowledge: knowledgeTag } })
 
-// 记录已打开本关文档讲解（doc_intro 阶段判定依据）
-export const markDocViewed = (exerciseId) =>
-  request.post(`/workspaces/${exerciseId}/doc-viewed`)
-
 // 获取整个项目涉及的全部学习文档目录（按模块分组）
 export const getLearningDocuments = () => request.get('/learning/documents')
 

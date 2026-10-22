@@ -23,17 +23,7 @@
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div class="error-list-heading"><span>REVIEW QUEUE</span><strong>待复习记录</strong></div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <el-button
-              v-if="selectedSessions.size > 0"
-              type="danger"
-              @click="handleBatchDeleteSessions"
-              :loading="batchDeleting"
-            >
-              <el-icon><Delete /></el-icon> 批量删除 ({{ selectedSessions.size }})
-            </el-button>
-            <el-tag type="info" effect="plain">按最近测评排序</el-tag>
-          </div>
+          <el-tag type="info" effect="plain">按最近测评排序</el-tag>
         </div>
       </template>
 
@@ -41,30 +31,11 @@
         <el-button type="primary" @click="$router.push('/diagnosis')">去做测评</el-button>
       </el-empty>
 
-      <!-- 全选工具栏 -->
-      <div v-if="sessions.length > 0" class="batch-toolbar">
-        <el-checkbox
-          v-model="sessionSelectAll"
-          :indeterminate="sessionIndeterminate"
-          @change="handleSessionSelectAll"
-        >
-          全选
-        </el-checkbox>
-        <span class="batch-hint" v-if="selectedSessions.size > 0">已选 {{ selectedSessions.size }} 组</span>
-      </div>
-
       <div
         v-for="s in sessions"
         :key="s.session_id ?? 'orphan'"
         class="session-card"
-        :class="{ 'is-selected': selectedSessions.has(deleteKey(s)) }"
       >
-        <div class="session-select" @click.stop>
-          <el-checkbox
-            :model-value="selectedSessions.has(deleteKey(s))"
-            @change="(val) => toggleSessionSelect(s, val)"
-          />
-        </div>
         <div class="session-body" @click="openSession(s)">
           <div class="session-left">
             <div class="session-label">{{ s.label }}</div>
@@ -82,9 +53,6 @@
               已复习 {{ s.reviewed_count }}/{{ s.error_count }}
             </el-tag>
             <el-tag v-else type="danger" size="large">{{ s.error_count }} 道错题</el-tag>
-            <el-button type="danger" size="small" plain @click.stop="handleDeleteSession(s)" :loading="deleting === deleteKey(s)">
-              <el-icon><Delete /></el-icon>
-            </el-button>
           </div>
         </div>
       </div>
@@ -100,20 +68,9 @@
             <el-tag type="danger">{{ sessionErrors.total }} 道错题</el-tag>
           </div>
           <div style="display:flex;align-items:center;gap:10px">
-            <el-button
-              v-if="sessionErrors.items?.some(e => !e.reviewed)"
-              type="success"
-              @click="handleReviewAll"
-              :loading="reviewingAll"
-            >
-              标记整组已复习 ({{ reviewedInSession }}/{{ sessionErrors.total }})
-            </el-button>
-            <el-tag v-else-if="sessionErrors.total > 0" type="success" size="large">全部已复习</el-tag>
+            <el-tag v-if="sessionErrors.total > 0" type="success" size="large">全部已复习</el-tag>
             <el-button v-if="sessionErrors.total > 0" type="warning" plain @click="startReviewQuiz(currentSession?.session_id)" :loading="generatingRetest">
               <el-icon><Refresh /></el-icon> 本组重测
-            </el-button>
-            <el-button type="danger" plain @click="handleDeleteSession(currentSession)" :loading="deleting === deleteKey(currentSession)">
-              <el-icon><Delete /></el-icon> 删除本组全部错题
             </el-button>
           </div>
         </div>
@@ -199,8 +156,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLearningStore } from '../stores/learning'
 import { useDiagnosisStore } from '../stores/diagnosis'
-import { deleteSessionErrors, deleteOrphanErrors, recordStudyVisit, generateReviewQuiz } from '../api/learning'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { recordStudyVisit, generateReviewQuiz } from '../api/learning'
+import { ElMessage } from 'element-plus'
 import { marked } from 'marked'
 import PageHero from '../components/PageHero.vue'
 
@@ -211,24 +168,7 @@ const loading = ref(false)
 const loadingDetail = ref(false)
 const activeSession = ref(undefined)
 const detailPage = ref(1)
-const deleting = ref(null)
-const reviewingAll = ref(false)
 const generatingRetest = ref(false)
-const reviewedInSession = computed(() =>
-  sessionErrors.value.items?.filter(e => e.reviewed).length || 0
-)
-
-// 会话批量选择
-const selectedSessions = ref(new Set())
-const batchDeleting = ref(false)
-const sessionSelectAll = ref(false)
-const sessionIndeterminate = computed(() =>
-  selectedSessions.value.size > 0 && selectedSessions.value.size < (sessions.value.length || 0)
-)
-
-function deleteKey(s) {
-  return s?.session_id ?? '__orphan__'
-}
 
 onMounted(async () => {
   recordStudyVisit()
@@ -275,114 +215,9 @@ async function backToSessions() {
   await loadSessions()
 }
 
-async function handleDeleteSession(session) {
-  const sid = session.session_id
-  const key = deleteKey(session)
-  try {
-    await ElMessageBox.confirm(
-      `确认删除「${session.label}」的全部 ${session.error_count} 道错题？此操作不可恢复。`,
-      '删除错题组',
-      { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'warning' }
-    )
-  } catch { return }
-
-  deleting.value = key
-  try {
-    await store.removeSession(sid)
-    ElMessage.success(`已删除 ${session.error_count} 道错题`)
-    if (activeSession.value !== undefined) {
-      activeSession.value = undefined
-      detailPage.value = 1
-    }
-    selectedSessions.value = new Set()
-    sessionSelectAll.value = false
-    await loadSessions()
-  } catch(e) {
-    ElMessage.error('删除失败')
-  } finally {
-    deleting.value = null
-  }
-}
-
-// ===== 批量删除会话 =====
-
-function toggleSessionSelect(session, checked) {
-  const key = deleteKey(session)
-  if (checked) {
-    selectedSessions.value.add(key)
-  } else {
-    selectedSessions.value.delete(key)
-  }
-  selectedSessions.value = new Set(selectedSessions.value)
-  updateSessionSelectAll()
-}
-
-function handleSessionSelectAll(checked) {
-  if (checked) {
-    selectedSessions.value = new Set(sessions.value.map(s => deleteKey(s)))
-  } else {
-    selectedSessions.value = new Set()
-  }
-}
-
-function updateSessionSelectAll() {
-  const total = sessions.value.length || 0
-  const sel = selectedSessions.value.size
-  sessionSelectAll.value = total > 0 && sel === total
-}
-
-async function handleBatchDeleteSessions() {
-  if (selectedSessions.value.size === 0) return
-
-  const toDelete = sessions.value.filter(s => selectedSessions.value.has(deleteKey(s)))
-  const totalErrors = toDelete.reduce((sum, s) => sum + s.error_count, 0)
-
-  try {
-    await ElMessageBox.confirm(
-      `确认删除选中的 ${selectedSessions.value.size} 组错题集（共 ${totalErrors} 道错题）？此操作不可恢复。`,
-      '批量删除',
-      { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'warning' }
-    )
-  } catch { return }
-
-  batchDeleting.value = true
-  let deleted = 0
-  try {
-    for (const s of toDelete) {
-      if (s.session_id != null) {
-        await deleteSessionErrors(s.session_id)
-      } else {
-        await deleteOrphanErrors()
-      }
-      deleted++
-    }
-    ElMessage.success(`已删除 ${deleted} 组错题集（共 ${totalErrors} 道错题）`)
-    selectedSessions.value = new Set()
-    sessionSelectAll.value = false
-    await loadSessions()
-  } catch(e) {
-    ElMessage.error(`已删除 ${deleted} 组，部分删除失败`)
-  } finally {
-    batchDeleting.value = false
-  }
-}
-
 async function handleDetailPageChange(page) {
   detailPage.value = page
   await loadSessionErrors()
-}
-
-async function handleReviewAll() {
-  reviewingAll.value = true
-  try {
-    const result = await store.reviewSession(activeSession.value)
-    ElMessage.success(`已将 ${result.reviewed_count} 道错题标记为已复习`)
-    await backToSessions()
-  } catch(e) {
-    ElMessage.error('操作失败')
-  } finally {
-    reviewingAll.value = false
-  }
 }
 
 async function startReviewQuiz(sessionId = null) {
@@ -469,10 +304,6 @@ function getErrorTypeColor(type) {
 <style scoped>
 .page-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: bold; }
 
-/* 会话选择工具栏 */
-.batch-toolbar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; margin-bottom: 12px; background: #f5f7fa; border-radius: 8px; }
-.batch-hint { font-size: 13px; color: #F56C6C; font-weight: 500; }
-
 /* 会话卡片 */
 .session-card {
   display: flex; align-items: center; gap: 12px;
@@ -480,8 +311,6 @@ function getErrorTypeColor(type) {
   background: #fafafa; border-radius: 10px; border: 1px solid #f0f0f0;
   transition: all .2s;
 }
-.session-card.is-selected { background: #fef0f0; border-color: #fab6b6; }
-.session-select { flex-shrink: 0; }
 .session-body { flex: 1; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
 .session-body:hover .session-left { color: #409EFF; }
 .session-left { flex: 1; }

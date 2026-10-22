@@ -95,22 +95,4 @@ test.describe('AI Learning Platform — Deployment Verification', () => {
     console.log(`  Terminal output: ${terminalText.substring(0, 100)}...`);
   });
 
-  test('Resources page loads content', async ({ page }) => {
-    // Login
-    await page.goto(`${BASE}/login`);
-    await page.locator('input[type="text"], input').first().fill('demo');
-    await page.locator('input[type="password"]').fill('demo123');
-    await page.click('button:has-text("登录")');
-    await page.waitForURL('**/dashboard', { timeout: 10000 });
-
-    // Navigate to resources page
-    await page.goto(`${BASE}/resources`);
-    await page.waitForTimeout(2000);
-
-    // Check that resource cards are displayed
-    const pageContent = await page.textContent('body');
-    expect(pageContent.length).toBeGreaterThan(100);
-    console.log('  Resources page loaded');
   });
-
-});
