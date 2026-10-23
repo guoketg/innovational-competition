@@ -152,3 +152,4 @@ secrets.local.md
 # 打包脚本、启动器、安装包脚本仍可入库：desktop/build.ps1 / launcher.pyw / setup.iss
 desktop/
 docs/
+subssion_document/

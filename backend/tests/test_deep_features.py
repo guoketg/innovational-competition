@@ -71,7 +71,7 @@ class MindMapTests(unittest.TestCase):
 class MemoryGranularityTests(unittest.TestCase):
     def test_extracts_profile_tooling_interest_and_preference(self):
         facts = _extract_explicit_facts(
-            "我是北京理工大学大二计算机专业学生，我正在研究RAG文档切分。"
+            "我是示例大学大二计算机专业学生，我正在研究RAG文档切分。"
             "我使用bge-large-zh，我倾向于用简单代码理解实现。"
         )
         mapped = {(category, key): value for category, key, value, _ in facts}
