@@ -147,3 +147,8 @@ backend/data/eval/tutorbench_sample.parquet
 secrets.local.md
 *.secret.txt
 *.secret.md
+
+# ===== 桌面版打包产物（内置 Python 与编译器，体积约 1GB，禁止入库）=====
+# 打包脚本、启动器、安装包脚本仍可入库：desktop/build.ps1 / launcher.pyw / setup.iss
+desktop/
+docs/

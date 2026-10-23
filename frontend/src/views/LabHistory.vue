@@ -150,7 +150,7 @@ const verifiedCount = computed(() => sessions.value.filter(session => session.ve
 onMounted(async () => {
   try {
     const res = await getCapabilityHistory()
-    sessions.value = res.data || []
+    sessions.value = Array.isArray(res) ? res : []
   } catch (e) {
     console.warn('获取实验历史失败:', e)
   } finally {

@@ -1,14 +1,36 @@
 """FastAPI应用入口"""
 import sys
 import io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
+
+def _ensure_utf8_stream(name: str) -> None:
+    """输出已是 UTF-8（例如桌面启动器接的日志文件）时不再重复包装。
+
+    重复包装会让旧的包装对象失去引用，被垃圾回收时关闭底层文件，
+    之后写日志就会抛 ValueError: I/O operation on closed file。
+    """
+    stream = getattr(sys, name, None)
+    if stream is None or not hasattr(stream, "buffer"):
+        return
+    encoding = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
+    if encoding == "utf8":
+        return
+    setattr(sys, name, io.TextIOWrapper(stream.buffer, encoding="utf-8"))
+
+
+_ensure_utf8_stream("stdout")
+_ensure_utf8_stream("stderr")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from database import init_db
 import os, json
+
+# 桌面版开关：启动器通过 APP_STATIC_DIR 指定打包好的前端目录，
+# 由后端直接提供页面；Docker/Web 部署不设置该变量，行为保持原样。
+_STATIC_DIR = os.getenv("APP_STATIC_DIR", "").strip()
+_DESKTOP_MODE = bool(_STATIC_DIR) and os.path.isdir(_STATIC_DIR)
 
 class SafeJSONResponse(JSONResponse):
     """自定义JSON响应：使用 ensure_ascii=True 避免Windows下的surrogate编码问题"""
@@ -96,6 +118,8 @@ app.include_router(notification_router.router, prefix="/api/notifications", tags
 
 @app.get("/")
 def root():
+    if _DESKTOP_MODE:
+        return FileResponse(os.path.join(_STATIC_DIR, "index.html"))
     return {"message": "智码助学 API", "version": "1.0.0", "status": "running"}
 
 @app.get("/api/health")
@@ -112,6 +136,23 @@ def debug_routes():
         elif hasattr(r, 'path'):
             routes.append(f"[include] {r.path}")
     return {"routes": routes}
+
+
+if _DESKTOP_MODE:
+    # 桌面版：静态资源 + 前端路由回退（刷新 /learning 这类地址仍返回页面）。
+    from fastapi.staticfiles import StaticFiles
+
+    _ASSETS_DIR = os.path.join(_STATIC_DIR, "assets")
+    if os.path.isdir(_ASSETS_DIR):
+        app.mount("/assets", StaticFiles(directory=_ASSETS_DIR), name="assets")
+
+    @app.get("/{full_path:path}")
+    def _spa_fallback(full_path: str):
+        candidate = os.path.abspath(os.path.join(_STATIC_DIR, full_path))
+        root_dir = os.path.abspath(_STATIC_DIR)
+        if full_path and candidate.startswith(root_dir + os.sep) and os.path.isfile(candidate):
+            return FileResponse(candidate)
+        return FileResponse(os.path.join(_STATIC_DIR, "index.html"))
 
 
 if __name__ == "__main__":

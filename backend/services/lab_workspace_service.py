@@ -1431,6 +1431,7 @@ def get_progress_overview(user_id: int) -> dict:
             "verified": score_info.get("verified", False),
             "skipped": score_info.get("skipped", False),
             "status": score_info.get("status", ""),
+            "defense_grading_status": score_info.get("defense_grading_status", "not_started"),
             "dimensions": score_info.get("dimensions", {}),
             "defense_feedback": score_info.get("defense_feedback", []),
         }
